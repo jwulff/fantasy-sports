@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# uv
+.uv/
+
+# Local config / secrets — NEVER commit
+.env
+.env.*
+config.local.toml
+*.local.toml
+
+# Cassettes may contain credentials until scrubbed; scrubbing is enforced in
+# conftest.py. Unscrubbed recordings land here and are ignored by design.
+tests/cassettes/**/*.unscrubbed.yaml
+
+# macOS
+.DS_Store

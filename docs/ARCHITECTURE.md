@@ -1,0 +1,495 @@
+# fantasy-sports — Architecture Design
+
+**Status:** Draft for review (pre-repo)
+**Date:** 2026-08-26
+**Author:** John Wulff (with Claude)
+
+An agent-native CLI for fantasy sports leagues. ESPN first, provider-agnostic by
+construction. Read-only in v0.1.
+
+---
+
+## 0. Why this exists
+
+Verified 2026-08-26: there is no maintained CLI for ESPN fantasy leagues.
+
+| Project | Stars | Last push | State |
+|---|---|---|---|
+| `cwendt94/espn-api` | 948 | 2026-08-18 | Healthy — a **library**, not a CLI |
+| `derekrbreese/fantasy-football-mcp-public` | 61 | 2026-08-26 | Healthy — **Yahoo only**, MCP not CLI |
+| `KBThree13/mcp_espn_ff` | 41 | 2025-12-19 | **8 months stale** — most-starred ESPN MCP |
+| `gtonic/nfl_mcp` | 15 | 2026-08-24 | NFL news, not league management |
+| `jdguggs10/flaim` | 13 | 2026-08-26 | Multi-platform, hosted, **read-only** |
+| `Avanderheyde/espn-fantasy-cli` | 0 | 2026-07-30 | **One commit**, abandoned, unpublished |
+
+PyPI namespace is entirely open. Every prior attempt died the same death: ESPN
+changed something, nobody noticed, the repo went quiet. **Decision 11 (the canary)
+is the direct response to that failure mode.**
+
+---
+
+## 1. Naming
+
+| Surface | Value |
+|---|---|
+| GitHub | `jwulff/fantasy-sports` |
+| PyPI | `fantasy-sports` |
+| Command (canonical) | `fantasy-sports` |
+| Command (alias) | `fantasy` |
+
+Both entry points declared in `pyproject.toml`; both verified free on PATH.
+Descriptive over clever — the name should tell you what it is without insider
+vocabulary.
+
+---
+
+## 2. Language: Python
+
+**Decision: Python 3.12+.**
+
+The entire fantasy-sports API ecosystem exists in exactly one language:
+
+| Provider | Library | Version | Last release |
+|---|---|---|---|
+| ESPN | `espn-api` | 0.46.0 | 2026-03-23 |
+| Yahoo | `yfpy` | 17.0.0 | 2025-09-14 |
+| Sleeper | `sleeper-api-wrapper` | 1.2.1 | 2025-11-02 |
+
+Go's single static binary is genuinely better for cron, and it loses anyway:
+choosing Go means reimplementing `espn-api`, which is not a thin HTTP client but
+948 stars of accumulated knowledge about an undocumented API — view parameters,
+scoring-setting shapes, position eligibility maps, the 2024 base-URL migration.
+That rewrite *is* the project, and you would then do it twice more.
+
+Distribution gap is closed by `uv tool install fantasy-sports`.
+
+**Floor is 3.12** (`tomllib` in stdlib since 3.11; 3.12 for typing ergonomics).
+
+### Toolchain
+
+| Concern | Choice | Rationale |
+|---|---|---|
+| Packaging | `uv` + `hatchling` | Already installed (0.11.3); fast, lockfile-native |
+| CLI framework | `typer` | Type annotations do double duty as MCP schemas later |
+| Rendering | `rich` | Tables for TTY, and typer already depends on it |
+| Config | TOML via `tomllib` | Stdlib, no dependency |
+| Tests | `pytest` + `vcrpy` | Cassettes keep unit tests offline and fast |
+
+---
+
+## 3. The core bet: normalize shape, not semantics
+
+This is the decision everything hangs off, and where "multi-provider" tools
+usually die.
+
+The three providers diverge harder than they appear. **Player identity is
+per-provider** — there is no universal NFL player ID shared across ESPN, Yahoo,
+and Sleeper. Scoring settings have structurally incompatible shapes. Roster-slot
+eligibility rules differ. Transaction vocabularies differ. Playoff formats differ.
+
+Building one true unified `League` model means a year of impedance mismatch and
+no shipped product.
+
+**Normalize the 80% that is structurally identical. Passthrough the rest.**
+
+- **Normalized:** teams, rosters, standings, matchups, transactions, free agents.
+  Same *shape* across every provider.
+- **Explicitly NOT normalized:** scoring settings, draft logic, playoff formats,
+  cross-provider player identity. Reachable via `fantasy-sports raw --view mSettings`.
+- Every normalized object carries `provider`, `provider_id`, and a `raw` dict so
+  nothing is ever lost.
+
+Cross-provider player-ID mapping is deferred to a future ADR. `nflverse` publishes
+crosswalks if it ever becomes necessary.
+
+---
+
+## 4. Layering
+
+```
+cli/         typer adapters — argument parsing only, zero logic
+mcp/         fastmcp adapter — v0.3+, same registry
+commands/    typed functions: THE command registry
+core/        domain models (League, Team, Player, Matchup, Transaction)
+cache/       SQLite, TTL per resource type
+providers/
+  base.py    Protocol: fetch_league, fetch_rosters, fetch_matchups, ...
+  espn.py    wraps espn-api          [v0.1]
+  sleeper.py wraps sleeper-api-wrapper [deferred]
+  yahoo.py   wraps yfpy               [deferred]
+auth/        credential specs, resolution chain, staleness detection
+output/      json | table | csv renderers
+reports/     scheduled artifacts — MAY call an LLM; nothing below it may
+```
+
+### Two structural rules
+
+**Rule 1 — Commands are typed functions in a registry; CLI and MCP are both thin
+projections over it.** No logic in typer callbacks. Honor this and
+`fantasy-sports mcp serve` is ~100 lines of `fastmcp` later instead of a rewrite.
+This buys the "ask from my phone" option without paying for it now.
+
+**Rule 2 — `core/` and `providers/` have zero LLM dependency.** Only `reports/`
+may call a model. Keeps the primitive testable and keeps token spend in one
+auditable place.
+
+---
+
+## 5. Output contract (this is the product)
+
+The agent-native claim lives or dies here.
+
+- **JSON** when stdout is not a TTY; **rich table** when it is; `--output csv` flattens.
+- Every payload wrapped and **versioned from day one**:
+
+```json
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "espn",
+  "league_id": "123456",
+  "season": 2026,
+  "generated_at": "2026-08-26T18:04:11Z",
+  "data": { }
+}
+```
+
+The moment a cron job or an agent parses this, it is an API. Retrofitting a schema
+version later is miserable; adding it now is free.
+
+### Error taxonomy — the part agents actually need
+
+Errors go to **stderr as JSON** with a nonzero exit and a stable machine code. An
+agent must be able to distinguish "your cookies died" (ask the human) from "ESPN is
+down" (retry later) without parsing English:
+
+| Code | Meaning | Correct agent response |
+|---|---|---|
+| `AUTH_MISSING` | No credentials configured | Ask human to run `auth login` |
+| `AUTH_EXPIRED` | ESPN cookies rejected | Ask human to re-extract cookies |
+| `LEAGUE_NOT_FOUND` | Bad league ID or no access | Ask human |
+| `PROVIDER_UNAVAILABLE` | ESPN 5xx / timeout | Retry with backoff |
+| `RATE_LIMITED` | Throttled | Retry after `retry_after` |
+| `SCHEMA_DRIFT` | Response shape unrecognized | Stop; file an issue |
+
+`SCHEMA_DRIFT` is what makes the health system (§11) actionable — it is the
+trigger for both the canary's issue-filing and the client-side health check.
+
+---
+
+## 6. Auth
+
+Providers diverge most here, and ESPN's failure mode is **silent**.
+
+| Provider | Mechanism | Refresh | Expiry |
+|---|---|---|---|
+| ESPN | `espn_s2` + `SWID` cookies, manual DevTools extraction | None | Weeks–months, silently |
+| Yahoo | OAuth2 | Refresh token | Standard |
+| Sleeper | None for reads (public API by username) | — | — |
+
+Interface: `Provider.credential_specs() -> list[CredentialSpec]`.
+
+**Resolution chain: env → macOS Keychain → config file.** Env first is
+non-negotiable — cron and CI cannot reach the Keychain.
+
+**Differentiator:** `fantasy-sports auth status` reports **cookie age and likely
+staleness**, not just present/absent. Silent ESPN cookie expiry is the #1
+operational failure in this space and no existing tool surfaces it.
+
+Secrets are never logged, never printed, and redacted in all error paths
+including tracebacks.
+
+---
+
+## 7. Multi-league configuration
+
+A first-class requirement — John runs several leagues; a tool that assumes one is
+useless by week two.
+
+`~/.config/fantasy-sports/config.toml`:
+
+```toml
+default = "dynasty"
+
+[leagues.dynasty]
+provider  = "espn"
+league_id = "123456"
+season    = 2026
+sport     = "football"
+
+[leagues.redraft]
+provider  = "espn"
+league_id = "789012"
+season    = 2026
+sport     = "football"
+```
+
+`fantasy-sports --league dynasty standings`. Season is per-league and overridable
+with `--season` for historical queries.
+
+---
+
+## 8. Caching
+
+Decided now because it is a layer, and layers are hard to retrofit.
+
+ESPN is multi-second and rate-limits. An agent exploring one question may make
+eight calls. Cache sits **between provider and core** as a decorator.
+
+SQLite at `~/.cache/fantasy-sports/`, TTL by resource type:
+
+| Resource | TTL |
+|---|---|
+| Rosters, free agents | 5 min (in season) |
+| Standings, matchups (current week) | 15 min |
+| League settings | 1 day |
+| Completed weeks, historical seasons | Forever |
+
+`--no-cache` and `fantasy-sports cache clear` escape hatches.
+
+---
+
+## 9. Read/write posture
+
+**v0.1 is read-only.** Prove the read path survives real ESPN behavior for a few
+weeks before touching mutations.
+
+**v0.2 writes** (set lineup, waiver claims, drops) ship behind:
+- `--dry-run` as the **default**; mutations require explicit `--commit`
+- a printed diff of before/after state
+- interactive confirmation unless `--yes`
+- anything autonomous routes through `/sanity-gate`
+
+Rationale: a miscalculated automated waiver claim is a real, un-undoable cost.
+This follows the standing high-stakes/irreversible-actions rule.
+
+---
+
+## 10. Reports — the layer that makes it worth owning
+
+Everyone else stops at read-only data access. The interesting product is the
+**scheduled artifact**:
+
+```
+fantasy-sports report start-sit --week 1 --output md
+```
+
+A Sunday-morning cron pulls the matchup, runs it through a model, and drops a
+start/sit memo into the vault with the reasoning preserved. That has value at zero
+stars and no external users.
+
+Per the frugal-routing doctrine: `reports/` consults `model-route` rather than
+defaulting to Claude. Data summarization and formatting are local-model work;
+only genuine judgment escalates.
+
+---
+
+## 11. Health system — drift detection and self-diagnosis
+
+**This is the highest-leverage part of the design.** It has a server side (the
+canary) and a client side (the health check). They are one system.
+
+ESPN's API is unofficial and breaks without notice. Every dead project in §0 died
+identically: ESPN changed something -> maintainer did not notice for months ->
+users hit raw stack traces -> repo looked abandoned -> people left.
+
+### 11.1 Server side — the canary
+
+A scheduled GitHub Action runs a live smoke suite against a real *public* ESPN
+league on a weekly cadence (daily in season).
+
+- Unit tests run against recorded `vcrpy` cassettes: fast, offline, deterministic.
+- The canary is the **only** thing that touches live ESPN.
+- On drift it **auto-files an issue** and **publishes `health.json`**.
+
+That converts "silently broken" into "there is an open issue," which the existing
+Foreman/shepherd fleet can pick up automatically.
+
+### 11.2 The health manifest
+
+The canary publishes a single static file to the repo, served free and
+CDN-cached from `raw.githubusercontent.com`:
+
+```json
+{
+  "schema": "fantasy-sports-health/v1",
+  "latest_version": "0.1.4",
+  "min_supported_version": "0.1.2",
+  "yanked_versions": ["0.1.3"],
+  "providers": {
+    "espn": {
+      "status": "degraded",
+      "checked_at": "2026-09-03T06:00:00Z",
+      "known_issues": [
+        {
+          "code": "SCHEMA_DRIFT",
+          "endpoint": "mRoster",
+          "affects": "<0.1.4",
+          "fixed_in": "0.1.4",
+          "issue": 42,
+          "url": "https://github.com/jwulff/fantasy-sports/issues/42",
+          "summary": "ESPN changed mRoster player-entry shape on 2026-09-03"
+        }
+      ]
+    }
+  },
+  "updated_at": "2026-09-03T06:00:00Z"
+}
+```
+
+No hosting to run, no Pages setup, no server. The canary commits it; the CLI
+reads it.
+
+### 11.3 Client side — cheap, lazy, fail-open
+
+**Triggers.** Never on the happy path. The check fires only when it can change
+what the user does next:
+
+| Trigger | Check? |
+|---|---|
+| `SCHEMA_DRIFT`, `PROVIDER_UNAVAILABLE`, unexpected exception | Yes, inline |
+| `AUTH_EXPIRED`, `RATE_LIMITED` | No (cause is known and local) |
+| Successful command | No |
+| `doctor` | Yes, forced, ignores cache |
+
+**Rules, all of them non-negotiable:**
+
+1. **Fail open, always.** If the check errors, times out, or the user is offline,
+   say nothing extra and surface the original error unchanged. The health check
+   must never be able to produce an error of its own.
+2. **2-second timeout.** We are already on the error path; a short wait is
+   acceptable, a hang is not.
+3. **Cached 6 hours** in `~/.cache/fantasy-sports/health.json`. Repeated failures
+   in a loop hit the network once, not a hundred times. Well inside GitHub's
+   60 req/hr unauthenticated limit.
+4. **No telemetry.** It is an unauthenticated GET of a public static file. Nothing
+   about the user, their leagues, or their query is transmitted. **Say this
+   explicitly in the README** — "checks for updates" reads as tracking to many
+   people, and here it genuinely is not.
+5. **Opt out** via `FANTASY_SPORTS_NO_HEALTH_CHECK=1` or `health_check = false`
+   in config.
+6. Version comparison uses `packaging.version` (PEP 440), never string compare.
+
+**Human output** — appended to stderr, after the real error:
+
+```
+Error: ESPN returned an unrecognized response shape (SCHEMA_DRIFT).
+
+  You are on 0.1.2 — 0.1.4 is available.
+  This looks like a known issue, fixed in 0.1.4:
+    #42  ESPN changed mRoster player-entry shape on 2026-09-03
+
+  Fix:  uv tool upgrade fantasy-sports
+```
+
+And when already current:
+
+```
+  You are on the latest version (0.1.4).
+  ESPN status: degraded — this is a known outage, tracked in #47.
+  Nothing to do but wait. Details: https://github.com/jwulff/fantasy-sports/issues/47
+```
+
+**Machine output** — folded into the error envelope so agents get it too:
+
+```json
+{
+  "schema": "fantasy-sports/v1",
+  "error": {
+    "code": "SCHEMA_DRIFT",
+    "message": "ESPN returned an unrecognized response shape",
+    "health": {
+      "your_version": "0.1.2",
+      "latest_version": "0.1.4",
+      "upgrade_available": true,
+      "upgrade_command": "uv tool upgrade fantasy-sports",
+      "provider_status": "degraded",
+      "known_issue": {
+        "issue": 42,
+        "url": "https://github.com/jwulff/fantasy-sports/issues/42",
+        "fixed_in": "0.1.4",
+        "summary": "ESPN changed mRoster player-entry shape on 2026-09-03"
+      }
+    }
+  }
+}
+```
+
+This is the agent-native payoff: Claude Code hits the error, reads
+`upgrade_available: true` and `upgrade_command`, and can resolve it without
+involving the human at all. When `upgrade_available` is false it knows to stop
+retrying and report a known outage instead of burning turns.
+
+### 11.4 `doctor`
+
+One command that runs every check proactively and returns a single structured
+verdict — the same shape agents already expect from tooling of this kind:
+
+```
+fantasy-sports doctor [--json]
+```
+
+Checks: installed vs latest version · ESPN provider status and known issues ·
+credential presence **and cookie age/staleness** · configured leagues reachable ·
+cache size and health · Python and dependency versions.
+
+Gives both a human a single "what is wrong" answer and an agent a single call to
+diagnose everything before it starts guessing.
+
+### 11.5 The closed loop
+
+```
+ESPN changes something
+  -> canary detects drift within 24h
+  -> auto-files issue + updates health.json
+  -> user's next command errors
+  -> CLI reads health.json (cached, 2s, fail-open)
+  -> human sees "known issue #42, fixed in 0.1.4, run this"
+     agent sees upgrade_available:true and just fixes it
+```
+
+No human in the loop on the detection side. This is what none of the dead
+projects in §0 had.
+
+## 12. v0.1 scope
+
+```
+fantasy-sports doctor              # full health check, --json for agents
+fantasy-sports auth status
+fantasy-sports auth login          # guided cookie extraction
+fantasy-sports league info
+fantasy-sports teams
+fantasy-sports standings
+fantasy-sports roster    --team <id|name>
+fantasy-sports matchups  --week N
+fantasy-sports transactions --limit N
+fantasy-sports free-agents --pos WR --limit N
+fantasy-sports raw --view mSettings [--view ...]
+```
+
+ESPN only · read-only · JSON/table/CSV · multi-league config · SQLite cache ·
+cassette tests · live canary in CI · health manifest + client-side check.
+
+**Out of scope for v0.1:** writes, Yahoo, Sleeper, MCP server, cross-provider
+player IDs, draft tooling, projections.
+
+---
+
+## 13. Roadmap
+
+| Version | Contents |
+|---|---|
+| **v0.1** | ESPN read-only CLI, cache, config, canary + health check + `doctor` |
+| **v0.2** | `reports/` — start-sit memo, weekly recap, vault output |
+| **v0.3** | Writes behind `--dry-run` + confirm |
+| **v0.4** | `mcp serve` adapter over the same registry |
+| **v0.5+** | Second provider, only when a real need appears |
+
+---
+
+## 14. Open questions
+
+1. **Public or private repo?** Public assumed — nothing sensitive, and the gap is real.
+2. **Do reports live here or in a separate repo?** Assumed same repo, separate
+   subcommand namespace, with the hard "no LLM below `reports/`" boundary.
+3. **PEP 541 request for the bare `fantasy` PyPI name?** It is a fileless squat
+   (v0.1, zero uploads, dead repo). Worth filing eventually; not worth blocking on.
