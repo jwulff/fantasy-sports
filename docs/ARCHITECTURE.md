@@ -507,6 +507,31 @@ player IDs, draft tooling, projections.
 
 ---
 
+## 13.5 Performance and quality budgets
+
+Measured, not asserted. Full rationale and the benchmark table in ADR-0008.
+
+| Metric | Budget | Enforcement |
+|---|---|---|
+| `--version` / `--help` cold start | < 50 ms | `hyperfine` in CI vs committed baseline |
+| Read command, cache hit | < 150 ms | `hyperfine` in CI |
+| Direct runtime dependencies | ≤ 5 | dependency count check |
+| Our wheel size | < 150 KB | build-artifact check |
+| Line / branch coverage | ≥ 90% / ≥ 85% | hard CI fail |
+| Mutation score, `core/` + `providers/` | ≥ 80% | scheduled + pre-release |
+
+Three structural rules follow:
+
+1. **Lazy imports are mandatory.** Naive module-scope imports of
+   `typer + rich + requests + espn_api` measured 75 ms cold; `typer` alone
+   measured 39 ms. A `--help` must not pay for an HTTP stack. Enforced by a test
+   asserting the heavy modules are absent from `sys.modules`.
+2. **`platformdirs` is dropped** — §7 forces XDG paths unconditionally anyway, so
+   it buys an import and nothing else. ~30 lines of our own replaces it.
+3. **Unit tests have no network at all.** `pytest-socket` blocks it, so a
+   cassette miss fails loudly instead of silently calling ESPN and making the
+   suite quietly dependent on ESPN being up.
+
 ## 14. Research findings that change the design
 
 Four parallel research agents ran on 2026-08-26 before any code was written.

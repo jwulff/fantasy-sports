@@ -59,6 +59,29 @@ one is a design regression, not a style nit.
 
 ---
 
+## Budgets (ADR-0008) — these fail CI, they are not aspirations
+
+| Metric | Budget |
+|---|---|
+| `--version` / `--help` cold start | < 50 ms |
+| Read command, cache hit | < 150 ms |
+| Direct runtime dependencies | ≤ 5 |
+| Our wheel size | < 150 KB |
+| Line / branch coverage | ≥ 90% / ≥ 85% |
+| Mutation score on `core/` and `providers/` | ≥ 80% |
+
+**Lazy imports are mandatory.** Never import `espn_api`, `requests`,
+`rich.table`, or `keyring` at module scope — import inside the function that
+needs them. `--help` must not pay for an HTTP stack it will never use. A test
+asserts these are absent from `sys.modules` after importing the entry point.
+
+**Unit tests have no network.** `pytest-socket` blocks it. A cassette miss must
+fail loudly, not silently call ESPN.
+
+Adding a sixth direct dependency requires justification in the PR body.
+
+---
+
 ## Work Tracking
 
 Follows the GitHub-Issues workflow in `~/.claude/CLAUDE.md`. Outstanding work is
