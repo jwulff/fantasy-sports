@@ -11,6 +11,6 @@ is the narrative; these are the citable, individually-supersedable records.
 | [0004](0004-versioned-output-contract-and-error-taxonomy.md) | Versioned output contract and error taxonomy | Accepted |
 | [0005](0005-health-system-canary-manifest-client-check.md) | Health system — canary, manifest, client check | Accepted |
 | [0006](0006-read-only-v01-gated-writes-later.md) | Read-only v0.1; writes gated later | Accepted |
-| [0007](0007-client-error-reporting-via-user-credential.md) | Client error reporting uses the operator's own `gh` credential | **Proposed** |
+| [0007](0007-client-error-reporting-via-user-credential.md) | Client error reporting uses the operator's own `gh` credential | Accepted |
 
 Use `0000-template.md` for new records.

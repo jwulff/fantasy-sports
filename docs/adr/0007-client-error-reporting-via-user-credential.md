@@ -1,6 +1,6 @@
 # ADR 0007: Client error reporting uses the operator's own `gh` credential
 
-**Status:** Proposed — awaiting John's decision
+**Status:** Accepted — the `gh`-first approach was independently proposed by John on 2026-08-26, converging with the research recommendation
 **Date:** 2026-08-26
 
 ## Context
@@ -38,6 +38,32 @@ See `docs/research/01-telemetry-auto-issues.md`.
   machine.
 - **Preview mode:** `--show-report` renders the body without sending anything.
 - Reporting is **consent-gated** and never fires without the user having agreed.
+
+**The error output carries agent-actionable instructions, not just an offer.**
+This is the piece that makes the design agent-native rather than merely
+human-friendly. When an error is reportable, the JSON envelope includes a
+`report` block telling an agent exactly how to file it:
+
+```json
+"report": {
+  "reportable": true,
+  "already_reported": false,
+  "fingerprint": "a3f9c21e4b07",
+  "gh_available": true,
+  "instructions": "No matching issue exists. File it with the command below, which uses your own gh credential. Review the body first — it is pre-redacted but you are the last check.",
+  "command": "gh issue create -R jwulff/fantasy-sports --label auto-error --title '...' --body-file /tmp/fantasy-sports-report-a3f9c21e.md",
+  "body_file": "/tmp/fantasy-sports-report-a3f9c21e.md",
+  "fallback_url": "https://github.com/jwulff/fantasy-sports/issues/new?title=...&body=..."
+}
+```
+
+An agent reads this and can file the issue in one step, with a human-reviewable
+body already on disk. A human at a TTY gets the same thing as prose plus the
+command to copy. Neither path requires the project to hold a credential, and
+both put a reviewable artifact in front of someone before anything is sent.
+
+`already_reported` is set from the local fingerprint cache and a search of open
+issues, so an agent in a retry loop does not file the same thing twice.
 
 This inverts the trust boundary. The audience for an agent-native CLI is
 developers and coding agents who already have `gh auth login` done for other

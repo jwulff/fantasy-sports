@@ -507,7 +507,98 @@ player IDs, draft tooling, projections.
 
 ---
 
-## 14. Open questions
+## 14. Research findings that change the design
+
+Four parallel research agents ran on 2026-08-26 before any code was written.
+Their briefs are in `docs/research/`. These findings materially alter decisions
+above and are binding.
+
+### From the ESPN API brief (`03`)
+
+1. **`AUTH_EXPIRED` cannot be a naive 401 mapping.** A bare 401 from ESPN is
+   ambiguous between expired cookies and using the wrong current-vs-historical
+   URL shape for the season. Classifying naively sends the user off to
+   re-extract cookies that were never the problem. The adapter must double-probe
+   before deciding.
+
+2. **`SCHEMA_DRIFT` is entirely ours to build — `espn-api` offers nothing.**
+   Shape problems surface as raw `KeyError`/`TypeError` from inside object
+   constructors doing unguarded dict access. This is a real wrapping layer with
+   context capture, not an `except X: raise Y` shim. Budget for it.
+
+3. **`RATE_LIMITED` needs code written from scratch.** `espn-api` does not
+   special-case 429 and never reads `Retry-After`; it folds into a generic
+   error. The `retry_after` field promised by §5 requires intercepting before
+   the library's status check.
+
+4. **Cache below the composite calls.** `box_scores()` and `free_agents()` each
+   fan out into 2–3 sequential ESPN calls with no internal dedup. Caching at the
+   command layer still pays 3 round-trips per miss. Cache at the HTTP layer,
+   keyed on URL+params, so calls sharing a sub-fetch actually hit.
+
+5. **The canary must distinguish ESPN drift from our own build breaking.**
+   `espn-api`'s own live CI canary was red for 12 straight days (2026-08-07→18)
+   from a transitive dependency incompatibility, not an ESPN change. Pin the
+   canary's dependencies as tightly as the runtime, and classify by *where* the
+   exception occurred — before or after a real HTTP response came back. A canary
+   that cries wolf trains everyone to ignore it.
+
+6. **A proven canary league already exists:** `league_id=1234, year=2018`, the
+   league `espn-api`'s own integration test has hit daily and unattended for
+   years. Publicly accessible and structurally stable. Reuse it rather than
+   standing one up.
+
+7. **`mBoxscore` and `mPendingTransactions` are not real views.** Box scores are
+   `mMatchupScore` + `mScoreboard` stitched client-side with two side-calls.
+   Pending waivers come through `mTransactions2` with status filtering.
+
+8. **Never pass `espn-api`'s `datetime` objects through.** They are built with
+   `datetime.fromtimestamp()` and no `tz=` — naive and host-local. Our versioned
+   envelope would silently emit wrong timestamps depending on where the CLI runs.
+   Re-derive from the raw epoch-ms.
+
+9. **`auth login` must validate and repair SWID's curly braces.** Confirmed as
+   the single most-repeated manual-extraction mistake across every community
+   source reviewed.
+
+10. **There is no programmatic auth to design toward, ever.** ESPN closed the
+    username/password path. v0.3 writes will still require a human-extracted
+    cookie.
+
+### From the provider data-shapes brief (`02`)
+
+These are the ways an ESPN-only v0.1 produces an abstraction that breaks when a
+second provider arrives.
+
+11. **`Team` must carry `owner_names: list[str]`, never a single string.** ESPN's
+    `owners` is a list and Yahoo's `managers` is explicitly plural with a
+    co-manager flag. Both platforms support co-management natively; a `str`
+    silently drops a manager.
+
+12. **ESPN has *two* transaction surfaces** — `mTransactions2` and
+    `Activity`/`kona_league_communication` — with non-overlapping vocabularies.
+    Reconcile them inside the ESPN adapter so `core.Transaction` never inherits
+    the asymmetry.
+
+13. **Do not model roster-slot eligibility on the player.** ESPN's
+    `eligibleSlots` makes `Player.eligible_slots` tempting; Sleeper has no
+    equivalent and would have to synthesize it from hardcoded FLEX conventions
+    its API never states. Model `slot` (current occupancy) only; eligibility
+    lives in `raw` until a second provider proves what is shareable.
+
+14. **`week` is not a portable integer.** Keep both `scoringPeriodId`- and
+    `matchupPeriodId`-equivalents in `raw` for every provider, even where they
+    are currently identical, so the shape does not change later. The split only
+    bites during playoff weeks — exactly the path an in-season ESPN-only test
+    never exercises.
+
+15. **Standings are computed client-side for ESPN and Sleeper, server-side for
+    Yahoo.** ESPN's API returns no sorted standings at all; `espn-api` implements
+    a full tiebreaker cascade locally. Copying that into `core/` as "the"
+    standings algorithm builds logic Yahoo does not need and will disagree with.
+    Keep it in the ESPN adapter.
+
+## 15. Open questions
 
 1. **Public or private repo?** Public assumed — nothing sensitive, and the gap is real.
 2. **Do reports live here or in a separate repo?** Assumed same repo, separate
