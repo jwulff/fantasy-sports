@@ -53,11 +53,21 @@ we" branch from scope.
 deferred writes to v0.3. A read-only release would demonstrate the idea without
 delivering it.
 
-**Auditability replaces confirmation.** Also superseding ADR-0006: dry-run
-defaults and interactive confirmation are removed. A gate the primary user
-bypasses with a flag is friction, not safety. Explicit-state operations, a
-mutation journal, and reversibility replace it. `--dry-run` survives as an
-opt-in flag because an agent previewing its own change is a genuine use.
+**Auditability replaces confirmation — for reversible writes only.** ADR-0006
+specified four gates. Three are removed: dry-run-as-default, the printed diff,
+and interactive confirmation. The reasoning is not that an agent bypasses them —
+it would bypass `--dry-run` equally — but that a synchronous human prompt cannot
+be satisfied by an unattended process, so it converts unattended operation into
+failure rather than into safety.
+
+**ADR-0006's fourth gate stands.** Autonomous writes in the irreversible class
+(drops, processed waiver claims, trades) still route through a pre-action
+calibration check, per the standing high-stakes/irreversible-actions rule.
+Auditability cannot substitute for prevention where reversal does not exist.
+
+Explicit-state operations, a mutation journal, and scoped reversibility replace
+the removed three. `--dry-run` survives as an opt-in flag because an agent
+previewing its own change is a genuine use.
 
 **Normalization serves readability, not portability.** This revises ADR-0002,
 which defined the normalized layer as the structural intersection across
@@ -65,10 +75,27 @@ providers. Cross-provider equivalence is not a goal. ESPN's normalized output
 may carry fields no other provider exposes. Raw payloads ship alongside
 normalized ones in every response, so nothing is ever unreachable.
 
+**Which portability constraints survive.** Dropping cross-provider equivalence
+does not void every finding in `docs/ARCHITECTURE.md` §14. Those grounded in
+ESPN's own model remain binding: plural `owner_names` (ESPN supports co-managers),
+ESPN's two distinct transaction surfaces, both period identifiers preserved in
+raw, and per-adapter standings tiebreakers. Finding 13 — keeping slot eligibility
+out of the normalized model — is **amended** by R3, which requires it. The
+provider interface remains shaped for Yahoo and Sleeper structurally; what is no
+longer promised is that their normalized output will be comparable to ESPN's.
+
 **Freshness is a correctness property.** Cache TTLs were tuned for latency. An
 agent deciding a lineup against a kickoff deadline can be wrong because its data
 was stale, which makes staleness a correctness concern and requires both a
 stated data age and a way to demand a fresh read.
+
+**Drift detection is core, not public-release machinery.** Noticing that ESPN
+changed shape before a decision is made against broken data is John's exposure,
+not an external user's — his agents run unattended against a live season on an
+API mid-overhaul. Without it, R12's schema-drift code fires with nothing behind
+it: the agent learns the shape is wrong but not whether it is known or worth
+retrying. The public-facing health manifest and auto-filed issues stay deferred;
+the detection does not.
 
 **Public release is a close second, not a byproduct.** The quality bar in
 ADR-0008 holds from the first commit. Sequencing puts John's working tool first;
@@ -91,33 +118,64 @@ standards do not relax to get there.
 
 **Reads for agent reasoning**
 
-- R1. Every read command emits a normalized rendering and the provider's raw
-  payload in the same response.
+- R1. Every read command emits a normalized rendering and every upstream response
+  that contributed to the result, keyed by the request that produced it. Several
+  commands stitch two or three ESPN calls, so a single "raw payload" would drop
+  data this requirement promises is reachable.
+- R1a. ESPN-sourced free text — team and league names, trade notes, waiver and
+  offer comments, message-board content — is labeled as untrusted data, distinctly
+  from normalized structured fields. Any league member can set these values, and
+  they reach an agent that can write.
 - R2. Normalized output is optimized for legibility; it is not constrained to
   fields other providers can match.
 - R3. Roster, matchup, and free-agent output carries enough context to support a
   lineup decision without a follow-up call, including at minimum player status,
-  position, opponent, and any projection the provider exposes.
-- R4. Every response states the age of the data it carries.
+  position, opponent, any projection the provider exposes, slot eligibility, the
+  player's current lineup slot, kickoff time, and slot lock state. Position alone
+  does not tell an agent whether a player may fill FLEX in a given league.
+- R3a. The league's roster-slot configuration is reachable from a read, so a valid
+  target lineup can be constructed from normalized output alone.
+- R4. Every response states the age of the oldest upstream fetch it draws on, and
+  itemizes per-component ages when assembled from more than one provider call.
 - R5. A caller can demand a guaranteed-fresh read that bypasses cached data.
 
 **Writes and auditability**
 
 - R6. Write commands accept explicit target state rather than relative
   instructions.
-- R7. Every write records prior state to a local journal before mutating.
-- R8. Any journaled write can be reversed.
-- R9. `--dry-run` is available on every write command and reports the change
-  without applying it. It is not the default.
-- R10. A write invalidates any cached data it affects.
+- R7. Every write records prior state to a journal before mutating, along with the
+  acting identity, timestamp, league, and the command as invoked.
+- R7a. Irreversible writes are surfaced to John without him initiating the check.
+- R8. Every journaled write records whether it is reversible. Lineup changes are
+  reversible while the affected roster slots are unlocked. Drops, processed waiver
+  claims, and trades are **not** reversible, and must be identified as irreversible
+  before the tool applies them.
+- R8a. Irreversible writes pass a pre-action calibration check before firing.
+- R9. `--dry-run` is available on every write command and reports the *intended*
+  change without applying it. It does not validate provider acceptance — ESPN
+  offers no preview endpoint. It is not the default.
+- R9a. Write failures surface the provider's own rejection reason — roster lock,
+  budget exceeded, position limit, already dropped — as a distinct machine code,
+  so an agent can tell a rejected write from a transport failure.
+- R10. Every cache entry carries a league, season, and scoring-period tag
+  alongside its URL key, and a write purges every entry tagged with the league and
+  scoring period it affects.
 
 **Agent interface contract**
 
 - R11. Every response is a versioned envelope.
 - R12. Every failure carries a stable machine code distinguishing credential,
-  availability, throttling, and schema-drift causes.
+  availability, throttling, and schema-drift causes. A failure that cannot be
+  positively classified maps to availability with bounded retry, never to
+  throttling.
+- R12a. Credential age and likely staleness are reportable independent of a
+  failing command, and a write warns when credentials are near or past their
+  expected lifetime — so an agent escalates before a deadline, not after it.
 - R13. Help output is complete enough for an agent to discover and correctly
   invoke any command without external documentation.
+- R13a. An agent can enumerate every configured league and target any of them
+  explicitly on any read or write command, without editing configuration between
+  calls.
 
 **Quality and sequencing**
 
@@ -160,10 +218,12 @@ standards do not relax to get there.
   an agent requests the roster, then the response includes the data's age; when
   the agent instead demands a fresh read, then cached data is bypassed and the
   response reflects a new fetch.
-- AE2. **Covers R6.** Given a roster whose state has changed since the agent
-  last read it, when the agent submits an explicit target lineup, then the
-  result is that exact lineup or a clean failure — never a partially applied
-  change.
+- AE2. **Covers R6.** Given a roster whose state has changed since the agent last
+  read it, when the agent submits an explicit target lineup, then the tool re-reads
+  the roster afterward and either confirms it matches the target exactly or fails
+  with a distinct machine code reporting the observed divergence — and the journal
+  records both the intended and the observed state. ESPN offers no transaction
+  boundary, so partial application is reported, not prevented.
 - AE3. **Covers R7, R8.** Given an agent has set a lineup, when John inspects
   the journal, then he sees the prior lineup and the applied one; when he
   reverses it, then the prior lineup is restored.
@@ -187,8 +247,8 @@ standards do not relax to get there.
 - An MCP server — the agents that matter have shell access; MCP becomes relevant
   only for surfaces that do not.
 - Draft-specific tooling.
-- Public release machinery — canary, release automation, published package.
-  Sequenced after the core per R15, not cut.
+- Public release automation and package publishing. Sequenced after the core per
+  R15, not cut. **Drift detection is not in this bucket** — see Key Decisions.
 
 **Outside this product's identity**
 
@@ -202,8 +262,25 @@ standards do not relax to get there.
 
 ## Dependencies and Assumptions
 
-- Depends on `espn-api` for ESPN access. One primary maintainer; the provider
-  interface exists partly to contain that risk.
+- Depends on `espn-api` for ESPN access — **for reads only.** The library has no
+  write capability: every live call is a `GET` against `lm-api-reads.fantasy.espn.com`.
+  R6 through R10 therefore require a hand-built mutation layer against an ESPN
+  write surface that no research brief covers. One primary maintainer; the
+  provider interface exists partly to contain that risk.
+- Writes make `requests` a direct runtime dependency rather than a transitive one,
+  raising the count to six against ADR-0008's ceiling of five. That ADR requires
+  documented justification for a sixth; promoting writes to core scope is it.
+- ESPN's throttling signal is unconfirmed. No 429 response body was observed in
+  research, and `espn-api` folds every non-200/401/404 into a generic error
+  carrying the status only inside a message string.
+- Agent-side policy — what an agent may do unattended — lives with whoever operates
+  the agent. The tool assumes such a policy exists and enforces none of it. Today
+  the operator, the auditor, and the party bearing the loss are all John.
+
+**Timing.** The league draft is being scheduled for early September 2026 and the
+season starts 2026-09-09. Under deadline pressure the variable is **scope**,
+not the standards in R14 — cutting the guardrails is the failure mode this note
+exists to prevent.
 - ESPN authentication is manually extracted browser cookies with no refresh
   path and no programmatic alternative. This constrains unattended operation:
   agents run unattended only until credentials expire, and expiry is silent.
@@ -219,11 +296,16 @@ standards do not relax to get there.
 
 **Resolve before planning**
 
+- Which write operations ship first? Lineup changes are the obvious core; whether
+  waiver claims, drops, and trades are in the same release is unsettled — and per
+  R8 those three are the irreversible class.
 - What is the journal's retention policy, and is it per-league or global?
-- Does a guaranteed-fresh read bypass the cache entirely, or refresh it as a
-  side effect?
-- Which write operations ship first? Lineup changes are the obvious core;
-  whether waiver claims, drops, and trades are in the same release is unsettled.
+- Is scheduling and triggering of agent runs out of this product's scope, the way
+  the authorization model is, or is it an unfilled gap? Nothing currently states
+  what invokes an agent before a weekly lock.
+- Does a guaranteed-fresh read refresh the cache as a side effect, or purely
+  bypass it? This determines whether an agent can fetch fresh once and then batch
+  subsequent queries.
 
 **Deferred to planning**
 

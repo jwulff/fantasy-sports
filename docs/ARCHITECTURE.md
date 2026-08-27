@@ -102,7 +102,12 @@ eligibility rules differ. Transaction vocabularies differ. Playoff formats diffe
 Building one true unified `League` model means a year of impedance mismatch and
 no shipped product.
 
-**Normalize the 80% that is structurally identical. Passthrough the rest.**
+**Normalize for legibility, per provider. Passthrough raw alongside it, always.**
+
+*(Revised: normalization is no longer defined as the cross-provider intersection.
+ESPN's normalized output may carry fields no other provider exposes. Which of the
+portability constraints in §14 findings 11-15 remain binding on the shared model
+is an open question — see the requirements doc.)*
 
 - **Normalized:** teams, rosters, standings, matchups, transactions, free agents.
   Same *shape* across every provider.
@@ -271,17 +276,20 @@ SQLite at `~/.cache/fantasy-sports/`, TTL by resource type:
 
 ## 9. Read/write posture
 
-**v0.1 is read-only.** Prove the read path survives real ESPN behavior for a few
-weeks before touching mutations.
+**Superseded by `docs/brainstorms/2026-08-26-agent-managed-fantasy-leagues-requirements.md`.**
+Writes are core scope, not a deferred phase — an interface that can only observe
+does not manage anything. `--dry-run` is an opt-in flag rather than the default,
+because a synchronous confirmation prompt cannot be satisfied by an unattended
+process and so converts unattended operation into failure rather than safety.
 
-**v0.2 writes** (set lineup, waiver claims, drops) ship behind:
-- `--dry-run` as the **default**; mutations require explicit `--commit`
-- a printed diff of before/after state
-- interactive confirmation unless `--yes`
-- anything autonomous routes through `/sanity-gate`
+What replaces the removed gates: explicit-state operations, a mutation journal
+recording prior state, and reversal where the provider permits it.
 
-Rationale: a miscalculated automated waiver claim is a real, un-undoable cost.
-This follows the standing high-stakes/irreversible-actions rule.
+**Open, and load-bearing:** reversal is NOT available for every write. Drops,
+processed waiver claims, and trades cannot be undone, and even a lineup change
+locks at kickoff. ADR-0006's fourth gate — routing autonomous writes through
+`/sanity-gate` — was never superseded and still stands for that irreversible
+class. See ADR-0006 and the requirements doc; both need amendment.
 
 ---
 
@@ -499,11 +507,15 @@ player IDs, draft tooling, projections.
 
 | Version | Contents |
 |---|---|
-| **v0.1** | ESPN read-only CLI, cache, config, canary + health check + `doctor` |
+| **v0.1** | ESPN reads, cache, config, drift detection, `doctor` — plus writes, pending the write-surface spike below |
 | **v0.2** | `reports/` — start-sit memo, weekly recap, vault output |
-| **v0.3** | Writes behind `--dry-run` + confirm |
-| **v0.4** | `mcp serve` adapter over the same registry |
-| **v0.5+** | Second provider, only when a real need appears |
+| **v0.3** | `mcp serve` adapter over the same registry |
+| **v0.4+** | Second provider, only when a real need appears |
+
+**Blocking prerequisite:** `espn-api` is read-only — every live call is a `GET`
+against `lm-api-reads.fantasy.espn.com`. The ESPN write surface (host, transaction
+payload shape, headers, per-operation error vocabulary) is unresearched and must
+be reverse-engineered before writes can be treated as schedulable work.
 
 ---
 
