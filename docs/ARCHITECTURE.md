@@ -72,8 +72,20 @@ Distribution gap is closed by `uv tool install fantasy-sports`.
 | Packaging | `uv` + `hatchling` | Already installed (0.11.3); fast, lockfile-native |
 | CLI framework | `typer` | Type annotations do double duty as MCP schemas later |
 | Rendering | `rich` | Tables for TTY, and typer already depends on it |
-| Config | TOML via `tomllib` | Stdlib, no dependency |
-| Tests | `pytest` + `vcrpy` | Cassettes keep unit tests offline and fast |
+| Config read | TOML via `tomllib` | Stdlib, no dependency |
+| Config **write** | `tomli-w` | `tomllib` is read-only; `auth login` and config edits need a writer |
+| HTTP | `requests` | Matches `espn-api`'s own transport. Mixing two stacks under VCR is a known source of pain, and a synchronous CLI has no async need |
+| Dev deps | PEP 735 `[dependency-groups]` | Current standard; `[project.optional-dependencies]` is the legacy shape for this purpose |
+| Tests | `pytest` + `vcrpy` | `espn-api` is built on `requests`, which is vcrpy's best-supported target |
+| Type check | `pyright` | Recommended for CI today; `ty` is worth watching but not yet the default |
+| Secrets | `keyring` | Standard, with a documented locked-Keychain-under-cron footgun that env-first resolution already mitigates |
+
+Validated against 2026 practice in `docs/research/04-python-cli-packaging.md`,
+which confirmed every prior choice and resolved the open ones above.
+
+**Note:** there is no `uv build --standalone`. `uv build` produces an sdist and
+a wheel only. Standalone binaries would require PyInstaller or Nuitka, assessed
+and deferred — see the research brief.
 
 ---
 
@@ -225,6 +237,15 @@ sport     = "football"
 
 `fantasy-sports --league dynasty standings`. Season is per-league and overridable
 with `--season` for historical queries.
+
+**macOS path caveat.** `platformdirs` returns
+`~/Library/Application Support/fantasy-sports` on macOS, which conflicts with the
+XDG-style paths specified here and in §8. We **force XDG-style paths
+unconditionally** on every platform, honouring `XDG_CONFIG_HOME`/`XDG_CACHE_HOME`
+when set and falling back to `~/.config` and `~/.cache` when not. This is what
+technical-audience CLIs do — ripgrep, gh, docker, and uv all behave this way on
+macOS — and it is what this document already committed to. Do not rely on
+`platformdirs`' macOS branch.
 
 ---
 
