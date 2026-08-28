@@ -444,7 +444,7 @@ host-local and would silently corrupt the envelope.
 
 **Goal:** A cache that is fast and that a write can later invalidate correctly.
 
-**Requirements:** R5, R10 · **Tracks:** #8 · **Dependencies:** U0, U2
+**Requirements:** R5, R10 · **Tracks:** #8 · **Dependencies:** U13, U2
 
 **Files:** `src/fantasy_sports/cache/store.py`, `cache/tags.py`,
 `tests/unit/test_cache.py`
@@ -454,7 +454,7 @@ provider rather than the command layer (KTD3). Every entry tagged with league,
 season, and scoring period. TTL by resource type. A fresh read refreshes the entry
 (KTD4). Purge-by-tag exists now even though writes call it later.
 
-Response bodies are redacted before they are written to the store, reusing U0's
+Response bodies are redacted before they are written to the store, reusing U13's
 helper. ESPN echoes owner SWIDs inline in roster payloads, and completed weeks and
 historical seasons cache **forever** — an unredacted body would sit unencrypted in
 the cache directory indefinitely.
@@ -476,7 +476,7 @@ the cache directory indefinitely.
 
 **Goal:** The one provider that ships, with honest error classification.
 
-**Requirements:** R1, R2, R3, R3a, R4 · **Tracks:** #4 · **Dependencies:** U0, U2, U4, U6
+**Requirements:** R1, R2, R3, R3a, R4 · **Tracks:** #4 · **Dependencies:** U13, U2, U4, U6
 
 **Files:** `src/fantasy_sports/providers/espn.py`,
 `tests/unit/test_espn_provider.py`, `tests/cassettes/espn/*.yaml`
@@ -491,7 +491,7 @@ dict access. Classify 401 via the double-probe in the error diagram. Read
 and lock state (R3).
 
 **Execution note:** Record cassettes before writing assertions. Scrubbing already
-exists — U0 is a hard dependency precisely so no unscrubbed fixture can reach disk.
+exists — U13 is a hard dependency precisely so no unscrubbed fixture can reach disk.
 
 **Test scenarios:**
 - Covers AE6. Each read method returns normalized output plus every contributing
@@ -511,6 +511,31 @@ exists — U0 is a hard dependency precisely so no unscrubbed fixture can reach 
 real league succeeds.
 
 ### Phase 3 — Surface
+
+### U12. Untrusted-text labeling
+
+**Goal:** Give agents a documented seam against prompt injection.
+
+**Requirements:** R1a · **Tracks:** #17 · **Dependencies:** U5, U7
+
+**Files:** `src/fantasy_sports/output/envelope.py`,
+`src/fantasy_sports/providers/espn.py`, `tests/unit/test_untrusted.py`
+
+**Approach:** Team and league names, trade notes, waiver and offer comments, and
+message-board content are attacker-influenceable — any league member sets them, and
+they reach an agent that can write. Label them distinctly from normalized
+structured fields in the envelope. Anywhere untrusted text renders into markdown,
+use indented code blocks, which have no fence terminator hostile input can close.
+
+**Test scenarios:**
+- A team name containing injection-shaped text is labeled untrusted, not merged
+  into structured fields
+- Triple backticks and an `@mention` in a team name cannot escape their container
+  in any output surface
+- Labeling survives both JSON and table rendering
+- Normalized structured fields are never labeled untrusted
+
+**Verification:** A crafted team name renders contained in every surface.
 
 ### U8. Read commands
 
@@ -557,11 +582,11 @@ shared algorithm.
 
 **Goal:** Offline, deterministic tests that cannot leak an ESPN session.
 
-**Requirements:** R14 · **Tracks:** #12 · **Dependencies:** U0, U7
+**Requirements:** R14 · **Tracks:** #12 · **Dependencies:** U13, U7
 
 **Files:** `tests/conftest.py`, `tests/cassettes/`, `docs/testing.md`
 
-**Approach:** The remainder of the harness, on top of U0's scrubbing hook.
+**Approach:** The remainder of the harness, on top of U13's scrubbing hook.
 `pytest-recording` over `vcrpy`, `pytest-socket` blocking network in unit tests, a
 `live` marker excluding credentialed tests from default runs, and the re-recording
 procedure documented.
@@ -632,30 +657,6 @@ request and the response are scrubbed before anything enters the committed brief
 — the write request necessarily carries the session cookie, and the brief is a
 permanent committed document.
 
-### U12. Untrusted-text labeling
-
-**Goal:** Give agents a documented seam against prompt injection.
-
-**Requirements:** R1a · **Tracks:** #17 · **Dependencies:** U5, U7
-
-**Files:** `src/fantasy_sports/output/envelope.py`,
-`src/fantasy_sports/providers/espn.py`, `tests/unit/test_untrusted.py`
-
-**Approach:** Team and league names, trade notes, waiver and offer comments, and
-message-board content are attacker-influenceable — any league member sets them, and
-they reach an agent that can write. Label them distinctly from normalized
-structured fields in the envelope. Anywhere untrusted text renders into markdown,
-use indented code blocks, which have no fence terminator hostile input can close.
-
-**Test scenarios:**
-- A team name containing injection-shaped text is labeled untrusted, not merged
-  into structured fields
-- Triple backticks and an `@mention` in a team name cannot escape their container
-  in any output surface
-- Labeling survives both JSON and table rendering
-- Normalized structured fields are never labeled untrusted
-
-**Verification:** A crafted team name renders contained in every surface.
 
 ---
 
