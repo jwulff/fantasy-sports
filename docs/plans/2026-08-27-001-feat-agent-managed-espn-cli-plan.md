@@ -84,13 +84,22 @@ undocumented. U11 produces the brief; write units get authored in a follow-up
 plan once it lands. Speculating a design now trades a known gap for an unknown
 wrong answer.
 
-**KTD2 — The dependency ceiling moves from five to seven, with justification.**
+*This does not reinstate a read-only release.* ADR-0006 as amended makes writes
+core scope, and R15 still gates public release on reads **and** writes working.
+What is deferred is the *authoring of write units*, not the commitment to ship
+them — the surface must be known before work on it can be estimated.
+
+**KTD2 — The dependency ceiling moves to six now and seven when writes land.**
 ADR-0008 capped direct runtime dependencies at five and counted `requests` as
-free because it arrived transitively. Writes make `requests` direct, and the
-health check needs `packaging` for PEP 440 comparison. `platformdirs` is dropped
-per ADR-0008. Final set: `espn-api`, `typer`, `rich`, `tomli-w`, `keyring`,
-`requests`, `packaging`. Amend the ADR rather than contorting the design around a
-number set before writes existed.
+free because it arrives transitively through `espn-api`. This plan adds exactly
+one: `packaging`, for PEP 440 comparison in the health check. `platformdirs` is
+dropped per ADR-0008 and KTD6.
+
+**This plan's set is six** — `espn-api`, `typer`, `rich`, `tomli-w`, `keyring`,
+`packaging` — and `requests` stays transitive because nothing here writes. Writes
+promote `requests` to direct, making seven, since `espn-api` exposes no reusable
+session. Amend ADR-0008 to six now with the note that writes take it to seven,
+rather than pre-amending for a dependency this plan does not yet incur.
 
 **KTD10 — Wrap `espn-api` for reads; drop to direct HTTP only where it lacks
 coverage.** The library is years of accumulated knowledge about an undocumented
@@ -340,6 +349,37 @@ profiles with provider, league id, season, sport, plus a default. `--league` and
 
 **Verification:** Two profiles configured; each targetable without editing config.
 
+### U13. Scrub-before-write recording hook
+
+**Goal:** Make it impossible to write an unscrubbed cassette to disk.
+
+**Requirements:** R14 · **Tracks:** #12 · **Dependencies:** U1
+
+**Files:** `tests/conftest.py`, `tests/unit/test_scrubbing.py`
+
+**Approach:** The minimal half of the cassette harness, pulled ahead of every unit
+that records. Scrub cookies, auth headers, `espn_s2` and SWID query params, and
+SWID GUIDs echoed in response bodies — ESPN returns owner SWIDs inline in roster
+payloads, so header filtering alone does not catch it. A repo-wide scan test
+asserts no committed fixture matches a credential pattern. U9 builds the rest of
+the harness later; this piece cannot wait, because U7 records against a real
+private league.
+
+**Execution note:** Write the scan test first. This is a security control.
+
+**Test scenarios:**
+- A recorded interaction containing a cookie header writes to disk with the value
+  replaced, not merely omitted from assertions
+- An `espn_s2` or SWID query parameter is scrubbed from the request URI
+- A SWID GUID echoed in a response body is redacted (header filtering misses this)
+- The repo-wide scan fails loudly when handed a fixture containing a credential
+  pattern, and passes on the committed tree
+- Re-recording an existing fixture re-applies scrubbing rather than trusting the
+  prior pass
+
+**Verification:** The scan test passes against the committed tree and demonstrably
+fails against a deliberately poisoned fixture.
+
 ### Phase 2 — Provider and data
 
 ### U4. Credential resolution and staleness reporting
@@ -404,7 +444,7 @@ host-local and would silently corrupt the envelope.
 
 **Goal:** A cache that is fast and that a write can later invalidate correctly.
 
-**Requirements:** R5, R10 · **Tracks:** #8 · **Dependencies:** U2
+**Requirements:** R5, R10 · **Tracks:** #8 · **Dependencies:** U0, U2
 
 **Files:** `src/fantasy_sports/cache/store.py`, `cache/tags.py`,
 `tests/unit/test_cache.py`
@@ -414,6 +454,11 @@ provider rather than the command layer (KTD3). Every entry tagged with league,
 season, and scoring period. TTL by resource type. A fresh read refreshes the entry
 (KTD4). Purge-by-tag exists now even though writes call it later.
 
+Response bodies are redacted before they are written to the store, reusing U0's
+helper. ESPN echoes owner SWIDs inline in roster payloads, and completed weeks and
+historical seasons cache **forever** — an unredacted body would sit unencrypted in
+the cache directory indefinitely.
+
 **Test scenarios:**
 - A repeat call inside TTL hits the cache; outside TTL refetches
 - A composite call sharing a sub-request with another command hits on the shared part
@@ -421,6 +466,8 @@ season, and scoring period. TTL by resource type. A fresh read refreshes the ent
 - `--no-cache` bypasses without writing
 - Purge-by-tag removes matching entries and leaves others
 - A corrupt cache file degrades to a live fetch rather than raising
+- A response body containing an echoed SWID is redacted *before* the store write,
+  verified by reading the stored row rather than the returned value
 - Credentials never appear in cached payloads
 
 **Verification:** Cache hit measurably faster; purge-by-tag scoped correctly.
@@ -429,7 +476,7 @@ season, and scoring period. TTL by resource type. A fresh read refreshes the ent
 
 **Goal:** The one provider that ships, with honest error classification.
 
-**Requirements:** R1, R2, R3, R3a, R4 · **Tracks:** #4 · **Dependencies:** U2, U4, U6
+**Requirements:** R1, R2, R3, R3a, R4 · **Tracks:** #4 · **Dependencies:** U0, U2, U4, U6
 
 **Files:** `src/fantasy_sports/providers/espn.py`,
 `tests/unit/test_espn_provider.py`, `tests/cassettes/espn/*.yaml`
@@ -443,8 +490,8 @@ dict access. Classify 401 via the double-probe in the error diagram. Read
 `Retry-After` where present. Surface slot eligibility, current slot, kickoff time,
 and lock state (R3).
 
-**Execution note:** Record cassettes before writing assertions; scrubbing lands in
-U9 and must exist before any cassette is committed.
+**Execution note:** Record cassettes before writing assertions. Scrubbing already
+exists — U0 is a hard dependency precisely so no unscrubbed fixture can reach disk.
 
 **Test scenarios:**
 - Covers AE6. Each read method returns normalized output plus every contributing
@@ -455,6 +502,10 @@ U9 and must exist before any cassette is committed.
 - Scoring-period and matchup-period values both preserved and distinguishable
 - Naive library datetimes converted correctly; no host-timezone leakage
 - A private league with valid credentials returns data; without them, `AUTH_MISSING`
+- Any exception raised by `espn-api` is caught and re-raised as our own typed error
+  with credential-shaped substrings stripped — the library interpolated `espn_s2`
+  into its access-denied message until a 2026-02 fix, so passing its text through
+  verbatim is a known leak path
 
 **Verification:** All read methods pass against cassettes; live smoke against a
 real league succeeds.
@@ -466,7 +517,7 @@ real league succeeds.
 **Goal:** What a user or agent actually types.
 
 **Requirements:** R1, R3, R4, R5, R13, R13a · **Realizes:** F1 (agent answers a
-question about the team) · **Tracks:** #9 · **Dependencies:** U3, U5, U7
+question about the team) · **Tracks:** #9 · **Dependencies:** U3, U5, U7, U12
 
 **Files:** `src/fantasy_sports/commands/league.py`, `roster.py`, `matchups.py`,
 `transactions.py`, `free_agents.py`, `raw.py`, `commands/__init__.py`,
@@ -506,23 +557,20 @@ shared algorithm.
 
 **Goal:** Offline, deterministic tests that cannot leak an ESPN session.
 
-**Requirements:** R14 · **Tracks:** #12 · **Dependencies:** U7
+**Requirements:** R14 · **Tracks:** #12 · **Dependencies:** U0, U7
 
 **Files:** `tests/conftest.py`, `tests/cassettes/`, `docs/testing.md`
 
-**Approach:** `pytest-recording` over `vcrpy`. Scrub cookies, auth headers,
-`espn_s2` and SWID query params, and SWID GUIDs echoed in response bodies — before
-anything reaches disk. `pytest-socket` blocks network in unit tests. A `live`
-marker excludes credentialed tests from default runs.
-
-**Execution note:** Scrubbing is a security control — write its test first.
+**Approach:** The remainder of the harness, on top of U0's scrubbing hook.
+`pytest-recording` over `vcrpy`, `pytest-socket` blocking network in unit tests, a
+`live` marker excluding credentialed tests from default runs, and the re-recording
+procedure documented.
 
 **Test scenarios:**
-- A recorded cassette contains no `espn_s2`, SWID, cookie header, or GUID
-- A repository-wide scan asserts no committed cassette matches a credential pattern
 - A cassette miss raises rather than performing a live call
 - `pytest -m "not live"` runs fully offline with no network access
-- Re-recording an existing cassette re-applies scrubbing
+- The `live` marker is excluded from the default selection
+- Documented re-record procedure produces a scrubbed fixture end to end
 
 **Verification:** Offline CI passes with network disabled; the scan test passes.
 
@@ -579,8 +627,10 @@ scoring or matchup period, and where commissioner authority begins.
 
 **Test expectation:** none — research unit. The deliverable is the brief.
 
-**Verification:** A lineup change applied and observed in the ESPN UI, with the
-request and scrubbed response recorded in the brief.
+**Verification:** A lineup change applied and observed in the ESPN UI. **Both the
+request and the response are scrubbed before anything enters the committed brief**
+— the write request necessarily carries the session cookie, and the brief is a
+permanent committed document.
 
 ### U12. Untrusted-text labeling
 
@@ -700,4 +750,8 @@ classifies by where the exception occurred specifically to avoid inheriting this
   pattern, cassette scrubbing, CI workflows
 - `docs/research/02-provider-data-shapes.md` — Protocol shape and the ESPN-first traps
 - `docs/research/01-telemetry-auto-issues.md` — untrusted-content rendering
-- `docs/adr/0001`–`0008` — accepted decisions; 0002 amended, 0006 partially superseded
+- `docs/adr/0001`–`0008` — accepted decisions. ADR-0002 amended by the origin
+  (normalization selects for legibility, not intersection), and its architecture
+  finding on slot eligibility voided by R3. ADR-0006 partially superseded by the
+  origin (writes are core scope; three of four gates removed, the sanity gate
+  survives). ADR-0008's dependency ceiling amended by KTD2 in this plan.
