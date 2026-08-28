@@ -92,6 +92,15 @@ per ADR-0008. Final set: `espn-api`, `typer`, `rich`, `tomli-w`, `keyring`,
 `requests`, `packaging`. Amend the ADR rather than contorting the design around a
 number set before writes existed.
 
+**KTD10 — Wrap `espn-api` for reads; drop to direct HTTP only where it lacks
+coverage.** The library is years of accumulated knowledge about an undocumented
+API and absorbs ESPN's read-side changes on our behalf. The rejected alternative
+is direct HTTP throughout, which would buy uniformity with the write path we must
+hand-roll anyway — but it discards the library's view handling, ID maps, and the
+2024 base-URL migration, and it leaves us diagnosing every read break from scratch
+with no upstream issue tracker to check first. The Provider Protocol contains the
+coupling, so replacing the library later is a contained change.
+
 **KTD3 — Cache at the HTTP layer, keyed on URL plus params, tagged by league,
 season, and scoring period.** Composite calls fan out into two or three ESPN
 requests with no internal dedup, so caching at the command layer still pays every
@@ -337,7 +346,8 @@ profiles with provider, league id, season, sport, plus a default. `--league` and
 
 **Goal:** Credentials resolved safely, with expiry visible *before* a deadline.
 
-**Requirements:** R12a · **Tracks:** #5 · **Dependencies:** U1
+**Requirements:** R12a · **Supports:** F1, F2 (credential validity gates both) ·
+**Tracks:** #5 · **Dependencies:** U1
 
 **Files:** `src/fantasy_sports/auth/chain.py`,
 `src/fantasy_sports/auth/staleness.py`, `tests/unit/test_auth.py`
@@ -455,7 +465,8 @@ real league succeeds.
 
 **Goal:** What a user or agent actually types.
 
-**Requirements:** R1, R3, R4, R5, R13, R13a · **Tracks:** #9 · **Dependencies:** U3, U5, U7
+**Requirements:** R1, R3, R4, R5, R13, R13a · **Realizes:** F1 (agent answers a
+question about the team) · **Tracks:** #9 · **Dependencies:** U3, U5, U7
 
 **Files:** `src/fantasy_sports/commands/league.py`, `roster.py`, `matchups.py`,
 `transactions.py`, `free_agents.py`, `raw.py`, `commands/__init__.py`,
@@ -479,6 +490,15 @@ shared algorithm.
 - Every command honors `--league`, `--season`, `--fresh`, `--no-cache`
 - No command module imports `typer` (KTD7 boundary)
 - `CliRunner` asserts exact JSON envelope shape per command
+- A provider raising credential-expired surfaces that machine code and a nonzero
+  exit, with stdout empty — not a traceback
+- A provider raising schema-drift propagates the offending path into the error
+  payload rather than being swallowed as a generic failure
+- An unknown `--league` fails before any network call is attempted
+- A cache hit and a live fetch produce byte-identical envelopes apart from the
+  age fields, proving the cache decorator is transparent to the command layer
+- A command whose provider call fans out to three ESPN requests reports all three
+  in raw and the oldest age in the envelope (crosses command, provider, and cache)
 
 **Verification:** Every command works against a real private league in both modes.
 
@@ -543,7 +563,8 @@ issue; `doctor` reports accurately.
 
 **Goal:** Make writes plannable. **This gates all write work.**
 
-**Requirements:** unblocks R6–R9a · **Tracks:** #14 · **Dependencies:** U7
+**Requirements:** unblocks R6–R9a · **Unblocks:** F2 (agent acts on the league),
+F3 (John audits or reverses) · **Tracks:** #14 · **Dependencies:** U7
 
 **Files:** `docs/research/05-espn-write-surface.md`
 
@@ -633,6 +654,17 @@ Provider Protocol contains the risk; direct HTTP is the fallback.
 that cannot be adapted to is a live risk to the whole product. Drift detection is
 the mitigation, not a cure.
 
+**Prompt injection through league content.** ESPN payloads carry free text any
+league member sets, and it reaches an agent that can write. U12 labels it, but
+labeling reduces the risk rather than eliminating it — a sufficiently convincing
+crafted string can still influence a downstream decision. The residual is accepted
+and is a standing argument for keeping the pre-action gate on irreversible writes.
+
+**A leaked cassette is a leaked ESPN session.** Recorded fixtures pass through
+credentials and league-member names by default. U9's scrubbing is a security
+control, not hygiene, which is why it carries a repository-wide scan test rather
+than trusting the recording configuration.
+
 **A canary that cries wolf gets ignored.** `espn-api`'s own live canary was red for
 twelve straight days from a dependency bump rather than an ESPN change. U10
 classifies by where the exception occurred specifically to avoid inheriting this.
@@ -644,8 +676,13 @@ classifies by where the exception occurred specifically to avoid inheriting this
 **Deferred to implementation**
 
 - Exact TTL values per resource type — tune against measured ESPN latency
-- Whether `raw` returns a list or a map keyed by request descriptor
 - Whether `doctor` shells to `security` on macOS or uses `keyring` uniformly
+
+**Resolved during this plan**
+
+- `raw` returns a **map keyed by request descriptor**, not a list. R1 requires
+  responses keyed by the request that produced them, and a list forces the consumer
+  to re-derive which payload came from which call.
 
 **Blocked on U11**
 
