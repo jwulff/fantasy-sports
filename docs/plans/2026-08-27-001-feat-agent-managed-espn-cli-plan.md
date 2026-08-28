@@ -318,8 +318,21 @@ Directional. Per-unit file lists are authoritative.
 `tests/unit/test_imports.py`
 
 **Approach:** Copy the validated `pyproject.toml` from
-`docs/research/04-python-cli-packaging.md`, adjusted per KTD2 (drop
-`platformdirs`, add `tomli-w`) and KTD6. Two console scripts. PEP 735
+`docs/research/04-python-cli-packaging.md` with four corrections, each of which
+breaks the build if skipped:
+
+- Drop `platformdirs`, add `tomli-w` (KTD2, KTD6)
+- Add `pytest-socket` and `pytest-json-report` to the dev group — U1's own
+  network-blocking scenario and U14's canary reporter both need them and neither
+  is in the copied group
+- Rename the research's `canary` marker to `live` and its coverage omit to
+  `*/live/*`, matching the `tests/live/` directory this plan uses. CI runs
+  `pytest -m 'not live'`; left as copied, CI collects the credentialed tests and
+  goes red on every run for reasons unrelated to the change
+- Point both console scripts at a `main_entry` that calls `app()`, and rename the
+  top-level typer callback off `main`. As copied they collide, and the entry point
+  invokes the callback directly — `fantasy-sports --help` fails immediately, which
+  is U1's own first verification step Two console scripts. PEP 735
 `[dependency-groups]` for dev tooling. Package layout per Output Structure, with
 `commands/` typer-free from the first commit.
 
@@ -373,6 +386,10 @@ Sleeper and Yahoo shapes so it does not encode ESPN-only assumptions.
 - A Protocol-conformance stub satisfies `isinstance` checks under `runtime_checkable`
 - Constructing a model with a missing required key raises the project's
   schema-drift error, not a bare `KeyError`
+- A transaction payload carrying neither a processed nor a proposed date constructs
+  with a null timestamp and does **not** raise schema-drift — that absence is
+  ordinary ESPN data, and a false drift alarm on routine payloads is the fastest
+  way to make the drift signal ignorable
 
 **Verification:** Models construct from fixtures; a fake provider satisfies the
 Protocol.
@@ -446,8 +463,12 @@ fails against a deliberately poisoned fixture.
 **Approach:** Resolution order env → macOS Keychain → config file. Env first is
 non-negotiable: cron and CI cannot reach the Keychain. `auth login` guides
 extraction and validates the SWID brace format, the single most-repeated manual
-mistake. `auth status` reports presence **and age**, warning as the credential
-approaches its expected lifetime.
+mistake. `auth status` reports presence, **age**, and last-successful-use. It does **not**
+predict expiry: no ESPN documentation, library source, or community post states a
+concrete cookie lifetime, which is exactly why age-reporting rather than
+expiry-prediction is the right design. Any warning threshold is a documented,
+user-overridable heuristic labeled as unverified — a fabricated lifetime either
+cries wolf on a live cookie or stays silent past a dead one.
 
 **Execution note:** Write the redaction test first — it is a security control.
 
@@ -457,7 +478,9 @@ approaches its expected lifetime.
   than raising
 - SWID missing braces is repaired on save; a malformed value is rejected
 - Credential values never appear in rendered errors, log output, or tracebacks
-- `auth status` reports age and flags a credential past its expected lifetime
+- `auth status` reports age and last-successful-use, and warns past the
+  configured heuristic threshold — which is labeled unverified, not presented as
+  a known ESPN lifetime
 - Absent credentials produce `AUTH_MISSING`, not a crash
 
 **Verification:** `auth status` reports age against a real credential; the
@@ -472,7 +495,12 @@ redaction test passes.
 **Files:** `src/fantasy_sports/output/envelope.py`, `output/json.py`,
 `output/table.py`, `output/csv.py`, `tests/unit/test_output.py`
 
-**Approach:** Every success wraps in a versioned envelope carrying provider,
+**Approach:** The envelope reserves a container for attacker-influenceable strings
+up front, empty until U12 populates it. Adding it later would mean rewriting this
+unit's golden files and U8's exact-shape assertions, or bumping the schema version
+on a contract this plan calls the thing every consumer parses.
+
+Every success wraps in a versioned envelope carrying provider,
 league, season, generation timestamp, and data-age fields. JSON when stdout is not
 a TTY, rich table when it is, CSV on request, with `--output` overriding
 detection. Errors to stderr as JSON with a stable machine code and nonzero exit.
@@ -504,8 +532,16 @@ provider rather than the command layer (KTD3). Every entry tagged with league,
 season, and scoring period. TTL by resource type. A fresh read refreshes the entry
 (KTD4). Purge-by-tag exists now even though writes call it later.
 
+**Two tag classes, not one.** `players_wl` and `proTeamSchedules_wl` are fetched
+against a season endpoint carrying no league id, and both are re-fetched by free
+agents and box scores. Tagging them league-scoped either loses the cross-league hit
+or lets a future purge-after-write evict the whole-season player map. They get an
+explicit season-scoped, league-independent tag class.
+
 Response bodies are redacted before they are written to the store, reusing U13's
-helper. ESPN echoes owner SWIDs inline in roster payloads, and completed weeks and
+helper. The cache file is created `0600` and treated as sensitive regardless:
+ESPN echoes league-member SWID GUIDs inside roster payloads, so redaction reduces
+what lands on disk but the store still holds other people's league data. ESPN echoes owner SWIDs inline in roster payloads, and completed weeks and
 historical seasons cache **forever** — an unredacted body would sit unencrypted in
 the cache directory indefinitely.
 
@@ -518,7 +554,9 @@ the cache directory indefinitely.
 - A corrupt cache file degrades to a live fetch rather than raising
 - A response body containing an echoed SWID is redacted *before* the store write,
   verified by reading the stored row rather than the returned value
-- Credentials never appear in cached payloads
+- The `espn_s2` value and the SWID cookie or query parameter are never persisted
+  to the cache
+- `purge-by-league-tag` leaves season-scoped shared entries intact
 
 **Verification:** Cache hit measurably faster; purge-by-tag scoped correctly.
 
@@ -546,7 +584,14 @@ swaps `/leagueHistory/` for `/seasons/` and retries before raising, so our code
 never observes a bare 401; re-implementing it doubles the request cost against a
 provider whose throttle behaviour is unconfirmed. Map `ESPNAccessDenied` to
 `AUTH_EXPIRED`, or `AUTH_MISSING` when no cookies were supplied. Read `Retry-After`
-at the transport seam (KTD3a) — the only place the header survives. Surface slot eligibility, current slot, kickoff time,
+at the transport seam (KTD3a) — the only place the header survives. **Reconcile ESPN's two transaction surfaces inside the adapter.** `mTransactions2`
+and the activity feed carry non-overlapping vocabularies and the activity feed
+synthesizes two rows per trade, so building `transactions` on one surface silently
+drops whatever routes only through the other. `core.Transaction` must never expose
+one vocabulary. The library's `recent_activity()` is unusable for historical
+seasons and is not the fallback.
+
+Surface slot eligibility, current slot, kickoff time,
 and lock state (R3).
 
 **Execution note:** Record cassettes before writing assertions. Scrubbing already
@@ -561,6 +606,11 @@ exists — U13 is a hard dependency precisely so no unscrubbed fixture can reach
 - Scoring-period and matchup-period values both preserved and distinguishable
 - Naive library datetimes converted correctly; no host-timezone leakage
 - A private league with valid credentials returns data; without them, `AUTH_MISSING`
+- A trade present only in the activity feed appears in `fetch_transactions` output
+- A 404 on a historical season fetched without credentials reports
+  `LEAGUE_NOT_FOUND` with a credentials-may-be-required sub-reason, not a bare
+  not-found — ESPN's pre-2018 gating surfaces as 404, and misreporting it repeats
+  the 401 misdiagnosis the double-probe exists to avoid
 - Any exception raised by `espn-api` is caught and re-raised as our own typed error
   with credential-shaped substrings stripped — the library interpolated `espn_s2`
   into its access-denied message until a 2026-02 fix, so passing its text through
@@ -577,8 +627,8 @@ real league succeeds.
 
 **Requirements:** R1a · **Tracks:** #17 · **Dependencies:** U5, U7
 
-**Files:** `src/fantasy_sports/output/envelope.py`,
-`src/fantasy_sports/providers/espn.py`, `tests/unit/test_untrusted.py`
+**Files:** `src/fantasy_sports/providers/espn.py`, `tests/unit/test_untrusted.py`
+(no envelope schema change — U5 reserves the container)
 
 **Approach:** Team and league names, trade notes, waiver and offer comments, and
 message-board content are attacker-influenceable — any league member sets them, and
@@ -639,8 +689,9 @@ shared algorithm.
 - A provider raising schema-drift propagates the offending path into the error
   payload rather than being swallowed as a generic failure
 - An unknown `--league` fails before any network call is attempted
-- A cache hit and a live fetch produce byte-identical envelopes apart from the
-  age fields, proving the cache decorator is transparent to the command layer
+- A cache hit and a live fetch produce envelopes identical except for
+  `generated_at` and the named data-age fields — the excluded key set is fixed and
+  asserted, proving the cache decorator is transparent to the command layer
 - A command whose provider call fans out to three ESPN requests reports all three
   in raw and the oldest age in the envelope (crosses command, provider, and cache)
 
@@ -655,11 +706,19 @@ shared algorithm.
 **Files:** `tests/conftest.py`, `tests/cassettes/`, `docs/testing.md`
 
 **Approach:** The remainder of the harness, on top of U13's scrubbing hook.
+
+**`match_on` must include the filter header — this is the cassette twin of KTD3's
+cache-key bug.** vcrpy's default matcher is method/scheme/host/port/path/query and
+ignores headers entirely, so two recordings differing only in `x-fantasy-filter`
+match the same entry and every filter-gated test asserts against whichever response
+replays first **and passes**. Register a custom matcher over that header.
 `pytest-recording` over `vcrpy`, `pytest-socket` blocking network in unit tests, a
 `live` marker excluding credentialed tests from default runs, and the re-recording
 procedure documented.
 
 **Test scenarios:**
+- Two cassettes differing only in `x-fantasy-filter` replay their own responses
+  rather than colliding
 - A cassette miss raises rather than performing a live call
 - `pytest -m "not live"` runs fully offline with no network access
 - The `live` marker is excluded from the default selection
@@ -710,9 +769,12 @@ fail-open mode verified.
 **Files:** `.github/workflows/canary.yml`, `health.json`,
 `tests/live/test_canary.py`
 
-**Approach:** Assert on required-field presence at the paths constructors
-dereference, and on enum coverage for position, slot, and pro-team maps — the
-cheapest check and the one that catches silent map drift. **Two legs, because one league cannot cover the surface.** `espn-api` raises
+**Approach:** Assert on required-field presence at the paths constructors dereference. **Enum
+coverage runs over the raw payload integers** — default position, eligible slots,
+lineup slot, pro-team, and stat ids — asserted against the library's maps. Running
+it over the library's already-mapped string attributes catches nothing: an unknown
+id degrades to an empty string via `.get(x, '')` rather than raising, which is
+precisely why the last new position id was found by a human instead of by CI. **Two legs, because one league cannot cover the surface.** `espn-api` raises
 before any request for `free_agents` and `box_scores` on pre-2019 seasons, so
 pinning the canary to `league_id=1234, year=2018` leaves `kona_player_info`, the
 box-score view combination, and the header-gated multi-call paths with **zero**
@@ -760,7 +822,10 @@ shape turns it red and classifies correctly.
 **Goal:** Make writes plannable. **This gates all write work.**
 
 **Requirements:** unblocks R6–R9a · **Unblocks:** F2 (agent acts on the league),
-F3 (John audits or reverses) · **Tracks:** #14 · **Dependencies:** U7
+F3 (John audits or reverses) · **Tracks:** #14 · **Dependencies:** none — this is
+curl-and-DevTools work against a real league and needs no project code. It runs
+concurrently with Phase 1 by design; the Risks section's claim that it starts
+immediately is only true if nothing gates it
 
 **Files:** `docs/research/05-espn-write-surface.md`
 
