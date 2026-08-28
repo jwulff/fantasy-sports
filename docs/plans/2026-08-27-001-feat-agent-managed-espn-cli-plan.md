@@ -117,12 +117,42 @@ hand-roll anyway — but it discards the library's view handling, ID maps, and t
 with no upstream issue tracker to check first. The Provider Protocol contains the
 coupling, so replacing the library later is a contained change.
 
-**KTD3 — Cache at the HTTP layer, keyed on URL plus params, tagged by league,
-season, and scoring period.** Composite calls fan out into two or three ESPN
-requests with no internal dedup, so caching at the command layer still pays every
-round trip. The tags exist because a URL-keyed cache cannot answer "which entries
-does a lineup change affect" — the semantic identity needed for invalidation is
-discarded one layer up (see origin R10).
+**KTD3 — Cache at a named transport seam, keyed on URL + params + a canonical
+hash of request-scoping headers, tagged by sport, league, season, and scoring
+period.** Composite calls fan out with no internal dedup, so caching at the command
+layer still pays every round trip. Three corrections over the obvious design, each
+of which would otherwise ship a silent data-corruption bug:
+
+*The key must include headers.* ESPN's filters live in an `x-fantasy-filter`
+**header**, not the query string. `free-agents --pos WR` and `--pos RB` produce
+byte-identical URL and params, so a URL-keyed cache serves one in answer to the
+other, inside TTL, with a valid envelope and correct data age.
+
+*TTL is the minimum over the views in the entry.* `get_league()` fetches `mTeam`,
+`mRoster`, `mMatchup`, `mSettings`, and `mStandings` in one request, so one entry
+spans four resource classes and can hold only one TTL. It takes the shortest —
+roster cadence. Consequence accepted: settings re-fetch far more often than their
+nominal one-day TTL.
+
+*The tag tuple includes sport.* ESPN league ids are unique only within a sport, so
+two profiles can share id `1234`. Without it, a football write purges the
+basketball league's entries.
+
+**KTD3a — The seam is an injected `requests.Session`, load-bearing for four
+requirements.** `espn-api` performs every call inside `league_get()` and returns
+parsed JSON or a status-derived exception that discards the status code and
+headers. Wrapping the library (KTD10) therefore forecloses exactly what URL-level
+caching, 429 detection, `Retry-After`, and R4's per-component `fetched_at` all
+require. We install our own `Session` on the library's request object and intercept
+there. Not an implementation detail — it is the single point four requirements
+depend on.
+
+**KTD11 — `--week` means scoring period on every read command.** Scoring and
+matchup periods diverge exactly during multi-week playoff rounds, a per-league
+setting. A command needing the enclosing matchup resolves it via `matchup_periods`
+rather than reinterpreting the flag. Pinning it now matters because the divergence
+bites only in December, and a fixture from a single-week-playoff league passes under
+either interpretation.
 
 **KTD4 — A guaranteed-fresh read refreshes the cache as a side effect.** One
 fresh call then benefits the calls after it within TTL. Pure bypass would force an
@@ -303,17 +333,28 @@ Directional. Per-unit file lists are authoritative.
 - `pytest-socket` blocks an outbound connection attempt in a unit test (KTD8)
 - CI passes on 3.12, 3.13, and 3.14
 
+**Budget enforcement lands here, not later.** R14 says the budgets hold from first
+release, so CI carries them from U1: `hyperfine` cold-start against a committed
+baseline, coverage as a hard fail, a wheel-size check, and a direct-dependency
+count. The mutation-score gate runs on a schedule rather than per-PR. Without this,
+R14 is traced but unmet and the lazy-import rule has no enforcement beyond a
+`sys.modules` assertion that cannot detect a slow-but-lazy import.
+
 **Verification:** `uv sync` produces a working env; `uv run fantasy-sports --help`
-succeeds; CI green.
+succeeds; CI green with every budget check active.
 
 ### U2. Core models and Provider Protocol
 
-**Goal:** The domain contract every adapter satisfies.
+**Goal:** The domain contract every adapter satisfies, plus the error taxonomy
+those models raise. `core/errors.py` lands here rather than with the output layer
+because U2's own acceptance test requires the schema-drift error and the output
+layer depends on U2 — putting the taxonomy downstream makes U2 unlandable.
 
 **Requirements:** R2 · **Tracks:** #3 · **Dependencies:** U1
 
-**Files:** `src/fantasy_sports/core/models.py`,
-`src/fantasy_sports/providers/base.py`, `tests/unit/test_models.py`
+**Files:** `src/fantasy_sports/core/models.py`, `src/fantasy_sports/core/errors.py`,
+`src/fantasy_sports/providers/base.py`, `tests/unit/test_models.py`,
+`tests/unit/test_errors.py`
 
 **Approach:** Frozen dataclasses for League, Team, Player, RosterSlot, Matchup,
 Transaction, FreeAgent. Every model carries `provider`, `provider_id`, and `raw`.
@@ -429,8 +470,7 @@ redaction test passes.
 **Requirements:** R11, R12, R13 · **Tracks:** #6 · **Dependencies:** U2
 
 **Files:** `src/fantasy_sports/output/envelope.py`, `output/json.py`,
-`output/table.py`, `output/csv.py`, `src/fantasy_sports/core/errors.py`,
-`tests/unit/test_output.py`, `tests/unit/test_errors.py`
+`output/table.py`, `output/csv.py`, `tests/unit/test_output.py`
 
 **Approach:** Every success wraps in a versioned envelope carrying provider,
 league, season, generation timestamp, and data-age fields. JSON when stdout is not
@@ -496,8 +536,17 @@ coverage. Return every contributing upstream response keyed by request (R1) —
 composite calls fan out and a single payload would drop data. Validate response
 shape enough to raise schema-drift rather than letting `KeyError` escape; the
 library offers no typed exception for this and every constructor does unguarded
-dict access. Classify 401 via the double-probe in the error diagram. Read
-`Retry-After` where present. Surface slot eligibility, current slot, kickoff time,
+dict access. Wrap **every** library call site in a catch-all mapping unrecognized exceptions to
+`PROVIDER_UNAVAILABLE` — `espn-api` raises bare `Exception` on ordinary conditions,
+including `'No transactions found'` for an empty scoring period, which is a
+successful empty result rather than an error.
+
+**The 401 alternate-shape probe is library-owned.** `checkRequestStatus` already
+swaps `/leagueHistory/` for `/seasons/` and retries before raising, so our code
+never observes a bare 401; re-implementing it doubles the request cost against a
+provider whose throttle behaviour is unconfirmed. Map `ESPNAccessDenied` to
+`AUTH_EXPIRED`, or `AUTH_MISSING` when no cookies were supplied. Read `Retry-After`
+at the transport seam (KTD3a) — the only place the header survives. Surface slot eligibility, current slot, kickoff time,
 and lock state (R3).
 
 **Execution note:** Record cassettes before writing assertions. Scrubbing already
@@ -561,8 +610,10 @@ question about the team) · **Tracks:** #9 · **Dependencies:** U3, U5, U7, U12
 
 **Approach:** `league info`, `teams`, `standings`, `roster`, `matchups`,
 `transactions`, `free-agents`, `raw`. Every command a plain typed function in the
-registry; typer callbacks parse and delegate only. `raw --view` accepts repeated
-views and passes through unmodified. Help text written for an agent reading
+registry; typer callbacks parse and delegate only. `raw --view` accepts repeated views and passes through unmodified, and takes
+`--filter` to supply an `x-fantasy-filter` header. Several views are incomplete
+without one — ESPN returns a default subset with a 200 rather than erroring, which
+`raw` would otherwise present to an agent as authoritative provenance. Help text written for an agent reading
 `--help` as its only documentation. Standings tiebreakers live in the ESPN adapter,
 not `core/` — ESPN returns no sorted standings and Yahoo would disagree with a
 shared algorithm.
@@ -570,9 +621,16 @@ shared algorithm.
 **Test scenarios:**
 - Each command returns correct data in both table and JSON modes
 - `roster --team` accepts an id and a name
-- `matchups --week` targets the right period
+- Against a fixture whose `matchup_periods` maps a playoff round to two scoring
+  periods, `matchups --week` on the second returns that round's schedule entry and
+  the requested period's stats (KTD11)
 - `free-agents --pos --limit` filters and bounds correctly
+- `transactions --limit` walks scoring periods backward from the current one under
+  a stated cap on upstream calls, and the envelope reports every contributing
+  request with the oldest age across them
 - `raw --view` repeated returns each view's payload unmodified
+- `raw --view kona_player_info` without `--filter` is rejected or labeled unfiltered
+  in the envelope — never presented as an authoritative result
 - Every command honors `--league`, `--season`, `--fresh`, `--no-cache`
 - No command module imports `typer` (KTD7 boundary)
 - `CliRunner` asserts exact JSON envelope shape per command
@@ -618,8 +676,14 @@ procedure documented.
 **Files:** `src/fantasy_sports/health/check.py`, `health/manifest.py`,
 `src/fantasy_sports/commands/doctor.py`, `tests/unit/test_health.py`
 
-**Approach:** Fires on error only — schema-drift, availability, unexpected
-exceptions — never on the happy path or on causes already known locally. 2s
+**Approach:** **Premise, stated because the design silently rests on it:** the repository is
+public from U1 and `health.json` is committed with a placeholder `latest_version`,
+so the fetch path is exercisable before any package is published. Until a release
+exists, `upgrade_available` is always false and the check's only live function is
+surfacing provider status — that is expected, not a defect.
+
+Fires on error only — schema-drift, availability, unexpected exceptions — never on
+the happy path or on causes already known locally. 2s
 timeout, cached 6h, fails open in every failure mode. No telemetry: an
 unauthenticated GET of a public static file, stated plainly in the README.
 `doctor` runs every check proactively in one call.
@@ -648,11 +712,28 @@ fail-open mode verified.
 
 **Approach:** Assert on required-field presence at the paths constructors
 dereference, and on enum coverage for position, slot, and pro-team maps — the
-cheapest check and the one that catches silent map drift. Hits `league_id=1234,
-year=2018`, proven publicly stable across years of unattended daily use. Daily in
-season, weekly otherwise. Classifies by *where* the exception occurred so a
-dependency bump does not read as ESPN drift. Publishes `health.json` for U10's
-client check to read.
+cheapest check and the one that catches silent map drift. **Two legs, because one league cannot cover the surface.** `espn-api` raises
+before any request for `free_agents` and `box_scores` on pre-2019 seasons, so
+pinning the canary to `league_id=1234, year=2018` leaves `kona_player_info`, the
+box-score view combination, and the header-gated multi-call paths with **zero**
+drift coverage — reporting green while `free-agents` and `matchups` are broken,
+the exact failure KTD9 exists to prevent. Leg one keeps 1234/2018 for bootstrap
+and enum assertions; leg two runs the credentialed `live` suite against a real
+current-season league for the header-gated views.
+
+**Pinned dependencies, not just exception-location classification.** The 12-day
+red-canary incident this design cites produced *two* mitigations, and taking only
+one leaves the false positive it was meant to prevent. The job installs from the
+committed lockfile with `uv sync --frozen`, and a run whose resolved dependency
+set differs from the last green run reports **inconclusive**, not drift.
+
+**Access-policy regression needs memory.** A 200-to-401 flip on an unchanged
+league/year/view is a distinct drift class from a shape change, detectable only
+against the previous run. The canary commits a per-run league/year/view-to-status
+record alongside `health.json`; a previously-200 combination now returning 401 or
+404 raises `ACCESS_POLICY_REGRESSION` rather than looking like a typo'd league id.
+
+Daily in season, weekly otherwise. Publishes `health.json` for U10's client check.
 
 **Out of scope:** auto-filing issues on drift. A red scheduled run is signal
 enough for a solo operator (KTD9).
@@ -661,6 +742,12 @@ enough for a solo operator (KTD9).
 - An unknown position, slot, or pro-team id trips the enum-coverage assertion
 - A missing required field at a constructor-dereferenced path trips detection
 - A failure raised before any HTTP response classifies as build breakage, not drift
+- A run whose resolved dependency set differs from the last green run reports
+  inconclusive rather than drift
+- A previously-200 league/year/view combination now returning 401 raises
+  `ACCESS_POLICY_REGRESSION`, distinguishable from a bad league id
+- The current-season leg exercises `kona_player_info` and the box-score view
+  combination, which the 2018 leg structurally cannot reach
 - A failure raised after a 200 with an unrecognized shape classifies as drift
 - The published manifest is well-formed and readable by U10's client check
 - The canary uses no credentials, so it is safe to run from CI
@@ -685,6 +772,17 @@ verification are implementable as the origin specifies. Capture roster-lock
 semantics on the wire, the rejection vocabulary, whether the read credential scope
 authorizes writes including on co-managed teams, whether write `--week` means
 scoring or matchup period, and where commissioner authority begins.
+
+**Safety protocol — this is the project's first real mutation, and every control
+that would protect it is blocked on this very unit.** The journal, dry-run,
+scoped reversal, and the calibration gate all depend on U11, so none exist yet.
+Therefore: record the full prior lineup by hand before any write; prefer a
+completed season or a throwaway league over a live one; run before 2026-09-09;
+and derive commissioner-authority boundaries from **read-side responses and ESPN
+UI affordances only** — never by attempting a commissioner-scoped write. Probing
+authority over another manager's roster is precisely the action Scope Boundaries
+says this tool will not take, and a mis-probe mid-season is a visible, hard-to-
+explain mutation on someone else's team.
 
 **Test expectation:** none — research unit. The deliverable is the brief.
 
