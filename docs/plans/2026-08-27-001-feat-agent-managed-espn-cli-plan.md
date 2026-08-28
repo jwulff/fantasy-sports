@@ -95,11 +95,18 @@ free because it arrives transitively through `espn-api`. This plan adds exactly
 one: `packaging`, for PEP 440 comparison in the health check. `platformdirs` is
 dropped per ADR-0008 and KTD6.
 
-**This plan's set is six** — `espn-api`, `typer`, `rich`, `tomli-w`, `keyring`,
-`packaging` — and `requests` stays transitive because nothing here writes. Writes
-promote `requests` to direct, making seven, since `espn-api` exposes no reusable
-session. Amend ADR-0008 to six now with the note that writes take it to seven,
-rather than pre-amending for a dependency this plan does not yet incur.
+**This plan's set is six or seven.** Six are certain: `espn-api`, `typer`, `rich`,
+`tomli-w`, `keyring`, `packaging`. `requests` becomes the seventh the moment U7
+exercises KTD10's direct-HTTP fallback for a view `espn-api` does not cover — which
+is likely but not yet known. Writes make it certain regardless, since `espn-api`
+exposes no reusable session.
+
+Amend ADR-0008 to seven, conditioned on that fallback. Note that `packaging` is
+required by the client health check's PEP 440 comparison, which traces to ADR-0005
+rather than to an origin requirement — the origin never asked for a self-upgrade
+nudge. That is a deliberate carry-forward of an accepted decision, not an
+untraced feature, and it is called out here so the traceability gap is visible
+rather than silent.
 
 **KTD10 — Wrap `espn-api` for reads; drop to direct HTTP only where it lacks
 coverage.** The library is years of accumulated knowledge about an undocumented
@@ -141,9 +148,12 @@ after importing the entry point, because a code-review convention will not hold.
 cassette miss fails loudly instead of silently calling ESPN and making the suite
 quietly dependent on ESPN being up.
 
-**KTD9 — Drift detection ships in the core read path.** Its function is noticing
-ESPN changed shape before a decision is made against broken data, which is John's
-exposure. Only the public-facing manifest and auto-filed issues are deferred.
+**KTD9 — Drift detection and its manifest ship in the core read path.** Detection
+notices ESPN changed shape before a decision is made against broken data, which is
+John's exposure. The manifest ships with it, because the client-side check has
+nothing to read without one. **Only auto-filed issues are deferred** — a red
+scheduled run is sufficient signal for a solo operator, and issue-filing is
+release-audience machinery.
 
 ---
 
@@ -599,38 +609,64 @@ procedure documented.
 
 **Verification:** Offline CI passes with network disabled; the scan test passes.
 
-### U10. Drift detection, health check, and doctor
+### U10. Client health check and doctor
 
-**Goal:** Notice ESPN changed before a decision is made against broken data.
+**Goal:** Turn an upstream break into actionable guidance instead of a stack trace.
 
-**Requirements:** R12 · **Tracks:** #10, #11 · **Dependencies:** U5, U7
+**Requirements:** R12 (carries ADR-0005) · **Tracks:** #10 · **Dependencies:** U5, U7
 
 **Files:** `src/fantasy_sports/health/check.py`, `health/manifest.py`,
-`src/fantasy_sports/commands/doctor.py`, `.github/workflows/canary.yml`,
-`health.json`, `tests/unit/test_health.py`, `tests/live/test_canary.py`
+`src/fantasy_sports/commands/doctor.py`, `tests/unit/test_health.py`
 
-**Approach:** Detection is core (KTD9). Assert on required-field presence at the
-paths constructors dereference and on enum coverage for position, slot, and pro-team
-maps. Canary hits `league_id=1234, year=2018` — proven publicly stable across years
-of unattended daily use — daily in season, weekly otherwise, and classifies by
-*where* the exception occurred so a dependency bump does not read as ESPN drift.
-Client-side check fires on error only, 2s timeout, cached 6h, fails open in every
-mode, no telemetry. `doctor` runs everything in one call.
+**Approach:** Fires on error only — schema-drift, availability, unexpected
+exceptions — never on the happy path or on causes already known locally. 2s
+timeout, cached 6h, fails open in every failure mode. No telemetry: an
+unauthenticated GET of a public static file, stated plainly in the README.
+`doctor` runs every check proactively in one call.
 
 **Test scenarios:**
-- Health check fires on schema-drift and availability; never on the happy path,
-  auth-expired, or rate-limited
+- Fires on schema-drift and availability; never on the happy path, auth-expired,
+  or rate-limited
 - Offline, timeout, malformed JSON, and 404 each fail open silently, surfacing the
   original error unchanged — one test per mode
 - The `health` block appears in JSON error envelopes with `upgrade_available`
 - The opt-out env var suppresses the check entirely
 - Version comparison uses PEP 440, not string ordering
-- An unknown position or slot id trips the enum-coverage assertion
-- A canary failure before any HTTP response classifies as build breakage, not drift
 - `doctor --json` reports version, provider status, credential age, cache health
 
-**Verification:** Canary runs green on schedule; forcing a shape change opens an
-issue; `doctor` reports accurately.
+**Verification:** `doctor` reports accurately against a real league; every
+fail-open mode verified.
+
+### U14. Canary drift detection
+
+**Goal:** Notice ESPN changed shape before a decision is made against broken data.
+
+**Requirements:** R12 (carries ADR-0005) · **Tracks:** #11 · **Dependencies:** U7, U10
+
+**Files:** `.github/workflows/canary.yml`, `health.json`,
+`tests/live/test_canary.py`
+
+**Approach:** Assert on required-field presence at the paths constructors
+dereference, and on enum coverage for position, slot, and pro-team maps — the
+cheapest check and the one that catches silent map drift. Hits `league_id=1234,
+year=2018`, proven publicly stable across years of unattended daily use. Daily in
+season, weekly otherwise. Classifies by *where* the exception occurred so a
+dependency bump does not read as ESPN drift. Publishes `health.json` for U10's
+client check to read.
+
+**Out of scope:** auto-filing issues on drift. A red scheduled run is signal
+enough for a solo operator (KTD9).
+
+**Test scenarios:**
+- An unknown position, slot, or pro-team id trips the enum-coverage assertion
+- A missing required field at a constructor-dereferenced path trips detection
+- A failure raised before any HTTP response classifies as build breakage, not drift
+- A failure raised after a 200 with an unrecognized shape classifies as drift
+- The published manifest is well-formed and readable by U10's client check
+- The canary uses no credentials, so it is safe to run from CI
+
+**Verification:** Canary runs green on schedule; deliberately corrupting a fixture
+shape turns it red and classifies correctly.
 
 ### U11. ESPN write-surface research spike
 
@@ -673,7 +709,8 @@ permanent committed document.
 ### Deferred for later
 
 Carried from origin: Yahoo and Sleeper adapters; the MCP server; draft tooling;
-public release automation and the published health manifest.
+public release automation and package publishing. Auto-filed issues from the
+canary; a failing scheduled run is signal enough for now.
 
 ### Outside this product's identity
 
@@ -697,6 +734,20 @@ point this becomes knowable, which is why it runs in parallel from the start.
 **Season timing.** The draft is being scheduled for early September and the season
 starts 2026-09-09. Under pressure the variable is scope, not the quality budgets.
 The read path is the part that can realistically land first.
+
+**If the runway runs out, cut here.** Thirteen units against roughly one to two
+weeks with no code written. Rather than cutting ad hoc under pressure:
+
+*Must land before the draft* — U1, U2, U3, U13, U4, U5, U6, U7, U12, U8. That is
+the read path an agent can actually use, with credential handling and untrusted-text
+labeling intact. Neither of those two is negotiable: they are the security controls,
+and cutting a control to hit a date is the failure mode this list exists to prevent.
+
+*Can land after the draft, before the season settles* — U9 (the rest of the test
+harness), U10, U14. Drift detection matters across a season, not on draft night.
+
+*Runs in parallel throughout* — U11, which is research and blocks nothing in the
+read path.
 
 **Single-maintainer dependency.** `espn-api` has one primary maintainer. The
 Provider Protocol contains the risk; direct HTTP is the fallback.
