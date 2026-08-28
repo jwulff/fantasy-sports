@@ -1,7 +1,22 @@
 # ADR 0002: Normalize shape, not semantics
 
-**Status:** Accepted
+**Status:** Amended 2026-08-27 by `docs/brainstorms/2026-08-26-agent-managed-fantasy-leagues-requirements.md`
 **Date:** 2026-08-26
+
+> **Amendment.** The core decision — normalize a subset, passthrough the rest —
+> stands. What changed is the *selection rule*. This ADR defined the normalized
+> layer as the structural **intersection** across providers, so portability
+> constrained what could be included. Normalization is now selected for
+> **legibility per provider**: ESPN's normalized output may carry fields no other
+> provider exposes, and cross-provider equivalence is not a goal. Raw ships
+> alongside normalized in every response rather than as the fallback for
+> non-intersecting fields.
+>
+> Consequence for §14 of `docs/ARCHITECTURE.md`: findings grounded in ESPN's own
+> model remain binding (plural owners, two transaction surfaces, both period
+> identifiers in raw, per-adapter standings tiebreakers). Finding 13 — keeping
+> slot eligibility out of the normalized model — is **void**; R3 now requires it,
+> because an agent cannot construct a legal lineup without it.
 
 ## Context
 

@@ -1,7 +1,28 @@
 # ADR 0006: Read-only in v0.1; writes gated behind dry-run and confirmation
 
-**Status:** Accepted
+**Status:** Partially superseded 2026-08-27 by `docs/brainstorms/2026-08-26-agent-managed-fantasy-leagues-requirements.md`
 **Date:** 2026-08-26
+
+> **What was superseded.** Read-only v0.1 and the deferral of writes to v0.3 are
+> reversed: writes are core scope, because an interface that can only observe does
+> not manage anything. Three of the four gates below are removed — dry-run as the
+> default, the printed diff, and interactive confirmation. The reason is not that
+> an agent will pass `--yes`; that argument would invalidate `--dry-run` equally.
+> It is that a synchronous human prompt cannot be satisfied by an unattended
+> process, so it converts unattended operation into failure rather than safety.
+>
+> **What still stands, and is not negotiable.** The fourth gate — routing
+> autonomous writes through `/sanity-gate` — survives for the irreversible write
+> class: drops, processed waiver claims, and trades. The 2026-08-27 document
+> review established that reversibility, the control offered in exchange for the
+> other three gates, does not exist for those operations. A dropped player can be
+> claimed within seconds, a processed waiver claim consumes FAAB and priority, a
+> trade needs the counterparty's consent, and any lineup change locks at kickoff.
+> Auditability cannot substitute for prevention where reversal is unavailable.
+>
+> **What this ADR got right.** Its stated rationale — "a miscalculated automated
+> waiver claim is a real, un-undoable cost" — was correct, and the reframe
+> initially failed to engage with it.
 
 ## Context
 
