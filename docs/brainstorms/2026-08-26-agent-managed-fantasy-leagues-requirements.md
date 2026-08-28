@@ -84,6 +84,22 @@ out of the normalized model — is **amended** by R3, which requires it. The
 provider interface remains shaped for Yahoo and Sleeper structurally; what is no
 longer promised is that their normalized output will be comparable to ESPN's.
 
+**Lineup writes first; the irreversible class follows.** The write surface splits
+cleanly along the reversibility line drawn in R8, and it ships in that order.
+
+*Phase one* is lineup changes only — the weekly management loop, reversible while
+slots are unlocked, and the case the journal can actually restore. It proves the
+write path against real ESPN behaviour before anything spends a resource.
+
+*Phase two* is waiver claims, drops, adds, and trades. These are the irreversible
+class and carry ADR-0006's surviving sanity gate. Adds are grouped here rather
+than with lineup changes because an add that requires a corresponding drop
+inherits the drop's irreversibility — the displaced player hits waivers and can be
+claimed by anyone.
+
+Both phases are wanted. The ordering is about which one absorbs the risk of an
+unproven write layer, not about which is more valuable.
+
 **Freshness is a correctness property.** Cache TTLs were tuned for latency. An
 agent deciding a lineup against a kickoff deadline can be wrong because its data
 was stale, which makes staleness a correctness concern and requires both a
@@ -296,9 +312,6 @@ exists to prevent.
 
 **Resolve before planning**
 
-- Which write operations ship first? Lineup changes are the obvious core; whether
-  waiver claims, drops, and trades are in the same release is unsettled — and per
-  R8 those three are the irreversible class.
 - What is the journal's retention policy, and is it per-league or global?
 - Is scheduling and triggering of agent runs out of this product's scope, the way
   the authorization model is, or is it an unfilled gap? Nothing currently states
