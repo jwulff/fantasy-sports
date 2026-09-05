@@ -23,7 +23,9 @@ interactions:
       message: OK
 - request:
     body: null
-    headers: {}
+    headers:
+      x-fantasy-filter:
+      - '{"filterActive": {"value": true}}'
     method: GET
     uri: https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/players?view=players_wl
   response:
@@ -90,7 +92,10 @@ interactions:
       message: OK
 - request:
     body: null
-    headers: {}
+    headers:
+      x-fantasy-filter:
+      - '{"transactions": {"filterType": {"value": ["FREEAGENT", "WAIVER", "WAIVER_ERROR",
+        "TRADE_ACCEPT", "TRADE_UPHOLD", "ROSTER", "DRAFT"]}}}'
     method: GET
     uri: https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/segments/0/leagues/99?scoringPeriodId=2&view=mTransactions2
   response:
@@ -104,7 +109,12 @@ interactions:
       message: OK
 - request:
     body: null
-    headers: {}
+    headers:
+      x-fantasy-filter:
+      - '{"topics": {"filterType": {"value": ["ACTIVITY_TRANSACTIONS"]}, "limit":
+        25, "limitPerMessageSet": {"value": 25}, "offset": 0, "sortMessageDate": {"sortPriority":
+        1, "sortAsc": false}, "sortFor": {"sortPriority": 2, "sortAsc": false}, "filterIncludeMessageTypeIds":
+        {"value": [178, 180, 179, 239, 181, 244]}}}'
     method: GET
     uri: https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/segments/0/leagues/99/communication/?view=kona_league_communication
   response:
@@ -118,7 +128,12 @@ interactions:
       message: OK
 - request:
     body: null
-    headers: {}
+    headers:
+      x-fantasy-filter:
+      - '{"players": {"filterStatus": {"value": ["FREEAGENT", "WAIVERS"]}, "filterSlotIds":
+        {"value": []}, "limit": 50, "sortPercOwned": {"sortPriority": 1, "sortAsc":
+        false}, "sortDraftRanks": {"sortPriority": 100, "sortAsc": true, "value":
+        "STANDARD"}}}'
     method: GET
     uri: https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/segments/0/leagues/99?scoringPeriodId=2&view=kona_player_info
   response:
@@ -126,6 +141,26 @@ interactions:
       string: '{"players":[{"draftAuctionValue":0,"id":3001,"keeperValue":0,"lineupLocked":false,"onTeamId":0,"player":{"active":true,"defaultPositionId":4,"droppable":true,"eligibleSlots":[3,4,5,23,20,21],"firstName":"Barbara","fullName":"Barbara
         Liskov","id":3001,"injured":false,"injuryStatus":"ACTIVE","lastName":"Liskov","ownership":{"percentOwned":61.5,"percentStarted":40.25},"proTeamId":26,"stats":[{"appliedAverage":0.0,"appliedStats":{"42":100.0},"appliedTotal":0.0,"externalId":"2026","id":"02026","proTeamId":26,"scoringPeriodId":2,"seasonId":2026,"statSourceId":0,"statSplitTypeId":1,"stats":{"42":100.0}},{"appliedAverage":8.4,"appliedStats":{"42":110.0},"appliedTotal":8.4,"externalId":"2026","id":"12026","proTeamId":26,"scoringPeriodId":2,"seasonId":2026,"statSourceId":1,"statSplitTypeId":1,"stats":{"42":110.0}}],"universeId":1},"ratings":{},"rosterLocked":false,"status":"FREEAGENT","tradeLocked":false},{"draftAuctionValue":0,"id":3002,"keeperValue":0,"lineupLocked":false,"onTeamId":0,"player":{"active":true,"defaultPositionId":6,"droppable":true,"eligibleSlots":[5,6,23,20,21],"firstName":"Radia","fullName":"Radia
         Perlman","id":3002,"injured":false,"injuryStatus":"ACTIVE","lastName":"Perlman","ownership":{"percentOwned":61.5,"percentStarted":40.25},"proTeamId":12,"stats":[{"appliedAverage":0.0,"appliedStats":{"42":100.0},"appliedTotal":0.0,"externalId":"2026","id":"02026","proTeamId":12,"scoringPeriodId":2,"seasonId":2026,"statSourceId":0,"statSplitTypeId":1,"stats":{"42":100.0}},{"appliedAverage":6.1,"appliedStats":{"42":110.0},"appliedTotal":6.1,"externalId":"2026","id":"12026","proTeamId":12,"scoringPeriodId":2,"seasonId":2026,"statSourceId":1,"statSplitTypeId":1,"stats":{"42":110.0}}],"universeId":1},"ratings":{},"rosterLocked":false,"status":"FREEAGENT","tradeLocked":false}]}'
+    headers:
+      Content-Type:
+      - application/json;charset=utf-8
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      x-fantasy-filter:
+      - '{"players": {"filterStatus": {"value": ["FREEAGENT", "WAIVERS"]}, "filterSlotIds":
+        {"value": [4]}, "limit": 50, "sortPercOwned": {"sortPriority": 1, "sortAsc":
+        false}, "sortDraftRanks": {"sortPriority": 100, "sortAsc": true, "value":
+        "STANDARD"}}}'
+    method: GET
+    uri: https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/segments/0/leagues/99?scoringPeriodId=2&view=kona_player_info
+  response:
+    body:
+      string: '{"players":[{"draftAuctionValue":0,"id":3001,"keeperValue":0,"lineupLocked":false,"onTeamId":0,"player":{"active":true,"defaultPositionId":4,"droppable":true,"eligibleSlots":[3,4,5,23,20,21],"firstName":"Barbara","fullName":"Barbara
+        Liskov","id":3001,"injured":false,"injuryStatus":"ACTIVE","lastName":"Liskov","ownership":{"percentOwned":61.5,"percentStarted":40.25},"proTeamId":26,"stats":[{"appliedAverage":0.0,"appliedStats":{"42":100.0},"appliedTotal":0.0,"externalId":"2026","id":"02026","proTeamId":26,"scoringPeriodId":2,"seasonId":2026,"statSourceId":0,"statSplitTypeId":1,"stats":{"42":100.0}},{"appliedAverage":8.4,"appliedStats":{"42":110.0},"appliedTotal":8.4,"externalId":"2026","id":"12026","proTeamId":26,"scoringPeriodId":2,"seasonId":2026,"statSourceId":1,"statSplitTypeId":1,"stats":{"42":110.0}}],"universeId":1},"ratings":{},"rosterLocked":false,"status":"FREEAGENT","tradeLocked":false}]}'
     headers:
       Content-Type:
       - application/json;charset=utf-8
