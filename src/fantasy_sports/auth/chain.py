@@ -456,21 +456,35 @@ def require_credentials(
     keychain_reader: Callable[[CredentialSpec], str | None] | None = None,
     config: Mapping[str, str] | None = None,
 ) -> CredentialSet:
-    """:func:`resolve_credentials`, but ``AUTH_MISSING`` if anything is absent.
+    """:func:`resolve_credentials`, but ``AUTH_MISSING`` if a *required* one is absent.
 
     This is the gate a command calls before touching a provider. Absent
     credentials produce a typed error with a stable code and a remediation —
     never a ``KeyError`` from a caller that assumed the value was there.
+
+    Only ``required`` specs block. ``CredentialSpec.required`` reaches this
+    layer for the first time now that the provider-facing and resolution-facing
+    specs are one class (jwulff/fantasy-sports#35); a provider that declares an
+    optional credential must not have every command refuse to run until it is
+    configured. ESPN's two cookies are both required, so nothing here changes
+    for the only provider that exists yet.
+
+    ``CredentialSet.missing`` still lists **everything** that did not resolve,
+    optional included. It is what ``auth status`` reports, and an optional
+    credential being absent is a fact worth reporting even though it is not a
+    fact worth failing on.
     """
     specs = tuple(specs)
     credentials = resolve_credentials(
         specs, environ=environ, keychain_reader=keychain_reader, config=config
     )
-    if credentials.missing:
-        names = ", ".join(credentials.missing)
+    required = {spec.name for spec in specs if spec.required}
+    blocking = tuple(name for name in credentials.missing if name in required)
+    if blocking:
+        names = ", ".join(blocking)
         raise _auth_missing(
             f"No credentials configured for: {names}.",
-            remediation=_remediation_for(specs, credentials.missing),
+            remediation=_remediation_for(specs, blocking),
         )
     return credentials
 

@@ -493,6 +493,46 @@ def test_an_error_without_remediation_omits_it_from_the_payload():
     assert "details" not in payload
 
 
+def test_an_absent_optional_credential_does_not_block_the_gate():
+    """`required` reaches the chain for the first time now the specs are one class.
+
+    A provider that declares an optional credential must not make every
+    command refuse to run until it is configured. It still shows up in
+    `missing`, because `auth status` reporting it absent is useful — it is
+    just not a reason to fail.
+    """
+    optional = chain.CredentialSpec(name="token", label="Optional token", required=False)
+    required = chain.CredentialSpec(
+        name="espn_s2", label="ESPN_S2 cookie", env_vars=("FANTASY_SPORTS_ESPN_S2",)
+    )
+
+    credentials = chain.require_credentials(
+        [required, optional],
+        environ={"FANTASY_SPORTS_ESPN_S2": "abcdefgh"},
+        keychain_reader=lambda _: None,
+        config={},
+    )
+    assert credentials.reveal("espn_s2") == "abcdefgh"
+    assert credentials.missing == ("token",), "still reported, just not blocking"
+    assert not credentials.complete
+
+
+def test_an_absent_required_credential_still_blocks_alongside_an_optional_one():
+    """The control: `required=False` must not disarm the gate for its neighbours."""
+    optional = chain.CredentialSpec(name="token", label="Optional token", required=False)
+    required = chain.CredentialSpec(
+        name="espn_s2", label="ESPN_S2 cookie", env_vars=("FANTASY_SPORTS_ESPN_S2",)
+    )
+
+    with pytest.raises(AuthMissingError) as excinfo:
+        chain.require_credentials(
+            [required, optional], environ={}, keychain_reader=lambda _: None, config={}
+        )
+    message = str(excinfo.value)
+    assert "espn_s2" in message
+    assert "token" not in message, "an optional credential is not why the gate closed"
+
+
 def test_a_spec_with_no_env_vars_still_produces_a_usable_remediation():
     """`CredentialSpec.env_vars` is optional now that the two specs are one.
 
