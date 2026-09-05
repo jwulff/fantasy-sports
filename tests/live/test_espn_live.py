@@ -32,7 +32,13 @@ from fantasy_sports.auth.chain import ESPN_CREDENTIALS, resolve_credentials
 from fantasy_sports.core.errors import AuthMissingError, LeagueNotFoundError
 from fantasy_sports.providers.espn import EspnProvider
 
-pytestmark = pytest.mark.live
+# `enable_socket` is load-bearing, not decoration. `addopts` in
+# `pyproject.toml` carries `--disable-socket` for the whole run, so without
+# this marker every live test fails with "A test tried to use
+# socket.getaddrinfo" and tells you nothing about ESPN. A `tests/live/conftest.py`
+# would be the tidier home for it, but a second `conftest` basename collides
+# with `tests/conftest.py` under pytest's default import mode.
+pytestmark = [pytest.mark.live, pytest.mark.enable_socket]
 
 CANARY_LEAGUE = "1234"
 CANARY_SEASON = 2018

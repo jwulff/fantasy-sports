@@ -2,9 +2,22 @@
 
 from __future__ import annotations
 
+import inspect
+
 import pytest
 
-from fantasy_sports.commands import REGISTRY, CommandSpec, groups, in_group, register, top_level
+from fantasy_sports.commands import (
+    COMMON_PARAMS,
+    OUTPUT_PARAM,
+    REGISTRY,
+    CommandSpec,
+    DataShape,
+    Param,
+    groups,
+    in_group,
+    register,
+    top_level,
+)
 
 
 @pytest.fixture
@@ -16,8 +29,72 @@ def clean_registry():
     REGISTRY.update(saved)
 
 
-def test_registry_starts_empty_until_the_read_commands_land():
-    assert REGISTRY == {}, "commands land with jwulff/fantasy-sports#9"
+#: The v0.1 command surface, exactly as ARCHITECTURE §12 lists it. `doctor`
+#: belongs to the health issue and no write command exists yet.
+V01_SURFACE = frozenset(
+    {
+        "auth login",
+        "auth status",
+        "free-agents",
+        "league info",
+        "matchups",
+        "raw",
+        "roster",
+        "standings",
+        "teams",
+        "transactions",
+    }
+)
+
+
+def test_the_v01_surface_is_registered_and_nothing_else_is():
+    """ARCHITECTURE §12, as a set. A new command here is a scope change."""
+    assert set(REGISTRY) == V01_SURFACE
+
+
+def test_every_command_declares_a_shape_and_a_summary():
+    for spec in REGISTRY.values():
+        assert isinstance(spec.shape, DataShape), spec.invocation
+        assert spec.summary.endswith("."), f"{spec.invocation}: help is a sentence"
+        assert len(spec.summary) <= 95, f"{spec.invocation}: help must fit a terminal"
+
+
+def test_declared_parameters_match_the_handler_they_name():
+    """The projections are built from `params`, so a drift there is invisible.
+
+    Nothing checks a handler's real signature at import time -- resolving one
+    is deliberately lazy -- so this is the test that keeps the declaration and
+    the implementation from disagreeing until an agent invokes the command.
+    """
+    for spec in REGISTRY.values():
+        signature = inspect.signature(spec.resolve())
+        accepted = {
+            name
+            for name, param in signature.parameters.items()
+            if param.kind is inspect.Parameter.KEYWORD_ONLY
+        }
+        declared = {param.name for param in spec.handler_params}
+        assert declared == accepted, spec.invocation
+
+
+def test_common_options_reach_every_league_reading_command():
+    for spec in REGISTRY.values():
+        names = {param.name for param in spec.handler_params}
+        common = {param.name for param in COMMON_PARAMS}
+        assert (common <= names) is spec.takes_league, spec.invocation
+        assert "output" not in names, f"{spec.invocation}: rendering is not a handler concern"
+
+
+def test_the_cli_adds_output_to_every_command():
+    for spec in REGISTRY.values():
+        assert spec.cli_params[-1] is OUTPUT_PARAM
+
+
+def test_a_flag_defaults_to_its_dashed_name():
+    assert Param(name="no_cache", help="h", annotation=bool).cli_flags == ("--no-cache",)
+    assert Param(name="week", help="h", annotation=int | None).metavar == "INTEGER"
+    assert Param(name="fresh", help="h", annotation=bool).metavar is None
+    assert Param(name="fresh", help="h", annotation=bool).display == "--fresh"
 
 
 def test_register_keys_by_full_invocation(clean_registry):

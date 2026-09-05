@@ -20,16 +20,35 @@ HANDLERS = "_fake_commands"
 def populated_registry():
     saved = dict(REGISTRY)
     REGISTRY.clear()
-    register(CommandSpec(name="ok", summary="Print ok.", handler=f"{HANDLERS}:ok"))
-    register(CommandSpec(name="boom", summary="Exit 3.", handler=f"{HANDLERS}:explicit_exit"))
-    register(CommandSpec(name="stop", summary="Abort.", handler=f"{HANDLERS}:aborted"))
+    register(
+        CommandSpec(name="ok", summary="Print ok.", handler=f"{HANDLERS}:ok", takes_league=False)
+    )
     register(
         CommandSpec(
-            name="status", summary="Grouped.", handler=f"{HANDLERS}:in_a_group", group="auth"
+            name="boom", summary="Exit 3.", handler=f"{HANDLERS}:explicit_exit", takes_league=False
         )
     )
     register(
-        CommandSpec(name="bare", summary="Bare.", handler=f"{HANDLERS}:raises_bare_typer_exception")
+        CommandSpec(
+            name="stop", summary="Abort.", handler=f"{HANDLERS}:aborted", takes_league=False
+        )
+    )
+    register(
+        CommandSpec(
+            name="status",
+            summary="Grouped.",
+            handler=f"{HANDLERS}:in_a_group",
+            group="auth",
+            takes_league=False,
+        )
+    )
+    register(
+        CommandSpec(
+            name="bare",
+            summary="Bare.",
+            handler=f"{HANDLERS}:raises_bare_typer_exception",
+            takes_league=False,
+        )
     )
     yield REGISTRY
     REGISTRY.clear()
@@ -44,12 +63,12 @@ def test_app_exposes_top_level_commands_and_groups(populated_registry):
 
 def test_a_registered_command_runs(populated_registry, capsys: pytest.CaptureFixture[str]):
     assert run(["ok"]) == 0
-    assert "ok-ran" in capsys.readouterr().out
+    assert '"ran": "ok-ran"' in capsys.readouterr().out
 
 
 def test_a_grouped_command_runs(populated_registry, capsys: pytest.CaptureFixture[str]):
     assert run(["auth", "status"]) == 0
-    assert "group-ran" in capsys.readouterr().out
+    assert '"ran": "group-ran"' in capsys.readouterr().out
 
 
 def test_explicit_exit_code_propagates(populated_registry):
@@ -74,7 +93,7 @@ def test_main_entry_falls_through_to_the_app(
     populated_registry, capsys: pytest.CaptureFixture[str]
 ):
     assert main_entry(["ok"]) == 0
-    assert "ok-ran" in capsys.readouterr().out
+    assert '"ran": "ok-ran"' in capsys.readouterr().out
 
 
 def test_help_lists_registered_commands_and_groups(populated_registry):
