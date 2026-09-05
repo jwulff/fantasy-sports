@@ -19,9 +19,9 @@ No field name below is invented.
 
 ```python
 # espn_api/requests/constant.py (current, v0.46.0)
-FANTASY_BASE_ENDPOINT = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/"
-NEWS_BASE_ENDPOINT = "https://site.api.espn.com/apis/fantasy/v3/games/"
-FANTASY_SPORTS = {"nfl": "ffl", "nba": "fba", "nhl": "fhl", "mlb": "flb", "wnba": "wfba"}
+FANTASY_BASE_ENDPOINT = 'https://lm-api-reads.fantasy.espn.com/apis/v3/games/'
+NEWS_BASE_ENDPOINT    = 'https://site.api.espn.com/apis/fantasy/v3/games/'
+FANTASY_SPORTS = {'nfl': 'ffl', 'nba': 'fba', 'nhl': 'fhl', 'mlb': 'flb', 'wnba': 'wfba'}
 ```
 
 **The 2024 migration, confirmed to the exact commit:**
@@ -225,13 +225,11 @@ def checkRequestStatus(self, status, extend="", params=None, headers=None):
         # ... swap /leagueHistory/ ⇄ /seasons/{year}/segments/0/leagues/ ...
         r = requests.get(self.LEAGUE_ENDPOINT + extend, ...)
         if r.status_code == 200:
-            return r.json()  # it wasn't an auth problem — wrong URL shape
-        self.LEAGUE_ENDPOINT = original_endpoint  # restore; don't corrupt future calls
-        if not self.cookies or "espn_s2" not in self.cookies or "SWID" not in self.cookies:
+            return r.json()          # it wasn't an auth problem — wrong URL shape
+        self.LEAGUE_ENDPOINT = original_endpoint   # restore; don't corrupt future calls
+        if not self.cookies or 'espn_s2' not in self.cookies or 'SWID' not in self.cookies:
             raise ESPNAccessDenied("espn_s2 and swid are required")
-        raise ESPNAccessDenied(
-            f"League {self.league_id} cannot be accessed with the provided credentials"
-        )
+        raise ESPNAccessDenied(f"League {self.league_id} cannot be accessed with the provided credentials")
     elif status == 404:
         raise ESPNInvalidLeague(f"League {self.league_id} does not exist")
     elif status != 200:
@@ -764,7 +762,7 @@ filtered the way you asked. Confirmed exact filter shape from source
 filters = {
     "players": {
         "filterStatus": {"value": ["FREEAGENT", "WAIVERS"]},
-        "filterSlotIds": {"value": slot_filter},  # e.g. [4] for WR
+        "filterSlotIds": {"value": slot_filter},   # e.g. [4] for WR
         "limit": size,
         "sortPercOwned": {"sortPriority": 1, "sortAsc": False},
         "sortDraftRanks": {"sortPriority": 100, "sortAsc": True, "value": "STANDARD"},
