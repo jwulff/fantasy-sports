@@ -2,6 +2,8 @@
 
 **Status:** Accepted
 **Date:** 2026-08-26
+**Amended:** 2026-09-05 — `CONFIG_INVALID` added to the taxonomy
+(jwulff/fantasy-sports#35, decided on #6).
 
 ## Context
 
@@ -39,11 +41,29 @@ code:**
 | `AUTH_MISSING` | No credentials configured | Ask the human |
 | `AUTH_EXPIRED` | Credentials rejected | Ask the human to re-auth |
 | `LEAGUE_NOT_FOUND` | Bad ID or no access | Ask the human |
+| `CONFIG_INVALID` | `config.toml` will not parse | Ask the human to fix the file |
 | `PROVIDER_UNAVAILABLE` | Upstream 5xx / timeout | Retry with backoff |
 | `RATE_LIMITED` | Throttled | Retry after `retry_after` |
 | `SCHEMA_DRIFT` | Response shape unrecognized | Stop; file an issue |
 
 Adding a code is an API change and requires a version consideration.
+
+### Amendment, 2026-09-05: `CONFIG_INVALID`
+
+A malformed config file had no code, and the config layer shipped with
+`ConfigError.code = None` as a deliberate seam. Uncoded is the wrong resting
+place: the taxonomy exists so an agent knows what to do next, and an error
+rendered generically invites the retry loop the taxonomy was built to prevent.
+
+`LEAGUE_NOT_FOUND` is the near-miss and is actively wrong here. It tells an
+agent to retry with a different `--league`, which cannot possibly succeed when
+the file itself will not parse. `CONFIG_INVALID` is the one instruction no
+existing code gives: *user-fixable, not retryable, and no amount of agent
+retrying changes it.*
+
+Adding a code is an API change, which is an argument for doing it now rather
+than later — the package is `0.1.0.dev0`, nothing is published, and no consumer
+parses the taxonomy yet. This is the cheapest moment the change will ever have.
 
 ## Consequences
 

@@ -19,6 +19,12 @@ Two rules the classes below encode:
 * **An error payload is not a data channel.** ``details`` is for field *names*,
   paths, and status codes — never provider bytes, response bodies, or anything
   that could carry an ``espn_s2`` value or a SWID GUID (CLAUDE.md rule 5).
+* **The base class scrubs, so no raise site has to remember to.** Every
+  message and every ``details`` value passes through
+  :func:`~fantasy_sports.core.redaction.redact` at construction. The leak this
+  defends against is written by a caller — ``raise ProviderUnavailableError(f"GET {url}")``
+  where ``url`` carries ``?espn_s2=…`` — and raise sites are where scrubbing
+  gets forgotten (``docs/memory/credential-leak-channels.md``).
 
 Nothing here imports anything beyond the standard library, and nothing here is
 allowed to import ``typer``, ``click``, ``rich``, or ``espn_api``.
@@ -30,10 +36,13 @@ from collections.abc import Mapping, Sequence
 from enum import StrEnum
 from typing import Any, ClassVar
 
+from fantasy_sports.core.redaction import redact, scrub
+
 __all__ = [
     "ERROR_TYPES",
     "AuthExpiredError",
     "AuthMissingError",
+    "ConfigInvalidError",
     "ErrorCode",
     "FantasySportsError",
     "LeagueNotFoundError",
@@ -50,6 +59,7 @@ class ErrorCode(StrEnum):
     AUTH_MISSING = "AUTH_MISSING"
     AUTH_EXPIRED = "AUTH_EXPIRED"
     LEAGUE_NOT_FOUND = "LEAGUE_NOT_FOUND"
+    CONFIG_INVALID = "CONFIG_INVALID"
     PROVIDER_UNAVAILABLE = "PROVIDER_UNAVAILABLE"
     RATE_LIMITED = "RATE_LIMITED"
     SCHEMA_DRIFT = "SCHEMA_DRIFT"
@@ -68,12 +78,28 @@ class FantasySportsError(Exception):
     agent_action: ClassVar[str]
 
     def __init__(self, message: str, *, details: Mapping[str, Any] | None = None) -> None:
+        # Scrub at construction, not at render. Once the message is stored
+        # redacted there is no path — args, str(), repr(), traceback, payload —
+        # that can put the value back. This is the guarantee that used to live
+        # on `auth.chain.AuthError`; it belongs here so that every error type
+        # has it rather than only the auth ones.
+        message = redact(message)
         super().__init__(message)
         self.message = message
         # Copied, not aliased: a caller must not be able to mutate a rendered
         # payload after the fact, and we must not retain a reference into a
         # provider response.
-        self.details: dict[str, Any] = dict(details or {})
+        self.details: dict[str, Any] = {
+            key: scrub(value) for key, value in dict(details or {}).items()
+        }
+
+    def _record_detail(self, key: str, value: Any) -> None:
+        """Add one detail post-``super().__init__``, scrubbed like the rest.
+
+        Subclasses that derive a detail from their own arguments go through
+        here so nothing reaches :meth:`to_dict` unscrubbed.
+        """
+        self.details[key] = scrub(value)
 
     def to_dict(self) -> dict[str, Any]:
         """The stable error payload. ``details`` is omitted when empty."""
@@ -112,6 +138,22 @@ class LeagueNotFoundError(FantasySportsError):
     agent_action = "Ask the human to confirm the league id and their access."
 
 
+class ConfigInvalidError(FantasySportsError):
+    """``config.toml`` exists but cannot be understood.
+
+    Distinct from :class:`LeagueNotFoundError` on purpose, and the distinction
+    is the whole reason the code was added (decision on
+    jwulff/fantasy-sports#6). ``LEAGUE_NOT_FOUND`` tells an agent to retry with
+    a different ``--league``, which cannot possibly work when the file itself
+    will not parse. This is user-fixable and not retryable: the human edits the
+    file, and nothing the agent does on its own changes the outcome.
+    """
+
+    code = ErrorCode.CONFIG_INVALID
+    retryable = False
+    agent_action = "Ask the human to fix the config file named in the message."
+
+
 class ProviderUnavailableError(FantasySportsError):
     """The provider is down, timed out, or failed in a way we cannot classify.
 
@@ -144,7 +186,7 @@ class RateLimitedError(FantasySportsError):
         super().__init__(message, details=details)
         self.retry_after = retry_after
         if retry_after is not None:
-            self.details["retry_after"] = retry_after
+            self._record_detail("retry_after", retry_after)
 
 
 class SchemaDriftError(FantasySportsError):
@@ -177,15 +219,16 @@ class SchemaDriftError(FantasySportsError):
         self.path: tuple[str, ...] = (path,) if isinstance(path, str) else tuple(path or ())
         self.provider = provider
         if self.path:
-            self.details["path"] = list(self.path)
+            self._record_detail("path", list(self.path))
         if provider is not None:
-            self.details["provider"] = provider
+            self._record_detail("provider", provider)
 
 
 ERROR_TYPES: tuple[type[FantasySportsError], ...] = (
     AuthMissingError,
     AuthExpiredError,
     LeagueNotFoundError,
+    ConfigInvalidError,
     ProviderUnavailableError,
     RateLimitedError,
     SchemaDriftError,

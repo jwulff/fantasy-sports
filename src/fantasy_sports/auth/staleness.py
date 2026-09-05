@@ -38,8 +38,8 @@ from fantasy_sports.auth.chain import (
     CredentialSet,
     CredentialSource,
     ResolvedCredential,
-    config_dir,
 )
+from fantasy_sports.config import paths
 
 __all__ = [
     "DEFAULT_STALE_AFTER",
@@ -110,7 +110,7 @@ def auth_state_path() -> Path:
     cookie was stored would silently downgrade every later ``auth status`` to
     "age unknown".
     """
-    return config_dir() / STATE_FILENAME
+    return paths.config_home() / STATE_FILENAME
 
 
 @dataclass(frozen=True)

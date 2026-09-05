@@ -25,10 +25,12 @@ and ``--season`` are global options, but the typer wiring lands with the
 command surface (jwulff/fantasy-sports#9) and projects onto
 :func:`resolve_league` — nothing here imports typer.
 
-**Error seam.** The taxonomy of ADR-0004 lands in ``core/errors.py`` with the
-domain models (jwulff/fantasy-sports#3). Until then :class:`LeagueNotFoundError`
-carries its own ``code`` attribute; the follow-up rebases it onto the shared
-base class without changing this module's callers.
+Errors come from ``core/errors.py``, which is the only error taxonomy. A file
+that will not parse raises :class:`~fantasy_sports.core.errors.ConfigInvalidError`
+(``CONFIG_INVALID``); a league that is not in a file that parsed fine raises
+:class:`~fantasy_sports.core.errors.LeagueNotFoundError`. Keeping those apart
+is the point: ``LEAGUE_NOT_FOUND`` tells an agent to retry with a different
+``--league``, which cannot work when the file itself is broken.
 """
 
 from __future__ import annotations
@@ -38,31 +40,15 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, ClassVar
+from typing import Any
 
 from fantasy_sports.config import paths
+from fantasy_sports.core.errors import ConfigInvalidError, LeagueNotFoundError
 
 DEFAULT_SPORT = "football"
 
 _REQUIRED_FIELDS = ("provider", "league_id", "season")
 _PROFILE_FIELDS = (*_REQUIRED_FIELDS, "sport")
-
-
-class ConfigError(Exception):
-    """The config file exists but cannot be understood.
-
-    ADR-0004's taxonomy has no code for a malformed config, and adding one is
-    an API change, so ``code`` is ``None`` here. The output layer
-    (jwulff/fantasy-sports#9) decides how an uncoded error is rendered.
-    """
-
-    code: ClassVar[str | None] = None
-
-
-class LeagueNotFoundError(ConfigError):
-    """The requested league is not configured. ADR-0004: ``LEAGUE_NOT_FOUND``."""
-
-    code: ClassVar[str | None] = "LEAGUE_NOT_FOUND"
 
 
 @dataclass(frozen=True)
@@ -140,9 +126,9 @@ def load(path: Path | None = None) -> LeagueConfig:
     except FileNotFoundError:
         return LeagueConfig(path=path)
     except tomllib.TOMLDecodeError as exc:
-        raise ConfigError(f"{path} is not valid TOML: {exc}") from exc
+        raise ConfigInvalidError(f"{path} is not valid TOML: {exc}") from exc
     except OSError as exc:
-        raise ConfigError(f"{path} could not be read: {exc}") from exc
+        raise ConfigInvalidError(f"{path} could not be read: {exc}") from exc
     return _parse(raw, path)
 
 
@@ -191,11 +177,11 @@ def _parse(raw: dict[str, Any], path: Path) -> LeagueConfig:
     # is rejected — that is where typos actually cost something.
     default = raw.get("default")
     if default is not None and not isinstance(default, str):
-        raise ConfigError(f"{path}: 'default' must be a league name, got {default!r}")
+        raise ConfigInvalidError(f"{path}: 'default' must be a league name, got {default!r}")
 
     tables = raw.get("leagues", {})
     if not isinstance(tables, dict):
-        raise ConfigError(f"{path}: 'leagues' must be a table of named profiles")
+        raise ConfigInvalidError(f"{path}: 'leagues' must be a table of named profiles")
 
     profiles = {name: _profile(name, table, path) for name, table in tables.items()}
     return LeagueConfig(path=path, default=default, profiles_by_name=profiles)
@@ -204,12 +190,12 @@ def _parse(raw: dict[str, Any], path: Path) -> LeagueConfig:
 def _profile(name: str, table: Any, path: Path) -> LeagueProfile:
     where = f"{path}: [leagues.{name}]"
     if not isinstance(table, dict):
-        raise ConfigError(f"{where} must be a table, got {table!r}")
+        raise ConfigInvalidError(f"{where} must be a table, got {table!r}")
     _reject_unknown_fields(table, where)
 
     missing = [key for key in _REQUIRED_FIELDS if key not in table]
     if missing:
-        raise ConfigError(f"{where} is missing required field(s): {', '.join(missing)}")
+        raise ConfigInvalidError(f"{where} is missing required field(s): {', '.join(missing)}")
 
     return LeagueProfile(
         name=name,
@@ -224,7 +210,7 @@ def _reject_unknown_fields(table: Mapping[str, Any], where: str) -> None:
     """A typo like ``leage_id`` must fail loudly rather than be silently dropped."""
     unknown = sorted(set(table) - set(_PROFILE_FIELDS))
     if unknown:
-        raise ConfigError(
+        raise ConfigInvalidError(
             f"{where}: unrecognized field(s): {', '.join(unknown)}. "
             f"Expected: {', '.join(_PROFILE_FIELDS)}"
         )
@@ -232,14 +218,16 @@ def _reject_unknown_fields(table: Mapping[str, Any], where: str) -> None:
 
 def _text(value: Any, field_name: str, where: str) -> str:
     if not isinstance(value, str) or not value.strip():
-        raise ConfigError(f"{where}: '{field_name}' must be a non-empty string, got {value!r}")
+        raise ConfigInvalidError(
+            f"{where}: '{field_name}' must be a non-empty string, got {value!r}"
+        )
     return value.strip()
 
 
 def _league_id(value: Any, where: str) -> str:
     """League ids are opaque strings, but TOML lets a user write ``league_id = 123456``."""
     if isinstance(value, bool):
-        raise ConfigError(f"{where}: 'league_id' must be a string or integer, got {value!r}")
+        raise ConfigInvalidError(f"{where}: 'league_id' must be a string or integer, got {value!r}")
     if isinstance(value, int):
         return str(value)
     return _text(value, "league_id", where)
@@ -248,9 +236,9 @@ def _league_id(value: Any, where: str) -> str:
 def _season(value: Any, where: str) -> int:
     """A season is a year. ``bool`` is an ``int`` in Python, so exclude it explicitly."""
     if isinstance(value, bool):
-        raise ConfigError(f"{where}: 'season' must be a four-digit year, got {value!r}")
+        raise ConfigInvalidError(f"{where}: 'season' must be a four-digit year, got {value!r}")
     if isinstance(value, int):
         return value
     if isinstance(value, str) and value.strip().isdigit():
         return int(value.strip())
-    raise ConfigError(f"{where}: 'season' must be a four-digit year, got {value!r}")
+    raise ConfigInvalidError(f"{where}: 'season' must be a four-digit year, got {value!r}")

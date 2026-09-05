@@ -16,8 +16,9 @@ from pathlib import Path
 
 import pytest
 
-from fantasy_sports.config import leagues, paths
-from fantasy_sports.config.leagues import ConfigError, LeagueNotFoundError, LeagueProfile
+from fantasy_sports.config import credentials, leagues, paths
+from fantasy_sports.config.leagues import LeagueProfile
+from fantasy_sports.core.errors import ConfigInvalidError, LeagueNotFoundError
 
 XDG_VARS = ("XDG_CONFIG_HOME", "XDG_CACHE_HOME", "XDG_DATA_HOME")
 
@@ -307,7 +308,7 @@ def test_a_profile_missing_a_required_field_names_the_field(
     text: str, fragment: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
     _write_config(tmp_path, monkeypatch, text)
-    with pytest.raises(ConfigError) as excinfo:
+    with pytest.raises(ConfigInvalidError) as excinfo:
         leagues.load()
     assert fragment in str(excinfo.value)
     assert "only" in str(excinfo.value)
@@ -320,7 +321,7 @@ def test_an_unrecognized_profile_key_is_rejected(tmp_path: Path, monkeypatch: py
         monkeypatch,
         '[leagues.only]\nprovider = "espn"\nleague_id = "1"\nseason = 2026\nleage_id = "2"\n',
     )
-    with pytest.raises(ConfigError) as excinfo:
+    with pytest.raises(ConfigInvalidError) as excinfo:
         leagues.load()
     assert "leage_id" in str(excinfo.value)
 
@@ -332,7 +333,7 @@ def test_a_boolean_league_id_is_rejected(tmp_path: Path, monkeypatch: pytest.Mon
         monkeypatch,
         '[leagues.only]\nprovider = "espn"\nleague_id = true\nseason = 2026\n',
     )
-    with pytest.raises(ConfigError) as excinfo:
+    with pytest.raises(ConfigInvalidError) as excinfo:
         leagues.load()
     assert "league_id" in str(excinfo.value)
 
@@ -344,7 +345,7 @@ def test_an_unreadable_config_path_raises_config_error(
     xdg = tmp_path / "xdg-config"
     monkeypatch.setenv("XDG_CONFIG_HOME", str(xdg))
     paths.config_file().mkdir(parents=True)
-    with pytest.raises(ConfigError) as excinfo:
+    with pytest.raises(ConfigInvalidError) as excinfo:
         leagues.load()
     assert str(paths.config_file()) in str(excinfo.value)
 
@@ -355,7 +356,7 @@ def test_an_empty_required_field_is_rejected(tmp_path: Path, monkeypatch: pytest
         monkeypatch,
         '[leagues.only]\nprovider = ""\nleague_id = "1"\nseason = 2026\n',
     )
-    with pytest.raises(ConfigError) as excinfo:
+    with pytest.raises(ConfigInvalidError) as excinfo:
         leagues.load()
     assert "provider" in str(excinfo.value)
 
@@ -369,26 +370,26 @@ def test_a_non_integer_season_is_rejected(
         monkeypatch,
         f'[leagues.only]\nprovider = "espn"\nleague_id = "1"\nseason = {season}\n',
     )
-    with pytest.raises(ConfigError) as excinfo:
+    with pytest.raises(ConfigInvalidError) as excinfo:
         leagues.load()
     assert "season" in str(excinfo.value)
 
 
 def test_a_profile_that_is_not_a_table_is_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     _write_config(tmp_path, monkeypatch, "[leagues]\nonly = 3\n")
-    with pytest.raises(ConfigError):
+    with pytest.raises(ConfigInvalidError):
         leagues.load()
 
 
 def test_a_non_table_leagues_key_is_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     _write_config(tmp_path, monkeypatch, "leagues = 3\n")
-    with pytest.raises(ConfigError):
+    with pytest.raises(ConfigInvalidError):
         leagues.load()
 
 
 def test_a_non_string_default_is_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     _write_config(tmp_path, monkeypatch, "default = 3\n")
-    with pytest.raises(ConfigError):
+    with pytest.raises(ConfigInvalidError):
         leagues.load()
 
 
@@ -404,18 +405,70 @@ def test_malformed_toml_raises_config_error_naming_the_file(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
     path = _write_config(tmp_path, monkeypatch, "default = \n")
-    with pytest.raises(ConfigError) as excinfo:
+    with pytest.raises(ConfigInvalidError) as excinfo:
         leagues.load()
     assert str(path) in str(excinfo.value)
 
 
-def test_config_error_carries_no_taxonomy_code(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    """ADR-0004 has no code for a malformed config; see the PR body for #7."""
+def test_config_error_carries_the_config_invalid_code(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """ADR-0004 as amended: a malformed config is `CONFIG_INVALID` (#35, via #6).
+
+    It must stay distinguishable from `LEAGUE_NOT_FOUND`, which would tell an
+    agent to retry with a different `--league` — impossible when the file
+    itself will not parse.
+    """
     _write_config(tmp_path, monkeypatch, "default = 3\n")
-    with pytest.raises(ConfigError) as excinfo:
+    with pytest.raises(ConfigInvalidError) as excinfo:
         leagues.load()
-    assert excinfo.value.code is None
+    assert excinfo.value.code == "CONFIG_INVALID"
+    assert excinfo.value.retryable is False
     assert not isinstance(excinfo.value, LeagueNotFoundError)
+
+
+# --------------------------------------------------------------------------
+# the [credentials] table — the last link of the auth chain (ARCHITECTURE §6)
+# --------------------------------------------------------------------------
+
+
+def _write_credentials(tmp_path: Path, text: str) -> Path:
+    path = tmp_path / "config.toml"
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+def test_load_credentials_reads_the_credentials_table(tmp_path: Path):
+    path = _write_credentials(tmp_path, '[credentials]\nespn_s2 = "abc"\nswid = "{x}"\n')
+    assert credentials.load_credentials(path) == {"espn_s2": "abc", "swid": "{x}"}
+
+
+def test_load_credentials_ignores_non_string_values(tmp_path: Path):
+    path = _write_credentials(tmp_path, '[credentials]\nespn_s2 = 3\nswid = "ok"\n')
+    assert credentials.load_credentials(path) == {"swid": "ok"}
+
+
+def test_load_credentials_on_a_missing_file_is_empty(tmp_path: Path):
+    assert credentials.load_credentials(tmp_path / "nope.toml") == {}
+
+
+def test_load_credentials_on_malformed_toml_is_empty_not_an_error(tmp_path: Path):
+    """Fails soft, unlike `leagues.load`. The chain has another link."""
+    path = _write_credentials(tmp_path, "credentials = \n")
+    assert credentials.load_credentials(path) == {}
+
+
+def test_load_credentials_without_the_table_is_empty(tmp_path: Path):
+    path = _write_credentials(tmp_path, 'default = "dynasty"\n')
+    assert credentials.load_credentials(path) == {}
+
+
+def test_load_credentials_defaults_to_the_xdg_config_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """No explicit path means the config layer's own file, not a private one."""
+    _write_config(tmp_path, monkeypatch, '[credentials]\nespn_s2 = "abc"\n')
+    assert credentials.load_credentials() == {"espn_s2": "abc"}
 
 
 # --------------------------------------------------------------------------
