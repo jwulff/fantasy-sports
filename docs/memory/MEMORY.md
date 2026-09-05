@@ -9,6 +9,7 @@ individual files when their topic is relevant.
 | [typer-vendors-click.md](typer-vendors-click.md) | typer 0.27 bundles click privately and drops the dependency — `import click` fails at runtime, on an error path |
 | [ruff-format-rewrites-markdown.md](ruff-format-rewrites-markdown.md) | `ruff format .` silently reformats Python inside `docs/*.md` — why `extend-exclude = ["docs"]` must stay |
 | [import-budget-and-the-fastpath.md](import-budget-and-the-fastpath.md) | Importing typer costs 44 ms against a 50 ms budget — why the argparse front door exists and how the two help surfaces stay in sync |
+| [config-toml-is-a-shared-namespace.md](config-toml-is-a-shared-namespace.md) | Every layer reads `config.toml`, so unknown top-level keys must be tolerated — plus the XDG test-isolation and `bool`-is-an-`int` traps |
 
 Nothing here should duplicate what the code, git history, `CLAUDE.md`, or
 `docs/ARCHITECTURE.md` already record.
