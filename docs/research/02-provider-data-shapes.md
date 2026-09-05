@@ -58,44 +58,44 @@ confirm, flagged rather than guessed.
 `team._fetch_roster(week)` for a specific week):
 ```python
 # espn_api/football/team.py + player.py
-team.roster            # list[Player]
-player.playerId        # int
-player.name            # str
-player.position         # str, e.g. "RB"
-player.eligibleSlots    # list[str], e.g. ["RB","RB/WR","RB/WR/TE","OP","BE","IR"]
-player.lineupSlot       # str, current slot e.g. "BE"
-player.proTeam          # str, NFL team abbrev
-player.injuryStatus     # str
-player.total_points     # float, season total
+team.roster  # list[Player]
+player.playerId  # int
+player.name  # str
+player.position  # str, e.g. "RB"
+player.eligibleSlots  # list[str], e.g. ["RB","RB/WR","RB/WR/TE","OP","BE","IR"]
+player.lineupSlot  # str, current slot e.g. "BE"
+player.proTeam  # str, NFL team abbrev
+player.injuryStatus  # str
+player.total_points  # float, season total
 player.projected_total_points
-player.percent_owned    # float
-player.stats            # dict[int scoring_period -> {points, breakdown, projected_points, ...}]
+player.percent_owned  # float
+player.stats  # dict[int scoring_period -> {points, breakdown, projected_points, ...}]
 ```
 **[source: espn_api/football/player.py, team.py]**
 
 **Matchup** (`league.scoreboard(week)` → `list[Matchup]`; `league.box_scores(week)`
 for the richer version with per-player lineups):
 ```python
-matchup.home_team       # Team instance (post-resolution)
-matchup.home_score       # float
+matchup.home_team  # Team instance (post-resolution)
+matchup.home_score  # float
 matchup.away_team
 matchup.away_score
-matchup.matchup_type     # "NONE" | playoff tier string
-matchup.is_playoff       # bool
+matchup.matchup_type  # "NONE" | playoff tier string
+matchup.is_playoff  # bool
 # BoxScore adds:
-box.home_lineup          # list[BoxPlayer] — full lineup incl. bench/IR
-box.home_projected        # float
+box.home_lineup  # list[BoxPlayer] — full lineup incl. bench/IR
+box.home_projected  # float
 ```
 **[source: espn_api/football/matchup.py, box_score.py]**
 
 **Transactions** (`league.transactions(scoring_period, types={...})`):
 ```python
-txn.team          # Team
-txn.type          # str, one of TRANSACTION_TYPES (see §2 below)
-txn.status        # str
-txn.scoring_period # int
-txn.bid_amount     # int | None (FAAB)
-txn.items          # list[TransactionItem]  # {type, playerId, player}
+txn.team  # Team
+txn.type  # str, one of TRANSACTION_TYPES (see §2 below)
+txn.status  # str
+txn.scoring_period  # int
+txn.bid_amount  # int | None (FAAB)
+txn.items  # list[TransactionItem]  # {type, playerId, player}
 ```
 There is a *second*, overlapping surface — `league.recent_activity()` — which
 returns `Activity` objects built from a different ESPN endpoint
@@ -221,17 +221,17 @@ graph of the three libraries read): `League`, `Team`, `Roster`, `Player`,
 
 **Roster** (`Team.roster.players` → `list[Player]`):
 ```python
-player.player_key            # str, Yahoo's global player identifier
-player.player_id              # int
-player.full_name               # str
-player.editorial_team_abbr     # str, NFL team
-player.display_position         # str
-player.eligible_positions       # list[str]
+player.player_key  # str, Yahoo's global player identifier
+player.player_id  # int
+player.full_name  # str
+player.editorial_team_abbr  # str, NFL team
+player.display_position  # str
+player.eligible_positions  # list[str]
 player.selected_position_value  # str — the CURRENT lineup slot for this roster context
-player.selected_position.is_flex # bool — Yahoo explicitly flags flex-slot occupancy
-player.status                   # str, "IR"/"Q"/"O"/etc
-player.percent_owned_value      # float
-player.player_points_value      # float
+player.selected_position.is_flex  # bool — Yahoo explicitly flags flex-slot occupancy
+player.status  # str, "IR"/"Q"/"O"/etc
+player.percent_owned_value  # float
+player.player_points_value  # float
 ```
 **[source: yfpy/models.py Player, SelectedPosition classes]**
 
@@ -244,21 +244,21 @@ yfpy/models.py Team.__init__ — literally reads `self.wins = self._get_nested_v
 
 **Matchup:**
 ```python
-matchup.teams              # list[Team] (both teams, embedded — no home/away split, like Sleeper)
-matchup.is_playoffs        # bool
-matchup.is_consolation     # bool
-matchup.winner_team_key    # str
-matchup.matchup_grades     # list[MatchupGrade] — Yahoo assigns a LETTER GRADE (A+ to F-) to a team's roster-management performance for the week. No other provider has this concept.
+matchup.teams  # list[Team] (both teams, embedded — no home/away split, like Sleeper)
+matchup.is_playoffs  # bool
+matchup.is_consolation  # bool
+matchup.winner_team_key  # str
+matchup.matchup_grades  # list[MatchupGrade] — Yahoo assigns a LETTER GRADE (A+ to F-) to a team's roster-management performance for the week. No other provider has this concept.
 ```
 **[source: yfpy/models.py Matchup, MatchupGrade]**
 
 **Transactions:**
 ```python
-txn.type                # "add" | "drop" | "trade" | ...
-txn.status               # "successful" | ...
-txn.players              # list[Player]
-txn.picks                # list[Pick] — draft-pick-as-trade-asset, modeled distinctly from Player
-txn.faab_bid              # int | None
+txn.type  # "add" | "drop" | "trade" | ...
+txn.status  # "successful" | ...
+txn.players  # list[Player]
+txn.picks  # list[Pick] — draft-pick-as-trade-asset, modeled distinctly from Player
+txn.faab_bid  # int | None
 txn.trader_team_key / tradee_team_key  # for trades specifically
 ```
 Draft picks as tradeable assets get their own `Pick` model
@@ -397,15 +397,15 @@ field name) to justify a shared `core/` model, per ARCHITECTURE.md §3's mandate
 **`core.League`**
 ```python
 provider: Literal["espn", "sleeper", "yahoo", ...]
-provider_id: str          # provider's native league ID, always string (Yahoo's own code
-                           # explicitly converts to string "to handle leading zeros" — a
-                           # real bug ESPN/Sleeper integer IDs don't have but Yahoo does)
+provider_id: str  # provider's native league ID, always string (Yahoo's own code
+# explicitly converts to string "to handle leading zeros" — a
+# real bug ESPN/Sleeper integer IDs don't have but Yahoo does)
 name: str
 season: int
 sport: str
 team_count: int
 current_week: int
-raw: dict                 # untouched provider payload
+raw: dict  # untouched provider payload
 ```
 All three name it, all three give it a numeric-ish season, all three give a team
 count and a current week. Field types are consistent enough to force to one shape
@@ -415,14 +415,14 @@ with no semantic loss.
 ```python
 provider_id: str
 name: str
-owner_names: list[str]        # ESPN/Yahoo support co-managers; normalize to a list even
-                               # for the 1-owner-1-team common case
+owner_names: list[str]  # ESPN/Yahoo support co-managers; normalize to a list even
+# for the 1-owner-1-team common case
 wins: int
 losses: int
 ties: int
 points_for: float
 points_against: float
-standing: int | None          # current rank; all three expose this in some form
+standing: int | None  # current rank; all three expose this in some form
 raw: dict
 ```
 
@@ -431,13 +431,13 @@ player)
 ```python
 player_provider_id: str
 player_name: str
-position: str                 # provider's own position string, NOT normalized further —
-                               # "RB/WR" (ESPN) vs "FLEX" (Sleeper) vs a flex boolean
-                               # (Yahoo) genuinely don't agree; see §4
-slot: str                      # the lineup slot this player currently occupies
-is_starter: bool               # every provider gives you *some* way to derive this —
-                               # ESPN via lineupSlot != 'BE'/'IR', Sleeper via starters[]
-                               # membership, Yahoo via selected_position_value != 'BN'
+position: str  # provider's own position string, NOT normalized further —
+# "RB/WR" (ESPN) vs "FLEX" (Sleeper) vs a flex boolean
+# (Yahoo) genuinely don't agree; see §4
+slot: str  # the lineup slot this player currently occupies
+is_starter: bool  # every provider gives you *some* way to derive this —
+# ESPN via lineupSlot != 'BE'/'IR', Sleeper via starters[]
+# membership, Yahoo via selected_position_value != 'BN'
 raw: dict
 ```
 
@@ -448,8 +448,8 @@ team_a_provider_id: str
 team_a_score: float
 team_b_provider_id: str
 team_b_score: float
-is_playoff: bool               # every provider has this concept even where the shape
-                                # of "how you know" differs wildly
+is_playoff: bool  # every provider has this concept even where the shape
+# of "how you know" differs wildly
 raw: dict
 ```
 Note this drops ESPN's `home`/`away` distinction to the symmetric `team_a`/`team_b`
@@ -459,12 +459,12 @@ inventing structure ESPN alone has and the other two would have to fake.
 **`core.Transaction`**
 ```python
 provider_id: str
-type: Literal["add", "drop", "trade", "waiver_claim"]   # a narrow, lossy, but honest
-                                                          # normalization — see §4 for why
-                                                          # this is the riskiest normalized field in the whole model
+type: Literal["add", "drop", "trade", "waiver_claim"]  # a narrow, lossy, but honest
+# normalization — see §4 for why
+# this is the riskiest normalized field in the whole model
 team_provider_id: str | None
-players_in: list[str]          # player provider_ids gained by team_provider_id
-players_out: list[str]          # player provider_ids lost
+players_in: list[str]  # player provider_ids gained by team_provider_id
+players_out: list[str]  # player provider_ids lost
 faab_spent: int | None
 timestamp: datetime | None
 raw: dict
@@ -674,7 +674,13 @@ from typing import Protocol, runtime_checkable
 
 # core/ models referenced here are the ones defined in §3 above.
 from fantasy_sports.core import (
-    League, Team, RosterSlot, Matchup, Transaction, FreeAgent, CredentialSpec,
+    League,
+    Team,
+    RosterSlot,
+    Matchup,
+    Transaction,
+    FreeAgent,
+    CredentialSpec,
 )
 
 
@@ -739,8 +745,7 @@ class Provider(Protocol):
 
     def fetch_free_agents(
         self, league_id: str, season: int, week: int, position: str | None = None
-    ) -> list[FreeAgent]:
-        ...
+    ) -> list[FreeAgent]: ...
 
     # --- explicit non-normalized escape hatch (ARCHITECTURE.md §3) ---
     def fetch_raw(self, league_id: str, season: int, **provider_params) -> dict:

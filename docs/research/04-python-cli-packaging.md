@@ -399,6 +399,7 @@ def render(payload, *, output: str, err: bool = False) -> None:
     stream = sys.stderr if err else sys.stdout
     if output == "json":
         import json
+
         print(json.dumps(payload, default=str), file=stream)
     elif output == "csv":
         _render_csv(payload, stream)
@@ -549,6 +550,7 @@ import pytest
 def scrub_string(string: str, replacement: str = "REDACTED") -> callable:
     def before_record_response(response):
         return response
+
     return before_record_response
 
 
@@ -583,7 +585,7 @@ def vcr_config():
     return {
         "filter_headers": [
             "authorization",
-            "cookie",          # covers the espn_s2 + SWID request cookie header
+            "cookie",  # covers the espn_s2 + SWID request cookie header
             "set-cookie",
         ],
         "filter_query_parameters": ["espn_s2", "SWID"],
