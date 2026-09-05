@@ -17,5 +17,7 @@ individual files when their topic is relevant.
 | [cache-redaction-and-tag-classes.md](cache-redaction-and-tag-classes.md) | Why `core/redaction.py` holds two scrubbers, why the cache decodes before it scrubs with no vcrpy to do it, and why `players_wl` needs a season-scoped tag class of its own |
 | [output-contract-test-traps.md](output-contract-test-traps.md) | Two ways an output-contract test passes while measuring nothing — a pty drained after the child exits, and a golden file rendered by a transitive `rich` |
 | [swid-pseudonyms.md](swid-pseudonyms.md) | Flattening a join key is not redaction, it is data loss — why a SWID becomes a per-GUID pseudonym, why the sentinel first group is load-bearing, and the confirmable-mapping trade the cassette salt buys |
+| [espn-401-tells-you-nothing.md](espn-401-tells-you-nothing.md) | ESPN's 401 body carries a typed reason and it is a constant — why the double-probe stays mandatory, why `AUTH_LEAGUE_NOT_VISIBLE` never means `AUTH_EXPIRED`, and why the `fan.api` membership probe is not wired in |
+| [espn-api-is-a-shape-reader-not-a-client.md](espn-api-is-a-shape-reader-not-a-client.md) | What `espn-api` gives you (payload shapes) and what it never will (429, `Retry-After`, drift detection, a non-`Exception` empty result) — and where the transport seam has to sit |
 Nothing here should duplicate what the code, git history, `CLAUDE.md`, or
 `docs/ARCHITECTURE.md` already record.

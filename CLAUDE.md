@@ -134,6 +134,10 @@ or hand-writing a cassette — never a live call in a unit test.
 
 ### Testing against an API that breaks
 
+**`docs/testing.md` is the fixture policy** — which cassettes are real
+recordings, which are hand-authored, what each one cannot cover, and how to
+re-record them. Read it before adding a fixture.
+
 This project's whole thesis is that ESPN will break unpredictably. Therefore:
 
 - Unit tests run offline against cassettes. Always. No exceptions.

@@ -1,0 +1,149 @@
+interactions:
+- request:
+    body: null
+    headers: {}
+    method: GET
+    uri: https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/segments/0/leagues/99?view=mTeam&view=mRoster&view=mMatchup&view=mSettings&view=mStandings
+  response:
+    body:
+      string: '{"draftDetail":{"drafted":true,"inProgress":false},"gameId":1,"id":99,"members":[{"displayName":"alpha","firstName":"Ann","id":"{OWNER-ALPHA}","lastName":"Alpha"},{"displayName":"bravo","firstName":"Bo","id":"{OWNER-BRAVO}","lastName":"Bravo"}],"schedule":[{"away":{"gamesPlayed":1,"teamId":2,"totalPoints":88.5},"home":{"gamesPlayed":1,"teamId":1,"totalPoints":105.25},"id":1,"matchupPeriodId":1,"winner":"HOME"},{"away":{"gamesPlayed":1,"teamId":2,"totalPoints":91.75},"home":{"gamesPlayed":1,"teamId":1,"totalPoints":105.25},"id":2,"matchupPeriodId":2,"winner":"HOME"},{"away":{"gamesPlayed":1,"teamId":2,"totalPoints":150.0},"home":{"gamesPlayed":1,"teamId":1,"totalPoints":149.5},"id":13,"matchupPeriodId":13,"playoffTierType":"WINNERS_BRACKET","winner":"AWAY"}],"scoringPeriodId":2,"seasonId":2026,"segmentId":0,"settings":{"acquisitionSettings":{"acquisitionBudget":100,"isUsingAcquisitionBudget":true},"draftSettings":{"keeperCount":0},"name":"Synthetic
+        Test League","rosterSettings":{"lineupSlotCounts":{"0":1,"16":1,"17":1,"2":2,"20":5,"23":1,"4":2,"6":1}},"scheduleSettings":{"divisions":[],"matchupPeriodCount":14,"matchupPeriods":{"1":[1],"10":[10],"11":[11],"12":[12],"13":[13,14],"2":[2],"3":[3],"4":[4],"5":[5],"6":[6],"7":[7],"8":[8],"9":[9]},"playoffMatchupPeriodLength":2,"playoffSeedingRule":"TOTAL_POINTS_SCORED","playoffTeamCount":2},"scoringSettings":{"matchupTieRule":"NONE","playoffMatchupTieRule":"NONE","scoringItems":[],"scoringType":"H2H_POINTS"},"size":2,"tradeSettings":{"vetoVotesRequired":0}},"status":{"currentMatchupPeriod":2,"finalScoringPeriod":14,"firstScoringPeriod":1,"isActive":true,"latestScoringPeriod":2,"previousSeasons":[],"standingsUpdateDate":1789068600000},"teams":[{"abbrev":"TEAM","currentProjectedRank":1,"divisionId":0,"draftDayProjectedRank":1,"id":1,"isActive":true,"name":"Team
+        Alpha","owners":["{OWNER-ALPHA}"],"playoffSeed":1,"points":210.5,"pointsAdjusted":0,"pointsDelta":0,"primaryOwner":"{OWNER-ALPHA}","rankCalculatedFinal":0,"record":{"overall":{"losses":0,"pointsAgainst":180.25,"pointsFor":210.5,"streakLength":2,"streakType":"WIN","ties":0,"wins":2}},"roster":{"entries":[{"acquisitionDate":1789068600000,"acquisitionType":"DRAFT","injuryStatus":"ACTIVE","lineupSlotId":0,"pendingTransactionIds":null,"playerId":2001,"playerPoolEntry":{"appliedStatTotal":21.4,"id":2001,"keeperValue":0,"keeperValueFuture":0,"lineupLocked":false,"onTeamId":1,"player":{"active":true,"defaultPositionId":0,"droppable":true,"eligibleSlots":[0,20,21],"firstName":"Ada","fullName":"Ada
+        Lovelace","id":2001,"injured":false,"injuryStatus":"ACTIVE","lastName":"Lovelace","ownership":{"percentOwned":61.5,"percentStarted":40.25},"proTeamId":12,"stats":[{"appliedAverage":21.4,"appliedStats":{"42":100.0},"appliedTotal":21.4,"externalId":"2026","id":"02026","proTeamId":12,"scoringPeriodId":2,"seasonId":2026,"statSourceId":0,"statSplitTypeId":1,"stats":{"42":100.0}},{"appliedAverage":19.8,"appliedStats":{"42":110.0},"appliedTotal":19.8,"externalId":"2026","id":"12026","proTeamId":12,"scoringPeriodId":2,"seasonId":2026,"statSourceId":1,"statSplitTypeId":1,"stats":{"42":110.0}}],"universeId":1},"ratings":{},"rosterLocked":false,"status":"ONTEAM","tradeLocked":false},"status":"NORMAL"},{"acquisitionDate":1789068600000,"acquisitionType":"DRAFT","injuryStatus":"ACTIVE","lineupSlotId":2,"pendingTransactionIds":null,"playerId":2002,"playerPoolEntry":{"appliedStatTotal":14.2,"id":2002,"keeperValue":0,"keeperValueFuture":0,"lineupLocked":false,"onTeamId":1,"player":{"active":true,"defaultPositionId":2,"droppable":true,"eligibleSlots":[2,3,23,20,21],"firstName":"Grace","fullName":"Grace
+        Hopper","id":2002,"injured":false,"injuryStatus":"ACTIVE","lastName":"Hopper","ownership":{"percentOwned":61.5,"percentStarted":40.25},"proTeamId":12,"stats":[{"appliedAverage":14.2,"appliedStats":{"42":100.0},"appliedTotal":14.2,"externalId":"2026","id":"02026","proTeamId":12,"scoringPeriodId":2,"seasonId":2026,"statSourceId":0,"statSplitTypeId":1,"stats":{"42":100.0}},{"appliedAverage":12.0,"appliedStats":{"42":110.0},"appliedTotal":12.0,"externalId":"2026","id":"12026","proTeamId":12,"scoringPeriodId":2,"seasonId":2026,"statSourceId":1,"statSplitTypeId":1,"stats":{"42":110.0}}],"universeId":1},"ratings":{},"rosterLocked":false,"status":"ONTEAM","tradeLocked":false},"status":"NORMAL"},{"acquisitionDate":1789068600000,"acquisitionType":"DRAFT","injuryStatus":"ACTIVE","lineupSlotId":20,"pendingTransactionIds":null,"playerId":2003,"playerPoolEntry":{"appliedStatTotal":9.9,"id":2003,"keeperValue":0,"keeperValueFuture":0,"lineupLocked":false,"onTeamId":1,"player":{"active":true,"defaultPositionId":4,"droppable":true,"eligibleSlots":[3,4,5,23,20,21],"firstName":"Katherine","fullName":"Katherine
+        Johnson","id":2003,"injured":false,"injuryStatus":"ACTIVE","lastName":"Johnson","ownership":{"percentOwned":61.5,"percentStarted":40.25},"proTeamId":26,"stats":[{"appliedAverage":9.9,"appliedStats":{"42":100.0},"appliedTotal":9.9,"externalId":"2026","id":"02026","proTeamId":26,"scoringPeriodId":2,"seasonId":2026,"statSourceId":0,"statSplitTypeId":1,"stats":{"42":100.0}},{"appliedAverage":11.5,"appliedStats":{"42":110.0},"appliedTotal":11.5,"externalId":"2026","id":"12026","proTeamId":26,"scoringPeriodId":2,"seasonId":2026,"statSourceId":1,"statSplitTypeId":1,"stats":{"42":110.0}}],"universeId":1},"ratings":{},"rosterLocked":false,"status":"ONTEAM","tradeLocked":false},"status":"NORMAL"}]},"transactionCounter":{"acquisitions":1,"drops":1,"moveToIR":0,"trades":1},"waiverRank":1},{"abbrev":"TEAM","currentProjectedRank":2,"divisionId":0,"draftDayProjectedRank":2,"id":2,"isActive":true,"name":"Team
+        Bravo","owners":["{OWNER-BRAVO}"],"playoffSeed":2,"points":210.5,"pointsAdjusted":0,"pointsDelta":0,"primaryOwner":"{OWNER-BRAVO}","rankCalculatedFinal":0,"record":{"overall":{"losses":2,"pointsAgainst":210.5,"pointsFor":180.25,"streakLength":2,"streakType":"LOSS","ties":0,"wins":0}},"roster":{"entries":[{"acquisitionDate":1789068600000,"acquisitionType":"DRAFT","injuryStatus":"ACTIVE","lineupSlotId":0,"pendingTransactionIds":null,"playerId":2011,"playerPoolEntry":{"appliedStatTotal":18.1,"id":2011,"keeperValue":0,"keeperValueFuture":0,"lineupLocked":false,"onTeamId":1,"player":{"active":true,"defaultPositionId":0,"droppable":true,"eligibleSlots":[0,20,21],"firstName":"Alan","fullName":"Alan
+        Turing","id":2011,"injured":false,"injuryStatus":"ACTIVE","lastName":"Turing","ownership":{"percentOwned":61.5,"percentStarted":40.25},"proTeamId":26,"stats":[{"appliedAverage":18.1,"appliedStats":{"42":100.0},"appliedTotal":18.1,"externalId":"2026","id":"02026","proTeamId":26,"scoringPeriodId":2,"seasonId":2026,"statSourceId":0,"statSplitTypeId":1,"stats":{"42":100.0}},{"appliedAverage":17.2,"appliedStats":{"42":110.0},"appliedTotal":17.2,"externalId":"2026","id":"12026","proTeamId":26,"scoringPeriodId":2,"seasonId":2026,"statSourceId":1,"statSplitTypeId":1,"stats":{"42":110.0}}],"universeId":1},"ratings":{},"rosterLocked":false,"status":"ONTEAM","tradeLocked":false},"status":"NORMAL"},{"acquisitionDate":1789068600000,"acquisitionType":"DRAFT","injuryStatus":"ACTIVE","lineupSlotId":2,"pendingTransactionIds":null,"playerId":2012,"playerPoolEntry":{"appliedStatTotal":11.0,"id":2012,"keeperValue":0,"keeperValueFuture":0,"lineupLocked":false,"onTeamId":1,"player":{"active":true,"defaultPositionId":2,"droppable":true,"eligibleSlots":[2,3,23,20,21],"firstName":"Margaret","fullName":"Margaret
+        Hamilton","id":2012,"injured":false,"injuryStatus":"ACTIVE","lastName":"Hamilton","ownership":{"percentOwned":61.5,"percentStarted":40.25},"proTeamId":12,"stats":[{"appliedAverage":11.0,"appliedStats":{"42":100.0},"appliedTotal":11.0,"externalId":"2026","id":"02026","proTeamId":12,"scoringPeriodId":2,"seasonId":2026,"statSourceId":0,"statSplitTypeId":1,"stats":{"42":100.0}},{"appliedAverage":13.4,"appliedStats":{"42":110.0},"appliedTotal":13.4,"externalId":"2026","id":"12026","proTeamId":12,"scoringPeriodId":2,"seasonId":2026,"statSourceId":1,"statSplitTypeId":1,"stats":{"42":110.0}}],"universeId":1},"ratings":{},"rosterLocked":false,"status":"ONTEAM","tradeLocked":false},"status":"NORMAL"}]},"transactionCounter":{"acquisitions":1,"drops":1,"moveToIR":0,"trades":1},"waiverRank":2}]}'
+    headers:
+      Content-Type:
+      - application/json;charset=utf-8
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers: {}
+    method: GET
+    uri: https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/players?view=players_wl
+  response:
+    body:
+      string: '[{"fullName":"Ada Lovelace","id":2001},{"fullName":"Grace Hopper","id":2002},{"fullName":"Katherine
+        Johnson","id":2003},{"fullName":"Alan Turing","id":2011},{"fullName":"Margaret
+        Hamilton","id":2012},{"fullName":"Barbara Liskov","id":3001},{"fullName":"Radia
+        Perlman","id":3002}]'
+    headers:
+      Content-Type:
+      - application/json;charset=utf-8
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers: {}
+    method: GET
+    uri: https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/2026?view=proTeamSchedules_wl
+  response:
+    body:
+      string: '{"settings":{"proTeams":[{"abbrev":"FA","id":0,"proGamesByScoringPeriod":{}},{"abbrev":"KC","id":12,"proGamesByScoringPeriod":{"2":[{"awayProTeamId":12,"date":1789318800000,"homeProTeamId":26,"id":4001}]}},{"abbrev":"SEA","id":26,"proGamesByScoringPeriod":{"2":[{"awayProTeamId":12,"date":1789330500000,"homeProTeamId":26,"id":4002}]}}]}}'
+    headers:
+      Content-Type:
+      - application/json;charset=utf-8
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers: {}
+    method: GET
+    uri: https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/segments/0/leagues/99?view=mDraftDetail
+  response:
+    body:
+      string: '{"draftDetail":{"drafted":true,"inProgress":false,"picks":[{"bidAmount":0,"keeper":false,"nominatingTeamId":0,"playerId":2001,"roundId":1,"roundPickNumber":1,"teamId":1}]}}'
+    headers:
+      Content-Type:
+      - application/json;charset=utf-8
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers: {}
+    method: GET
+    uri: https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/segments/0/leagues/99?view=mMatchupScore
+  response:
+    body:
+      string: '{"draftDetail":{"drafted":true,"inProgress":false},"gameId":1,"id":99,"members":[{"displayName":"alpha","firstName":"Ann","id":"{OWNER-ALPHA}","lastName":"Alpha"},{"displayName":"bravo","firstName":"Bo","id":"{OWNER-BRAVO}","lastName":"Bravo"}],"schedule":[{"away":{"gamesPlayed":1,"teamId":2,"totalPoints":88.5},"home":{"gamesPlayed":1,"teamId":1,"totalPoints":105.25},"id":1,"matchupPeriodId":1,"winner":"HOME"},{"away":{"gamesPlayed":1,"teamId":2,"totalPoints":91.75},"home":{"gamesPlayed":1,"teamId":1,"totalPoints":105.25},"id":2,"matchupPeriodId":2,"winner":"HOME"},{"away":{"gamesPlayed":1,"teamId":2,"totalPoints":150.0},"home":{"gamesPlayed":1,"teamId":1,"totalPoints":149.5},"id":13,"matchupPeriodId":13,"playoffTierType":"WINNERS_BRACKET","winner":"AWAY"}],"scoringPeriodId":2,"seasonId":2026,"segmentId":0,"settings":{"acquisitionSettings":{"acquisitionBudget":100,"isUsingAcquisitionBudget":true},"draftSettings":{"keeperCount":0},"name":"Synthetic
+        Test League","rosterSettings":{"lineupSlotCounts":{"0":1,"16":1,"17":1,"2":2,"20":5,"23":1,"4":2,"6":1}},"scheduleSettings":{"divisions":[],"matchupPeriodCount":14,"matchupPeriods":{"1":[1],"10":[10],"11":[11],"12":[12],"13":[13,14],"2":[2],"3":[3],"4":[4],"5":[5],"6":[6],"7":[7],"8":[8],"9":[9]},"playoffMatchupPeriodLength":2,"playoffSeedingRule":"TOTAL_POINTS_SCORED","playoffTeamCount":2},"scoringSettings":{"matchupTieRule":"NONE","playoffMatchupTieRule":"NONE","scoringItems":[],"scoringType":"H2H_POINTS"},"size":2,"tradeSettings":{"vetoVotesRequired":0}},"status":{"currentMatchupPeriod":2,"finalScoringPeriod":14,"firstScoringPeriod":1,"isActive":true,"latestScoringPeriod":2,"previousSeasons":[],"standingsUpdateDate":1789068600000},"teams":[{"abbrev":"TEAM","currentProjectedRank":1,"divisionId":0,"draftDayProjectedRank":1,"id":1,"isActive":true,"name":"Team
+        Alpha","owners":["{OWNER-ALPHA}"],"playoffSeed":1,"points":210.5,"pointsAdjusted":0,"pointsDelta":0,"primaryOwner":"{OWNER-ALPHA}","rankCalculatedFinal":0,"record":{"overall":{"losses":0,"pointsAgainst":180.25,"pointsFor":210.5,"streakLength":2,"streakType":"WIN","ties":0,"wins":2}},"roster":{"entries":[{"acquisitionDate":1789068600000,"acquisitionType":"DRAFT","injuryStatus":"ACTIVE","lineupSlotId":0,"pendingTransactionIds":null,"playerId":2001,"playerPoolEntry":{"appliedStatTotal":21.4,"id":2001,"keeperValue":0,"keeperValueFuture":0,"lineupLocked":false,"onTeamId":1,"player":{"active":true,"defaultPositionId":0,"droppable":true,"eligibleSlots":[0,20,21],"firstName":"Ada","fullName":"Ada
+        Lovelace","id":2001,"injured":false,"injuryStatus":"ACTIVE","lastName":"Lovelace","ownership":{"percentOwned":61.5,"percentStarted":40.25},"proTeamId":12,"stats":[{"appliedAverage":21.4,"appliedStats":{"42":100.0},"appliedTotal":21.4,"externalId":"2026","id":"02026","proTeamId":12,"scoringPeriodId":2,"seasonId":2026,"statSourceId":0,"statSplitTypeId":1,"stats":{"42":100.0}},{"appliedAverage":19.8,"appliedStats":{"42":110.0},"appliedTotal":19.8,"externalId":"2026","id":"12026","proTeamId":12,"scoringPeriodId":2,"seasonId":2026,"statSourceId":1,"statSplitTypeId":1,"stats":{"42":110.0}}],"universeId":1},"ratings":{},"rosterLocked":false,"status":"ONTEAM","tradeLocked":false},"status":"NORMAL"},{"acquisitionDate":1789068600000,"acquisitionType":"DRAFT","injuryStatus":"ACTIVE","lineupSlotId":2,"pendingTransactionIds":null,"playerId":2002,"playerPoolEntry":{"appliedStatTotal":14.2,"id":2002,"keeperValue":0,"keeperValueFuture":0,"lineupLocked":false,"onTeamId":1,"player":{"active":true,"defaultPositionId":2,"droppable":true,"eligibleSlots":[2,3,23,20,21],"firstName":"Grace","fullName":"Grace
+        Hopper","id":2002,"injured":false,"injuryStatus":"ACTIVE","lastName":"Hopper","ownership":{"percentOwned":61.5,"percentStarted":40.25},"proTeamId":12,"stats":[{"appliedAverage":14.2,"appliedStats":{"42":100.0},"appliedTotal":14.2,"externalId":"2026","id":"02026","proTeamId":12,"scoringPeriodId":2,"seasonId":2026,"statSourceId":0,"statSplitTypeId":1,"stats":{"42":100.0}},{"appliedAverage":12.0,"appliedStats":{"42":110.0},"appliedTotal":12.0,"externalId":"2026","id":"12026","proTeamId":12,"scoringPeriodId":2,"seasonId":2026,"statSourceId":1,"statSplitTypeId":1,"stats":{"42":110.0}}],"universeId":1},"ratings":{},"rosterLocked":false,"status":"ONTEAM","tradeLocked":false},"status":"NORMAL"},{"acquisitionDate":1789068600000,"acquisitionType":"DRAFT","injuryStatus":"ACTIVE","lineupSlotId":20,"pendingTransactionIds":null,"playerId":2003,"playerPoolEntry":{"appliedStatTotal":9.9,"id":2003,"keeperValue":0,"keeperValueFuture":0,"lineupLocked":false,"onTeamId":1,"player":{"active":true,"defaultPositionId":4,"droppable":true,"eligibleSlots":[3,4,5,23,20,21],"firstName":"Katherine","fullName":"Katherine
+        Johnson","id":2003,"injured":false,"injuryStatus":"ACTIVE","lastName":"Johnson","ownership":{"percentOwned":61.5,"percentStarted":40.25},"proTeamId":26,"stats":[{"appliedAverage":9.9,"appliedStats":{"42":100.0},"appliedTotal":9.9,"externalId":"2026","id":"02026","proTeamId":26,"scoringPeriodId":2,"seasonId":2026,"statSourceId":0,"statSplitTypeId":1,"stats":{"42":100.0}},{"appliedAverage":11.5,"appliedStats":{"42":110.0},"appliedTotal":11.5,"externalId":"2026","id":"12026","proTeamId":26,"scoringPeriodId":2,"seasonId":2026,"statSourceId":1,"statSplitTypeId":1,"stats":{"42":110.0}}],"universeId":1},"ratings":{},"rosterLocked":false,"status":"ONTEAM","tradeLocked":false},"status":"NORMAL"}]},"transactionCounter":{"acquisitions":1,"drops":1,"moveToIR":0,"trades":1},"waiverRank":1},{"abbrev":"TEAM","currentProjectedRank":2,"divisionId":0,"draftDayProjectedRank":2,"id":2,"isActive":true,"name":"Team
+        Bravo","owners":["{OWNER-BRAVO}"],"playoffSeed":2,"points":210.5,"pointsAdjusted":0,"pointsDelta":0,"primaryOwner":"{OWNER-BRAVO}","rankCalculatedFinal":0,"record":{"overall":{"losses":2,"pointsAgainst":210.5,"pointsFor":180.25,"streakLength":2,"streakType":"LOSS","ties":0,"wins":0}},"roster":{"entries":[{"acquisitionDate":1789068600000,"acquisitionType":"DRAFT","injuryStatus":"ACTIVE","lineupSlotId":0,"pendingTransactionIds":null,"playerId":2011,"playerPoolEntry":{"appliedStatTotal":18.1,"id":2011,"keeperValue":0,"keeperValueFuture":0,"lineupLocked":false,"onTeamId":1,"player":{"active":true,"defaultPositionId":0,"droppable":true,"eligibleSlots":[0,20,21],"firstName":"Alan","fullName":"Alan
+        Turing","id":2011,"injured":false,"injuryStatus":"ACTIVE","lastName":"Turing","ownership":{"percentOwned":61.5,"percentStarted":40.25},"proTeamId":26,"stats":[{"appliedAverage":18.1,"appliedStats":{"42":100.0},"appliedTotal":18.1,"externalId":"2026","id":"02026","proTeamId":26,"scoringPeriodId":2,"seasonId":2026,"statSourceId":0,"statSplitTypeId":1,"stats":{"42":100.0}},{"appliedAverage":17.2,"appliedStats":{"42":110.0},"appliedTotal":17.2,"externalId":"2026","id":"12026","proTeamId":26,"scoringPeriodId":2,"seasonId":2026,"statSourceId":1,"statSplitTypeId":1,"stats":{"42":110.0}}],"universeId":1},"ratings":{},"rosterLocked":false,"status":"ONTEAM","tradeLocked":false},"status":"NORMAL"},{"acquisitionDate":1789068600000,"acquisitionType":"DRAFT","injuryStatus":"ACTIVE","lineupSlotId":2,"pendingTransactionIds":null,"playerId":2012,"playerPoolEntry":{"appliedStatTotal":11.0,"id":2012,"keeperValue":0,"keeperValueFuture":0,"lineupLocked":false,"onTeamId":1,"player":{"active":true,"defaultPositionId":2,"droppable":true,"eligibleSlots":[2,3,23,20,21],"firstName":"Margaret","fullName":"Margaret
+        Hamilton","id":2012,"injured":false,"injuryStatus":"ACTIVE","lastName":"Hamilton","ownership":{"percentOwned":61.5,"percentStarted":40.25},"proTeamId":12,"stats":[{"appliedAverage":11.0,"appliedStats":{"42":100.0},"appliedTotal":11.0,"externalId":"2026","id":"02026","proTeamId":12,"scoringPeriodId":2,"seasonId":2026,"statSourceId":0,"statSplitTypeId":1,"stats":{"42":100.0}},{"appliedAverage":13.4,"appliedStats":{"42":110.0},"appliedTotal":13.4,"externalId":"2026","id":"12026","proTeamId":12,"scoringPeriodId":2,"seasonId":2026,"statSourceId":1,"statSplitTypeId":1,"stats":{"42":110.0}}],"universeId":1},"ratings":{},"rosterLocked":false,"status":"ONTEAM","tradeLocked":false},"status":"NORMAL"}]},"transactionCounter":{"acquisitions":1,"drops":1,"moveToIR":0,"trades":1},"waiverRank":2}]}'
+    headers:
+      Content-Type:
+      - application/json;charset=utf-8
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers: {}
+    method: GET
+    uri: https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/segments/0/leagues/99?scoringPeriodId=2&view=mTransactions2
+  response:
+    body:
+      string: '{"id":99,"scoringPeriodId":2,"seasonId":2026,"transactions":[{"bidAmount":17,"executionType":"EXECUTE","id":"waiver-0001","isPending":false,"items":[{"fromTeamId":0,"playerId":3001,"toTeamId":1,"type":"ADD"},{"fromTeamId":1,"playerId":2003,"toTeamId":0,"type":"DROP"}],"memberId":"{OWNER-ALPHA}","processDate":1789068600000,"scoringPeriodId":2,"status":"EXECUTED","teamId":1,"type":"WAIVER"},{"bidAmount":0,"executionType":"EXECUTE","id":"proposal-0002","isPending":true,"items":[{"fromTeamId":1,"playerId":2002,"toTeamId":2,"type":"ADD"}],"proposedDate":1789068600000,"scoringPeriodId":2,"status":"PENDING","teamId":2,"type":"TRADE_PROPOSAL"}]}'
+    headers:
+      Content-Type:
+      - application/json;charset=utf-8
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers: {}
+    method: GET
+    uri: https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/segments/0/leagues/99/communication/?view=kona_league_communication
+  response:
+    body:
+      string: '{"topics":[{"author":"{OWNER-ALPHA}","date":1788969600000,"id":"topic-0001","messages":[{"author":"{OWNER-ALPHA}","date":1788969600000,"from":1,"id":"message-0001","messageTypeId":244,"targetId":2002,"to":2}],"type":"ACTIVITY_TRANSACTIONS"}]}'
+    headers:
+      Content-Type:
+      - application/json;charset=utf-8
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers: {}
+    method: GET
+    uri: https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/segments/0/leagues/99?scoringPeriodId=2&view=kona_player_info
+  response:
+    body:
+      string: '{"players":[{"draftAuctionValue":0,"id":3001,"keeperValue":0,"lineupLocked":false,"onTeamId":0,"player":{"active":true,"defaultPositionId":4,"droppable":true,"eligibleSlots":[3,4,5,23,20,21],"firstName":"Barbara","fullName":"Barbara
+        Liskov","id":3001,"injured":false,"injuryStatus":"ACTIVE","lastName":"Liskov","ownership":{"percentOwned":61.5,"percentStarted":40.25},"proTeamId":26,"stats":[{"appliedAverage":0.0,"appliedStats":{"42":100.0},"appliedTotal":0.0,"externalId":"2026","id":"02026","proTeamId":26,"scoringPeriodId":2,"seasonId":2026,"statSourceId":0,"statSplitTypeId":1,"stats":{"42":100.0}},{"appliedAverage":8.4,"appliedStats":{"42":110.0},"appliedTotal":8.4,"externalId":"2026","id":"12026","proTeamId":26,"scoringPeriodId":2,"seasonId":2026,"statSourceId":1,"statSplitTypeId":1,"stats":{"42":110.0}}],"universeId":1},"ratings":{},"rosterLocked":false,"status":"FREEAGENT","tradeLocked":false},{"draftAuctionValue":0,"id":3002,"keeperValue":0,"lineupLocked":false,"onTeamId":0,"player":{"active":true,"defaultPositionId":6,"droppable":true,"eligibleSlots":[5,6,23,20,21],"firstName":"Radia","fullName":"Radia
+        Perlman","id":3002,"injured":false,"injuryStatus":"ACTIVE","lastName":"Perlman","ownership":{"percentOwned":61.5,"percentStarted":40.25},"proTeamId":12,"stats":[{"appliedAverage":0.0,"appliedStats":{"42":100.0},"appliedTotal":0.0,"externalId":"2026","id":"02026","proTeamId":12,"scoringPeriodId":2,"seasonId":2026,"statSourceId":0,"statSplitTypeId":1,"stats":{"42":100.0}},{"appliedAverage":6.1,"appliedStats":{"42":110.0},"appliedTotal":6.1,"externalId":"2026","id":"12026","proTeamId":12,"scoringPeriodId":2,"seasonId":2026,"statSourceId":1,"statSplitTypeId":1,"stats":{"42":110.0}}],"universeId":1},"ratings":{},"rosterLocked":false,"status":"FREEAGENT","tradeLocked":false}]}'
+    headers:
+      Content-Type:
+      - application/json;charset=utf-8
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers: {}
+    method: GET
+    uri: https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/segments/0/leagues/99?scoringPeriodId=2&view=mPositionalRatings
+  response:
+    body:
+      string: '{"positionAgainstOpponent":{"positionalRatings":{"0":{"average":12.0,"ratingsByOpponent":{"12":{"average":11.0,"rank":4},"26":{"average":13.0,"rank":9}}},"2":{"average":12.0,"ratingsByOpponent":{"12":{"average":11.0,"rank":4},"26":{"average":13.0,"rank":9}}},"4":{"average":12.0,"ratingsByOpponent":{"12":{"average":11.0,"rank":4},"26":{"average":13.0,"rank":9}}},"6":{"average":12.0,"ratingsByOpponent":{"12":{"average":11.0,"rank":4},"26":{"average":13.0,"rank":9}}}}}}'
+    headers:
+      Content-Type:
+      - application/json;charset=utf-8
+    status:
+      code: 200
+      message: OK
+version: 1
