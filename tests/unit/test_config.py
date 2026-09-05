@@ -18,7 +18,7 @@ import pytest
 
 from fantasy_sports.config import credentials, leagues, paths
 from fantasy_sports.config.leagues import LeagueProfile
-from fantasy_sports.core.errors import ConfigInvalidError, LeagueNotFoundError
+from fantasy_sports.core.errors import ConfigInvalidError, ErrorCode, LeagueNotFoundError
 
 XDG_VARS = ("XDG_CONFIG_HOME", "XDG_CACHE_HOME", "XDG_DATA_HOME")
 
@@ -443,23 +443,61 @@ def test_load_credentials_reads_the_credentials_table(tmp_path: Path):
     assert credentials.load_credentials(path) == {"espn_s2": "abc", "swid": "{x}"}
 
 
-def test_load_credentials_ignores_non_string_values(tmp_path: Path):
-    path = _write_credentials(tmp_path, '[credentials]\nespn_s2 = 3\nswid = "ok"\n')
-    assert credentials.load_credentials(path) == {"swid": "ok"}
+def test_load_credentials_on_malformed_toml_raises_config_invalid(tmp_path: Path):
+    """A file the user can fix must say so, not report a missing credential.
+
+    Failing soft here sends the human off to re-extract a cookie they already
+    have, while the real problem is a typo three lines away
+    (jwulff/fantasy-sports#37).
+    """
+    path = tmp_path / "config.toml"
+    path.write_text('[credentials]\nespn_s2 = "unterminated\n')
+    with pytest.raises(ConfigInvalidError) as err:
+        credentials.load_credentials(path)
+    assert err.value.code == ErrorCode.CONFIG_INVALID
+    assert err.value.retryable is False
+    assert str(path) in err.value.details["path"]
 
 
-def test_load_credentials_on_a_missing_file_is_empty(tmp_path: Path):
+def test_load_credentials_when_the_table_is_not_a_table_raises(tmp_path: Path):
+    path = tmp_path / "config.toml"
+    path.write_text('credentials = "oops"\n')
+    with pytest.raises(ConfigInvalidError) as err:
+        credentials.load_credentials(path)
+    assert err.value.details["found_type"] == "str"
+
+
+def test_load_credentials_on_an_unquoted_value_raises_and_names_the_key(tmp_path: Path):
+    """TOML reads an unquoted cookie as an integer. Dropping it is as opaque
+    as coercing it; only naming the key tells the human what to fix."""
+    path = tmp_path / "config.toml"
+    path.write_text("[credentials]\nespn_s2 = 12345\n")
+    with pytest.raises(ConfigInvalidError) as err:
+        credentials.load_credentials(path)
+    assert err.value.details["key"] == "espn_s2"
+    assert "espn_s2" in err.value.remediation
+
+
+def test_load_credentials_on_an_absent_file_is_empty_not_an_error(tmp_path: Path):
+    """Absence is ordinary: an env-only host has no config file at all."""
     assert credentials.load_credentials(tmp_path / "nope.toml") == {}
 
 
-def test_load_credentials_on_malformed_toml_is_empty_not_an_error(tmp_path: Path):
-    """Fails soft, unlike `leagues.load`. The chain has another link."""
-    path = _write_credentials(tmp_path, "credentials = \n")
-    assert credentials.load_credentials(path) == {}
+def test_load_credentials_on_an_unreadable_file_is_empty_not_an_error(tmp_path: Path):
+    """Environmental, not malformed — the same class as a locked Keychain."""
+    path = tmp_path / "config.toml"
+    path.write_text('[credentials]\nespn_s2 = "x"\n')
+    path.chmod(0o000)
+    try:
+        assert credentials.load_credentials(path) == {}
+    finally:
+        path.chmod(0o600)
 
 
-def test_load_credentials_without_the_table_is_empty(tmp_path: Path):
-    path = _write_credentials(tmp_path, 'default = "dynasty"\n')
+def test_load_credentials_without_the_table_is_empty_not_an_error(tmp_path: Path):
+    """A config file that only configures leagues is not damaged."""
+    path = tmp_path / "config.toml"
+    path.write_text('[leagues.main]\nprovider = "espn"\n')
     assert credentials.load_credentials(path) == {}
 
 
