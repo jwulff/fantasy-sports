@@ -193,8 +193,8 @@ def test_rate_limited_carries_retry_after():
     assert exc.to_dict()["details"]["retry_after"] == 30.0
 
 
-def test_rate_limited_without_a_retry_after_omits_it():
-    assert "retry_after" not in RateLimitedError("slow down").to_dict().get("details", {})
+def test_rate_limited_without_a_retry_after_reports_null_details():
+    assert RateLimitedError("slow down").to_dict()["details"] is None
 
 
 def test_schema_drift_records_the_offending_path():
@@ -209,8 +209,32 @@ def test_schema_drift_accepts_several_paths():
     assert exc.to_dict()["details"]["path"] == ["Team.name", "Team.wins"]
 
 
-def test_schema_drift_without_a_path_reports_no_details():
-    assert "details" not in SchemaDriftError("shape changed").to_dict()
+def test_schema_drift_without_a_path_reports_null_details():
+    assert SchemaDriftError("shape changed").to_dict()["details"] is None
+
+
+def test_the_error_payload_keys_are_always_present():
+    """ADR-0004 as amended by U5 (#6): every key, every time, `None` when empty.
+
+    A key that disappears when it is empty is a key some consumers will never
+    read for, which is exactly what promoting `remediation` out of `details`
+    was meant to prevent.
+    """
+    expected = ["code", "message", "retryable", "agent_action", "remediation", "details"]
+    for error_cls in ERROR_TYPES:
+        assert list(error_cls("bare").to_dict()) == expected, error_cls.__name__
+
+
+def test_remediation_is_a_first_class_key_and_is_scrubbed():
+    exc = ProviderUnavailableError("espn 503", remediation="Retry in a minute.")
+    assert exc.remediation == "Retry in a minute."
+    assert exc.to_dict()["remediation"] == "Retry in a minute."
+    assert exc.details == {}, "it is not a detail"
+
+    remember_secret(SECRET)
+    leaky = ProviderUnavailableError("espn 503", remediation=f"Rotate {SECRET} in DevTools.")
+    assert SECRET not in leaky.to_dict()["remediation"]
+    assert REDACTED in leaky.to_dict()["remediation"]
 
 
 def test_details_are_copied_so_a_caller_cannot_mutate_the_payload_later():

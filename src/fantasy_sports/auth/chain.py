@@ -151,12 +151,13 @@ def _auth_missing(message: str, *, remediation: str | None = None) -> AuthMissin
 
     ``remediation`` is the human-facing next step and is per-instance: it names
     the actual environment variables that would satisfy *this* failure, which
-    the class-level ``agent_action`` cannot. It rides in ``details``, the
-    taxonomy's existing per-instance channel, so ADR-0004's payload keys are
-    unchanged. Message and details are scrubbed by
+    the class-level ``agent_action`` cannot. It is a first-class key on the
+    error payload (ADR-0004 as amended by U5, decided on
+    jwulff/fantasy-sports#6) rather than an entry in ``details``. Message and
+    remediation are scrubbed by
     :class:`~fantasy_sports.core.errors.FantasySportsError` at construction.
     """
-    return AuthMissingError(message, details={"remediation": remediation} if remediation else None)
+    return AuthMissingError(message, remediation=remediation)
 
 
 # ---------------------------------------------------------------------------
