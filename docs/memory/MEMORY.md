@@ -11,6 +11,6 @@ individual files when their topic is relevant.
 | [import-budget-and-the-fastpath.md](import-budget-and-the-fastpath.md) | Importing typer costs 44 ms against a 50 ms budget — why the argparse front door exists and how the two help surfaces stay in sync |
 | [runtime-checkable-proves-less-than-it-looks.md](runtime-checkable-proves-less-than-it-looks.md) | `isinstance(x, Provider)` checks method *names* only, and `issubclass` raises — why an adapter's conformance test must call every method |
 | [cassette-scrubbing-blind-spots.md](cassette-scrubbing-blind-spots.md) | A gzipped or `!!binary` cassette body defeats the SWID scrubber and a grep-based scan — why `decode_compressed_response` and the structural scan pass exist |
-
+| [config-toml-is-a-shared-namespace.md](config-toml-is-a-shared-namespace.md) | Every layer reads `config.toml`, so unknown top-level keys must be tolerated — plus the XDG test-isolation and `bool`-is-an-`int` traps |
 Nothing here should duplicate what the code, git history, `CLAUDE.md`, or
 `docs/ARCHITECTURE.md` already record.
