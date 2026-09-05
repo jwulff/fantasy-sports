@@ -14,5 +14,6 @@ individual files when their topic is relevant.
 | [cassette-scrubbing-blind-spots.md](cassette-scrubbing-blind-spots.md) | A gzipped or `!!binary` cassette body defeats the SWID scrubber and a grep-based scan — why `decode_compressed_response` and the structural scan pass exist |
 | [config-toml-is-a-shared-namespace.md](config-toml-is-a-shared-namespace.md) | Every layer reads `config.toml`, so unknown top-level keys must be tolerated — plus the XDG test-isolation and `bool`-is-an-`int` traps |
 | [parallel-wave-seams.md](parallel-wave-seams.md) | What a four-way parallel wave actually costs, and the two seams that are dangerous to close late — a scrub that must move with the class that did it, and a duplicated type that must be merged rather than wrapped |
+| [cache-redaction-and-tag-classes.md](cache-redaction-and-tag-classes.md) | Why `core/redaction.py` holds two scrubbers, why the cache decodes before it scrubs with no vcrpy to do it, and why `players_wl` needs a season-scoped tag class of its own |
 Nothing here should duplicate what the code, git history, `CLAUDE.md`, or
 `docs/ARCHITECTURE.md` already record.
