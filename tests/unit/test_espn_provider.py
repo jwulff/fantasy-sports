@@ -351,11 +351,40 @@ def test_owner_names_are_plural_and_absence_is_not_drift(canary: EspnProvider):
 
     The canary's ``members`` carry ids and *no display names at all* — probed
     against real ESPN on 2026-09-05 — so the honest answer here is an empty
-    tuple rather than an invented one. The join itself is exercised against the
-    synthetic fixture, where members have names.
+    tuple rather than an invented one. Names are exercised against the
+    synthetic fixture, where members have them.
     """
     for team in canary.fetch_teams(*CANARY):
         assert isinstance(team.owner_names, tuple)
+
+
+def test_the_owner_join_survives_redaction_in_the_recording(canary: EspnProvider):
+    """The stable-pseudonym guarantee (#38), verified through this adapter.
+
+    ESPN uses the SWID as a **join key inside a single payload**:
+    ``teams[].owners`` points at ``members[].id``. Before #38 every one of them
+    was rewritten to one shared ``{SWID-REDACTED}``, which turned ten teams and
+    ten members into a ten-by-ten ambiguity and made ``owner_names``
+    underivable. This asserts on the recording as it exists on disk, so it goes
+    red if a future scrubber change flattens the key again.
+    """
+    teams = canary.fetch_teams(*CANARY)
+    record = canary.last_fetch
+    assert record is not None
+    bootstrap = record.payload("mTeam+mRoster+mMatchup+mSettings+mStandings")
+
+    owners = [tuple(team.raw["owners"]) for team in teams]
+    assert all(len(item) == 1 for item in owners), "a canary team has exactly one owner"
+    assert len({item[0] for item in owners}) == len(teams), "owner ids collapsed to one value"
+
+    # Redacted, not real: no brace-wrapped GUID survives, and every pseudonym
+    # carries #38's reserved sentinel first group.
+    assert all(item[0].startswith("{00000000-") for item in owners)
+
+    # ...and each of those still resolves to exactly one member, which is the
+    # join itself rather than a property of the ids.
+    members = {member["id"] for member in bootstrap["members"]}
+    assert all(item[0] in members for item in owners)
 
 
 def test_standings_are_ordered_and_ranked_by_the_adapter(canary: EspnProvider):

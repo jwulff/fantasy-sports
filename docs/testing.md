@@ -59,6 +59,12 @@ Two further gaps that are about the league's *data* rather than the library:
 - **Owner display names.** The canary's `members[]` carry ids and no names at
   all. Team-to-person mapping must not be built on ESPN member names.
 
+The `teams[].owners` → `members[].id` join *is* exercised by the recording,
+because #38's per-GUID pseudonyms keep the key distinct through redaction. If a
+future scrubber change flattens it back to one shared placeholder,
+`test_the_owner_join_survives_redaction_in_the_recording` goes red rather than
+`owner_names` quietly emptying.
+
 ---
 
 ## 2. Hand-authored: `tests/cassettes/espn/synthetic_2026.yaml`
