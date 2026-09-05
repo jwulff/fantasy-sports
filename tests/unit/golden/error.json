@@ -1,0 +1,22 @@
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "espn",
+  "league_id": "123456",
+  "season": 2026,
+  "generated_at": "2026-08-26T18:04:11Z",
+  "data_as_of": null,
+  "data_age_seconds": null,
+  "sources": [],
+  "untrusted": {},
+  "data": null,
+  "error": {
+    "code": "AUTH_EXPIRED",
+    "message": "ESPN rejected the stored cookies.",
+    "retryable": false,
+    "agent_action": "Ask the human to re-extract their ESPN cookies.",
+    "remediation": "Re-extract espn_s2 and SWID from DevTools, then run `auth login`.",
+    "details": {
+      "status": 401
+    }
+  }
+}

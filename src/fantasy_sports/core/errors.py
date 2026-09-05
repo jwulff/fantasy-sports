@@ -19,6 +19,13 @@ Two rules the classes below encode:
 * **An error payload is not a data channel.** ``details`` is for field *names*,
   paths, and status codes — never provider bytes, response bodies, or anything
   that could carry an ``espn_s2`` value or a SWID GUID (CLAUDE.md rule 5).
+* **``remediation`` is a first-class payload key, not a detail.** It is the part
+  a caller acts on, and a key that rides in a general-purpose bag is a key some
+  consumers will never read. ``agent_action`` is the class-level instruction
+  ("ask the human to re-auth"); ``remediation`` is the *instance's* concrete
+  next step, naming the environment variable or the file that would actually fix
+  this failure. Promoted from ``details`` in the U5 output layer, on the
+  decision recorded on jwulff/fantasy-sports#6; ADR-0004 amended to match.
 * **The base class scrubs, so no raise site has to remember to.** Every
   message and every ``details`` value passes through
   :func:`~fantasy_sports.core.redaction.redact` at construction. The leak this
@@ -77,7 +84,13 @@ class FantasySportsError(Exception):
     retryable: ClassVar[bool] = False
     agent_action: ClassVar[str]
 
-    def __init__(self, message: str, *, details: Mapping[str, Any] | None = None) -> None:
+    def __init__(
+        self,
+        message: str,
+        *,
+        remediation: str | None = None,
+        details: Mapping[str, Any] | None = None,
+    ) -> None:
         # Scrub at construction, not at render. Once the message is stored
         # redacted there is no path — args, str(), repr(), traceback, payload —
         # that can put the value back. This is the guarantee that used to live
@@ -86,6 +99,7 @@ class FantasySportsError(Exception):
         message = redact(message)
         super().__init__(message)
         self.message = message
+        self.remediation = redact(remediation) if remediation else None
         # Copied, not aliased: a caller must not be able to mutate a rendered
         # payload after the fact, and we must not retain a reference into a
         # provider response.
@@ -102,16 +116,21 @@ class FantasySportsError(Exception):
         self.details[key] = scrub(value)
 
     def to_dict(self) -> dict[str, Any]:
-        """The stable error payload. ``details`` is omitted when empty."""
-        payload: dict[str, Any] = {
+        """The stable error payload. Every key is always present.
+
+        ``remediation`` and ``details`` are ``None`` rather than absent when
+        empty. A key a consumer *may* have to look for is a key some consumers
+        will not look for, and the whole point of the taxonomy is that a
+        failure tells its caller what to do next.
+        """
+        return {
             "code": self.code.value,
             "message": self.message,
             "retryable": self.retryable,
             "agent_action": self.agent_action,
+            "remediation": self.remediation,
+            "details": dict(self.details) if self.details else None,
         }
-        if self.details:
-            payload["details"] = dict(self.details)
-        return payload
 
 
 class AuthMissingError(FantasySportsError):
@@ -181,9 +200,10 @@ class RateLimitedError(FantasySportsError):
         message: str,
         *,
         retry_after: float | None = None,
+        remediation: str | None = None,
         details: Mapping[str, Any] | None = None,
     ) -> None:
-        super().__init__(message, details=details)
+        super().__init__(message, remediation=remediation, details=details)
         self.retry_after = retry_after
         if retry_after is not None:
             self._record_detail("retry_after", retry_after)
@@ -213,9 +233,10 @@ class SchemaDriftError(FantasySportsError):
         *,
         path: str | Sequence[str] | None = None,
         provider: str | None = None,
+        remediation: str | None = None,
         details: Mapping[str, Any] | None = None,
     ) -> None:
-        super().__init__(message, details=details)
+        super().__init__(message, remediation=remediation, details=details)
         self.path: tuple[str, ...] = (path,) if isinstance(path, str) else tuple(path or ())
         self.provider = provider
         if self.path:

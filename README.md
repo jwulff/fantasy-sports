@@ -38,7 +38,10 @@ fantasy-sports raw --view mSettings         # escape hatch
 ```
 
 Add `--output json` (or just pipe it) for machine-readable output. Every payload
-is versioned and every error carries a stable machine code.
+is versioned and states the age of the data it drew on; every error is JSON on
+stderr with a stable machine code, an empty stdout, and its own exit status, so a
+cron job can branch on failure without parsing anything. The full shape is in
+[ADR-0004](docs/adr/0004-versioned-output-contract-and-error-taxonomy.md).
 
 ## Providers
 
