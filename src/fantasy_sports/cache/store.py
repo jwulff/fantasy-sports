@@ -28,6 +28,14 @@ was written against happened to be uncompressed
 (``docs/memory/cassette-scrubbing-blind-spots.md``). A body that cannot be
 decoded is not stored at all: bytes that cannot be read cannot be proven clean.
 
+Redaction does not flatten every SWID GUID to one placeholder. ESPN uses that
+GUID to join ``teams[].owners`` to ``members[].id`` inside a single payload, so
+each distinct GUID becomes a distinct, stable, GUID-shaped pseudonym instead
+(jwulff/fantasy-sports#38). The salt is **random per store** and lives in this
+same file, in ``store_meta`` — a cache is never committed, so unlike a cassette
+it can have that for free, and keeping the salt with the rows it salted is what
+makes "discard the store" the only way to lose it.
+
 Failure posture
 ---------------
 
@@ -59,12 +67,14 @@ from fantasy_sports.cache.tags import RequestContext, TagScope, scope_of, tags_f
 from fantasy_sports.core.redaction import (
     CREDENTIAL_QUERY_PARAMS,
     UnscrubbableResponseError,
+    new_swid_salt,
     scrub_body,
     scrub_credential_patterns,
 )
 
 __all__ = [
     "DEFAULT_CACHE_FILENAME",
+    "SWID_SALT_KEY",
     "CacheEntry",
     "CacheMode",
     "CacheStore",
@@ -90,6 +100,24 @@ CREATE TABLE IF NOT EXISTS entry_tags (
     PRIMARY KEY (key, tag)
 );
 CREATE INDEX IF NOT EXISTS entry_tags_tag ON entry_tags (tag);
+CREATE TABLE IF NOT EXISTS store_meta (
+    name  TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+"""
+
+SWID_SALT_KEY: Final[str] = "swid_salt"
+"""``store_meta`` row holding this store's SWID pseudonym salt.
+
+**It lives in the same file as the rows it salted, on purpose.** A cache is
+never committed, so unlike a cassette it can afford a random salt — and a
+random salt means the pseudonyms in one developer's store cannot be confirmed
+against a SWID by anyone who has not also got the store. The price is that the
+salt and the entries must be discarded together: rotating it independently
+would make older and newer entries disagree about the same member, which is
+the precise failure jwulff/fantasy-sports#38 exists to prevent. Discarding the
+file (:meth:`CacheStore._discard_file`) loses both at once, which is the only
+lifecycle that is safe.
 """
 
 Params = Mapping[str, Any] | None
@@ -231,6 +259,7 @@ class CacheStore:
         self._now = now
         self._connection: sqlite3.Connection | None = None
         self._unavailable = False
+        self._swid_salt: str | None = None
 
     # --- connection -------------------------------------------------------- #
 
@@ -238,6 +267,47 @@ class CacheStore:
     def available(self) -> bool:
         """Whether the store can be used at all. Opens it if it is not open yet."""
         return self._connect() is not None
+
+    @property
+    def swid_salt(self) -> str:
+        """This store's SWID pseudonym salt, minted on first use and persisted.
+
+        Random per store, because nothing here is ever committed. Callers that
+        scrub a body destined for — or read from — this store must pass it, or
+        a hit and a miss would disagree about the same member.
+
+        Falls back to a process-lifetime random salt when the store cannot be
+        opened at all. Nothing is stored in that case, so nothing has to agree
+        with anything on disk; what must not happen is silently reverting to
+        the public cassette salt, which would hand the weaker property to a
+        user whose disk merely filled up.
+        """
+        self._connect()
+        if self._swid_salt is None:
+            self._swid_salt = new_swid_salt()
+        return self._swid_salt
+
+    def _load_or_mint_swid_salt(self, connection: sqlite3.Connection) -> None:
+        """Read the persisted salt, creating one on a store that has none yet."""
+        row = connection.execute(
+            "SELECT value FROM store_meta WHERE name = ?", (SWID_SALT_KEY,)
+        ).fetchone()
+        if row is not None:
+            self._swid_salt = row[0]
+            return
+        salt = new_swid_salt()
+        with connection:
+            connection.execute(
+                "INSERT INTO store_meta (name, value) VALUES (?, ?) ON CONFLICT(name) DO NOTHING",
+                (SWID_SALT_KEY, salt),
+            )
+        row = connection.execute(
+            "SELECT value FROM store_meta WHERE name = ?", (SWID_SALT_KEY,)
+        ).fetchone()
+        # Re-read rather than trusting the insert: another process may have
+        # written first, and the whole point is that every entry in this file
+        # was salted with the same value.
+        self._swid_salt = row[0] if row is not None else salt
 
     def _connect(self, *, _retry: bool = True) -> sqlite3.Connection | None:
         if self._connection is not None:
@@ -256,6 +326,7 @@ class CacheStore:
             connection = sqlite3.connect(self.path)
             connection.executescript(_SCHEMA)
             connection.commit()
+            self._load_or_mint_swid_salt(connection)
         except (OSError, sqlite3.Error):
             # The most likely cause of a DatabaseError here is a file that is
             # not a database. It is a cache: rebuilding it costs one refetch,
@@ -268,10 +339,17 @@ class CacheStore:
         return connection
 
     def _discard_file(self) -> bool:
+        """Throw the store away. The salt goes with it, which is the point.
+
+        A rebuilt store mints a fresh salt, so every entry in the new file
+        agrees with every other. Keeping the old salt across a rebuild would
+        buy nothing and cost the invariant.
+        """
         try:
             self.path.unlink(missing_ok=True)
         except OSError:
             return False
+        self._swid_salt = None
         return True
 
     def _fail(self) -> None:
@@ -350,13 +428,17 @@ class CacheStore:
         is worth far less than the guarantee that nothing unaudited is on disk.
 
         ``ttl=None`` means the entry never expires.
+
+        The store is opened *before* the body is scrubbed, because the salt the
+        scrub needs lives in the file. A store that will not open stores
+        nothing, so there is no work lost in that order.
         """
-        try:
-            text = scrub_body(body)
-        except UnscrubbableResponseError:
-            return False
         connection = self._connect()
         if connection is None:
+            return False
+        try:
+            text = scrub_body(body, swid_salt=self.swid_salt)
+        except UnscrubbableResponseError:
             return False
         now = self._now()
         expires_at = None if ttl is None else now + ttl
@@ -492,7 +574,7 @@ class CachingFetcher:
             if entry is not None:
                 return FetchResult(body=entry.body, cached=True)
 
-        text, storable = _readable(self._fetch(url, params))
+        text, storable = _readable(self._fetch(url, params), swid_salt=self._store.swid_salt)
 
         # Scrubbed even on a bypass, so `--no-cache` and a cache hit hand the
         # adapter the same shape. A flag that changes what gets parsed is a
@@ -512,17 +594,21 @@ class CachingFetcher:
     __call__ = fetch
 
 
-def _readable(body: bytes | str) -> tuple[str, bool]:
+def _readable(body: bytes | str, *, swid_salt: str) -> tuple[str, bool]:
     """``body`` as scrubbed text, and whether it was clean enough to store.
 
     A body that will not decode is still handed back — the fetch succeeded, and
     a cache must never be the reason a read fails — but with ``False``, so it
     never reaches disk. Bytes that cannot be read cannot be proven free of
     credentials, and an unreadable body is worth much less than that guarantee.
+
+    ``swid_salt`` is the store's, not the public cassette one: the body handed
+    back on a miss must carry the same pseudonyms the next hit will read out of
+    SQLite, or the adapter's owner-to-member join would depend on cache state.
     """
     try:
-        return scrub_body(body), True
+        return scrub_body(body, swid_salt=swid_salt), True
     except UnscrubbableResponseError:
         # Only ``bytes`` can fail to decode; a ``str`` body always succeeds.
         salvaged = bytes(body).decode("utf-8", errors="replace")  # type: ignore[arg-type]
-        return scrub_credential_patterns(salvaged), False
+        return scrub_credential_patterns(salvaged, swid_salt=swid_salt), False

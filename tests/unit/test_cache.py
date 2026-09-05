@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import ast
 import gzip
+import json
 import sqlite3
 import time
 from collections.abc import Mapping
@@ -44,7 +45,12 @@ from fantasy_sports.cache.tags import (
     tags_for,
     ttl_for,
 )
-from fantasy_sports.core.redaction import CREDENTIAL_PATTERNS, SWID_PLACEHOLDER
+from fantasy_sports.core.redaction import (
+    CASSETTE_SWID_SALT,
+    CREDENTIAL_PATTERNS,
+    is_swid_pseudonym,
+    swid_pseudonym,
+)
 
 XDG_VARS = ("XDG_CONFIG_HOME", "XDG_CACHE_HOME", "XDG_DATA_HOME")
 
@@ -552,9 +558,143 @@ def test_a_gzipped_body_is_decoded_before_it_is_scrubbed(tmp_path: Path):
     body_text = body.decode() if isinstance(body, bytes) else body
 
     assert FAKE_SWID not in body_text
-    assert SWID_PLACEHOLDER in body_text, "the body was stored still compressed"
+    assert is_swid_pseudonym(json.loads(body_text)["teams"][0]["owners"][0]), (
+        "the body was stored still compressed"
+    )
     assert '"firstName": "Jo"' in body_text, "the body was never decompressed"
     assert FAKE_SWID not in stored_text(store.path)
+
+
+# --------------------------------------------------------------------------- #
+# Redaction — the owner-to-member join (jwulff/fantasy-sports#38)
+# --------------------------------------------------------------------------- #
+
+
+def _stored_payload(store: CacheStore) -> dict:
+    rows = raw_rows(store.path)
+    assert len(rows) == 1
+    body = rows[0][2]
+    return json.loads(body.decode() if isinstance(body, bytes) else body)
+
+
+def test_the_owner_to_member_join_survives_a_round_trip_through_sqlite(tmp_path: Path):
+    """One shared placeholder collapses the join; a per-GUID pseudonym does not.
+
+    Read back out of SQLite rather than off the return value: the bytes on
+    disk are what the next process joins against.
+    """
+    body = (
+        '{"teams": [{"id": 1, "owners": ["' + FAKE_SWID + '"]},'
+        ' {"id": 2, "owners": ["' + OTHER_SWID + '"]}],'
+        ' "members": [{"id": "' + FAKE_SWID + '"}, {"id": "' + OTHER_SWID + '"}]}'
+    )
+    store = store_at(tmp_path)
+    CachingFetcher(RecordingFetch(default=body.encode()), store).fetch(
+        LEAGUE_URL, None, context=roster_context()
+    )
+
+    payload = _stored_payload(store)
+    owners = [team["owners"][0] for team in payload["teams"]]
+    members = [member["id"] for member in payload["members"]]
+
+    assert FAKE_SWID not in stored_text(store.path)
+    assert OTHER_SWID not in stored_text(store.path)
+    assert owners[0] != owners[1], "two distinct members collapsed onto one token"
+    assert owners == members, "the join key no longer joins"
+    assert all(is_swid_pseudonym(value) for value in owners + members)
+
+
+def test_the_store_salt_is_random_per_store(tmp_path: Path):
+    """A cache is never committed, so it gets unlinkability the cassette cannot.
+
+    If this ever reverts to the public cassette salt the pseudonyms in one
+    developer's store become confirmable against a real SWID by anyone.
+    """
+    one = CacheStore(tmp_path / "one.sqlite3", now=Clock())
+    two = CacheStore(tmp_path / "two.sqlite3", now=Clock())
+
+    assert one.swid_salt != two.swid_salt
+    assert one.swid_salt != CASSETTE_SWID_SALT
+    assert swid_pseudonym(FAKE_SWID, salt=one.swid_salt) != swid_pseudonym(
+        FAKE_SWID, salt=CASSETTE_SWID_SALT
+    )
+
+
+def test_two_entries_written_in_different_sessions_agree_about_one_member(tmp_path: Path):
+    """Why the salt lives in the file with the rows it salted.
+
+    A salt held only in memory is a fresh salt on the next run, and then two
+    entries naming the same member carry two different pseudonyms — the exact
+    disagreement #38 exists to prevent, and one no single-session test sees.
+    """
+    path = tmp_path / "cache.sqlite3"
+    body = '{"id": "' + FAKE_SWID + '"}'
+
+    first = CacheStore(path, now=Clock())
+    salt = first.swid_salt
+    first.put("monday", body, tags=(), ttl=300)
+    first.close()
+
+    second = CacheStore(path, now=Clock())
+    second.put("tuesday", body, tags=(), ttl=300)
+
+    bodies = {row[0]: json.loads(row[2])["id"] for row in raw_rows(path)}
+    assert bodies["monday"] == bodies["tuesday"], (
+        "the same member got two pseudonyms across two sessions"
+    )
+    assert second.swid_salt == salt
+
+
+def test_discarding_the_store_loses_the_salt_with_the_entries(tmp_path: Path):
+    """The two must go together. A rotated salt would make old and new entries
+    disagree about the same member — the precise failure #38 exists to prevent."""
+    path = tmp_path / "cache.sqlite3"
+    store = CacheStore(path, now=Clock())
+    salt = store.swid_salt
+    store.close()
+
+    path.write_bytes(b"this is not a database")
+    rebuilt = CacheStore(path, now=Clock())
+    rebuilt.put("a", '{"id": "' + FAKE_SWID + '"}', tags=(), ttl=300)
+
+    assert rebuilt.swid_salt != salt
+    assert _stored_payload(rebuilt)["id"] == swid_pseudonym(FAKE_SWID, salt=rebuilt.swid_salt)
+
+
+def test_a_hit_and_a_miss_agree_on_every_pseudonym(tmp_path: Path):
+    """The miss is scrubbed with the store's salt, not the public default.
+
+    Otherwise the adapter's owner-to-member join would resolve differently on
+    the first run than on the second, which is the worst place for it to show.
+    """
+    body = (
+        '{"teams": [{"owners": ["' + FAKE_SWID + '"]}], "members": [{"id": "' + FAKE_SWID + '"}]}'
+    )
+    store = store_at(tmp_path)
+    fetcher = CachingFetcher(RecordingFetch(default=body.encode()), store)
+
+    miss = fetcher.fetch(LEAGUE_URL, None, context=roster_context())
+    hit = fetcher.fetch(LEAGUE_URL, None, context=roster_context())
+
+    assert hit.cached is True
+    assert miss.body == hit.body
+    assert swid_pseudonym(FAKE_SWID, salt=store.swid_salt) in miss.body
+
+
+def test_re_storing_a_body_does_not_re_pseudonymise_it(tmp_path: Path):
+    """``--fresh`` rewrites the row. A second scrub must be a no-op, or the
+    refreshed entry would disagree with a sibling entry naming the same member."""
+    body = '{"id": "' + FAKE_SWID + '"}'
+    store = store_at(tmp_path)
+    fetcher = CachingFetcher(RecordingFetch(default=body.encode()), store)
+
+    fetcher.fetch(LEAGUE_URL, None, context=roster_context())
+    once = _stored_payload(store)["id"]
+    CachingFetcher(RecordingFetch(default=body.encode()), store, mode=CacheMode.FRESH).fetch(
+        LEAGUE_URL, None, context=roster_context()
+    )
+
+    assert _stored_payload(store)["id"] == once
 
 
 def test_a_plain_body_containing_a_swid_is_scrubbed_before_the_write(tmp_path: Path):

@@ -19,6 +19,7 @@ from typing import Any
 import pytest
 import yaml
 from conftest import (
+    CASSETTE_SWID_SALT,
     REDACTED,
     REPO_ROOT,
     SWID_PLACEHOLDER,
@@ -34,6 +35,7 @@ from conftest import (
     scrub_request,
     scrub_response,
     scrub_text,
+    swid_pseudonym,
 )
 
 # --- synthetic credentials, shaped like the real thing --------------------- #
@@ -43,6 +45,12 @@ FAKE_SWID_BARE = "0F1E2D3C-4B5A-6978-8796-A5B4C3D2E1F0"
 FAKE_ESPN_S2 = "AEBnotarealcookie0123456789abcdefABCDEF%2Bnotareal%3D%3D"
 FAKE_COOKIE = f"espn_s2={FAKE_ESPN_S2}; SWID={FAKE_SWID}"
 ESPN_HOST = "https://lm-api-reads.fantasy.espn.com"
+
+#: What a brace-wrapped SWID becomes in a *cassette*: a stable pseudonym under
+#: the public, deterministic cassette salt, not one shared placeholder
+#: (jwulff/fantasy-sports#38). Spelling it out pins the salt: a fixture must
+#: re-record byte-identically, so a change here is a change to every cassette.
+FAKE_SWID_PSEUDONYM = swid_pseudonym(FAKE_SWID, salt=CASSETTE_SWID_SALT)
 
 
 def _request(uri: str = f"{ESPN_HOST}/apis/v3/games/ffl/seasons/2026", **kwargs: Any) -> Any:
@@ -220,7 +228,7 @@ def test_swid_guid_echoed_in_a_response_body_is_redacted(tmp_path: Path) -> None
     written = _record(tmp_path / "roster.yaml", [(_request(headers={}), _response(body))])
 
     assert FAKE_SWID not in written
-    assert SWID_PLACEHOLDER in written
+    assert FAKE_SWID_PSEUDONYM in written
     assert '"id": 3' in written, "the rest of the payload must be preserved"
 
 
@@ -237,7 +245,7 @@ def test_gzipped_response_body_is_decoded_before_it_is_scrubbed(tmp_path: Path) 
     written = _record(path, [(_request(headers={}), response)])
 
     assert FAKE_SWID not in written
-    assert SWID_PLACEHOLDER in written
+    assert FAKE_SWID_PSEUDONYM in written
     assert not scan_file(path)
 
 
@@ -277,7 +285,7 @@ def test_rerecording_an_existing_fixture_reapplies_scrubbing(tmp_path: Path) -> 
     assert FAKE_SWID not in written, "the stale interaction was trusted instead of re-scrubbed"
     assert FAKE_ESPN_S2 not in written
     assert not scan_file(path)
-    assert SWID_PLACEHOLDER in written
+    assert FAKE_SWID_PSEUDONYM in written
 
 
 def test_a_recorded_cassette_passes_the_scan(tmp_path: Path) -> None:

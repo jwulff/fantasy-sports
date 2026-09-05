@@ -16,5 +16,6 @@ individual files when their topic is relevant.
 | [parallel-wave-seams.md](parallel-wave-seams.md) | What a four-way parallel wave actually costs, and the two seams that are dangerous to close late — a scrub that must move with the class that did it, and a duplicated type that must be merged rather than wrapped |
 | [cache-redaction-and-tag-classes.md](cache-redaction-and-tag-classes.md) | Why `core/redaction.py` holds two scrubbers, why the cache decodes before it scrubs with no vcrpy to do it, and why `players_wl` needs a season-scoped tag class of its own |
 | [output-contract-test-traps.md](output-contract-test-traps.md) | Two ways an output-contract test passes while measuring nothing — a pty drained after the child exits, and a golden file rendered by a transitive `rich` |
+| [swid-pseudonyms.md](swid-pseudonyms.md) | Flattening a join key is not redaction, it is data loss — why a SWID becomes a per-GUID pseudonym, why the sentinel first group is load-bearing, and the confirmable-mapping trade the cassette salt buys |
 Nothing here should duplicate what the code, git history, `CLAUDE.md`, or
 `docs/ARCHITECTURE.md` already record.
