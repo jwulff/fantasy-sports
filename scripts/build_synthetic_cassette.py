@@ -63,6 +63,63 @@ TRADE_AT = 1788969600000
 #: 2026-09-10T19:30:00Z — the waiver claim only mTransactions2 carries.
 WAIVER_AT = 1789068600000
 
+#: ESPN's ``filterSlotIds`` for a wide receiver. ``espn-api``'s ``POSITION_MAP``
+#: maps ``WR`` to 4, and the adapter passes it straight through.
+WIDE_RECEIVER_SLOTS = [4]
+
+# --- the `x-fantasy-filter` headers `espn-api` sends for each read ---------- #
+#
+# Copied from `espn_api/football/league.py` and `espn_api/requests/espn_requests.py`
+# rather than guessed: `tests/conftest.py` matches on this header, so a value
+# that differs from what the library builds is a fixture the adapter cannot
+# match. The matcher compares canonicalised JSON, so key and list order here do
+# not have to reproduce the library's `json.dumps` byte for byte — which is
+# just as well, since the library builds `filterType.value` from a Python set
+# and its order changes on every interpreter run.
+
+PLAYERS_FILTER = {"filterActive": {"value": True}}
+
+TRANSACTIONS_FILTER = {
+    "transactions": {
+        "filterType": {
+            "value": [
+                "FREEAGENT",
+                "WAIVER",
+                "WAIVER_ERROR",
+                "TRADE_ACCEPT",
+                "TRADE_UPHOLD",
+                "ROSTER",
+                "DRAFT",
+            ]
+        }
+    }
+}
+
+ACTIVITY_FILTER = {
+    "topics": {
+        "filterType": {"value": ["ACTIVITY_TRANSACTIONS"]},
+        "limit": 25,
+        "limitPerMessageSet": {"value": 25},
+        "offset": 0,
+        "sortMessageDate": {"sortPriority": 1, "sortAsc": False},
+        "sortFor": {"sortPriority": 2, "sortAsc": False},
+        "filterIncludeMessageTypeIds": {"value": [178, 180, 179, 239, 181, 244]},
+    }
+}
+
+
+def free_agent_filter(slot_ids: list[int]) -> dict[str, Any]:
+    """``kona_player_info``'s filter, for one position selection."""
+    return {
+        "players": {
+            "filterStatus": {"value": ["FREEAGENT", "WAIVERS"]},
+            "filterSlotIds": {"value": slot_ids},
+            "limit": 50,
+            "sortPercOwned": {"sortPriority": 1, "sortAsc": False},
+            "sortDraftRanks": {"sortPriority": 100, "sortAsc": True, "value": "STANDARD"},
+        }
+    }
+
 
 def _player(
     player_id: int,
@@ -451,7 +508,16 @@ def _activity() -> dict[str, Any]:
     }
 
 
-def _free_agents() -> dict[str, Any]:
+def _free_agents(slot_ids: list[int] | None = None) -> dict[str, Any]:
+    """The free-agent pool ESPN would return for one ``filterSlotIds`` value.
+
+    Filtered here, exactly as ESPN filters it server-side, so the fixture holds
+    two *different* payloads behind one URL. That is what makes the
+    ``x-fantasy-filter`` matcher testable against the real corpus rather than
+    only against a synthetic pair: without the matcher, the position-filtered
+    read replays the unfiltered response and still passes.
+    """
+    wanted = [spec for spec in FREE_AGENTS if not slot_ids or not set(spec[3]).isdisjoint(slot_ids)]
     return {
         "players": [
             {
@@ -474,7 +540,7 @@ def _free_agents() -> dict[str, Any]:
                 "status": "FREEAGENT",
                 "tradeLocked": False,
             }
-            for spec in FREE_AGENTS
+            for spec in wanted
         ]
     }
 
@@ -496,12 +562,23 @@ def _positional_ratings() -> dict[str, Any]:
     }
 
 
-def _interaction(uri: str, payload: Any) -> dict[str, Any]:
+def _interaction(uri: str, payload: Any, fantasy_filter: Any = None) -> dict[str, Any]:
+    """One recorded exchange.
+
+    ``fantasy_filter`` is the ``x-fantasy-filter`` header ``espn-api`` sends for
+    this read. It is part of the request identity — ``tests/conftest.py``
+    matches on it — so a hand-authored interaction that omits one ESPN would
+    have received is a fixture the adapter can never match. The values here are
+    the ones ``espn-api`` actually builds; see ``docs/testing.md`` §2.
+    """
     body = json.dumps(payload, separators=(",", ":"), sort_keys=True)
+    headers: dict[str, list[str]] = {}
+    if fantasy_filter is not None:
+        headers["x-fantasy-filter"] = [json.dumps(fantasy_filter)]
     return {
         "request": {
             "body": None,
-            "headers": {},
+            "headers": headers,
             "method": "GET",
             "uri": uri,
         },
@@ -521,13 +598,35 @@ def main() -> int:
             f"{LEAGUE_URL}?view=mTeam&view=mRoster&view=mMatchup&view=mSettings&view=mStandings",
             _bootstrap(),
         ),
-        _interaction(f"{BASE}/seasons/{SEASON}/players?view=players_wl", _players_wl()),
+        _interaction(
+            f"{BASE}/seasons/{SEASON}/players?view=players_wl", _players_wl(), PLAYERS_FILTER
+        ),
         _interaction(f"{SEASON_URL}?view=proTeamSchedules_wl", _pro_schedule()),
         _interaction(f"{LEAGUE_URL}?view=mDraftDetail", _draft()),
         _interaction(f"{LEAGUE_URL}?view=mMatchupScore", _bootstrap()),
-        _interaction(f"{LEAGUE_URL}?scoringPeriodId={WEEK}&view=mTransactions2", _transactions()),
-        _interaction(f"{LEAGUE_URL}/communication/?view=kona_league_communication", _activity()),
-        _interaction(f"{LEAGUE_URL}?scoringPeriodId={WEEK}&view=kona_player_info", _free_agents()),
+        _interaction(
+            f"{LEAGUE_URL}?scoringPeriodId={WEEK}&view=mTransactions2",
+            _transactions(),
+            TRANSACTIONS_FILTER,
+        ),
+        _interaction(
+            f"{LEAGUE_URL}/communication/?view=kona_league_communication",
+            _activity(),
+            ACTIVITY_FILTER,
+        ),
+        # Two interactions, one URL. They differ only in `filterSlotIds`, and
+        # they are the corpus-level proof that the `x-fantasy-filter` matcher
+        # works: without it the second read replays the first response.
+        _interaction(
+            f"{LEAGUE_URL}?scoringPeriodId={WEEK}&view=kona_player_info",
+            _free_agents(),
+            free_agent_filter([]),
+        ),
+        _interaction(
+            f"{LEAGUE_URL}?scoringPeriodId={WEEK}&view=kona_player_info",
+            _free_agents(WIDE_RECEIVER_SLOTS),
+            free_agent_filter(WIDE_RECEIVER_SLOTS),
+        ),
         _interaction(
             f"{LEAGUE_URL}?scoringPeriodId={WEEK}&view=mPositionalRatings", _positional_ratings()
         ),

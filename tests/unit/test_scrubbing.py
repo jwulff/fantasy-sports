@@ -25,6 +25,7 @@ from conftest import (
     SWID_PLACEHOLDER,
     CredentialFinding,
     UnscrubbableResponseError,
+    build_vcr,
     build_vcr_config,
     format_findings,
     iter_fixture_paths,
@@ -79,11 +80,8 @@ def _record(
     Nothing here touches the network: interactions are appended directly, which
     is the same code path (``Cassette.append``) a live recording takes.
     """
-    import vcr
-
-    config = build_vcr_config()
-    config["cassette_library_dir"] = str(path.parent)
-    with vcr.VCR(**config).use_cassette(path.name, record_mode=record_mode) as cassette:
+    recorder = build_vcr(cassette_library_dir=str(path.parent))
+    with recorder.use_cassette(path.name, record_mode=record_mode) as cassette:
         for request, response in interactions:
             cassette.append(request, response)
     return path.read_text(encoding="utf-8")

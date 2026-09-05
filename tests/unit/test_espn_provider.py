@@ -33,7 +33,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
-from conftest import build_vcr_config
+from conftest import build_vcr
 
 from fantasy_sports.core.errors import (
     AuthExpiredError,
@@ -68,10 +68,7 @@ WAIVER_AT = datetime(2026, 9, 10, 19, 30, tzinfo=UTC)
 
 @contextmanager
 def _cassette(name: str) -> Iterator[None]:
-    import vcr
-
-    recorder = vcr.VCR(**build_vcr_config())
-    with recorder.use_cassette(name, record_mode="none", allow_playback_repeats=True):
+    with build_vcr().use_cassette(name, record_mode="none", allow_playback_repeats=True):
         yield
 
 
@@ -553,6 +550,23 @@ def test_a_position_espn_would_silently_ignore_is_refused(synthetic: EspnProvide
     with pytest.raises(ValueError, match="not an ESPN position"):
         synthetic.fetch_free_agents(*SYNTHETIC, 2, position="PUNTER")
     assert synthetic.fetch_free_agents(*SYNTHETIC, 2, position="wr")
+
+
+def test_a_position_filtered_read_gets_its_own_recording(synthetic: EspnProvider):
+    """The corpus-level proof that the ``x-fantasy-filter`` matcher works.
+
+    ``kona_player_info`` is scoped by the header, not the URL, so the filtered
+    and unfiltered reads are the *same* URL. Under vcrpy's default matcher —
+    method/scheme/host/port/path/query, headers ignored entirely — the second
+    one replays the first one's body and the assertion below passes against the
+    wrong payload. It is the cassette twin of the cache-key bug that put
+    ``x-fantasy-filter`` into ``cache_key``'s ``extra``.
+    """
+    everyone = synthetic.fetch_free_agents(*SYNTHETIC, 2)
+    receivers = synthetic.fetch_free_agents(*SYNTHETIC, 2, position="wr")
+
+    assert {agent.player.name for agent in everyone} == {"Barbara Liskov", "Radia Perlman"}
+    assert {agent.player.name for agent in receivers} == {"Barbara Liskov"}
 
 
 # --------------------------------------------------------------------------- #

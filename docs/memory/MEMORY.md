@@ -19,5 +19,6 @@ individual files when their topic is relevant.
 | [swid-pseudonyms.md](swid-pseudonyms.md) | Flattening a join key is not redaction, it is data loss — why a SWID becomes a per-GUID pseudonym, why the sentinel first group is load-bearing, and the confirmable-mapping trade the cassette salt buys |
 | [espn-401-tells-you-nothing.md](espn-401-tells-you-nothing.md) | ESPN's 401 body carries a typed reason and it is a constant — why the double-probe stays mandatory, why `AUTH_LEAGUE_NOT_VISIBLE` never means `AUTH_EXPIRED`, and why the `fan.api` membership probe is not wired in |
 | [espn-api-is-a-shape-reader-not-a-client.md](espn-api-is-a-shape-reader-not-a-client.md) | What `espn-api` gives you (payload shapes) and what it never will (429, `Retry-After`, drift detection, a non-`Exception` empty result) — and where the transport seam has to sit |
+| [cassette-matching-is-a-correctness-surface.md](cassette-matching-is-a-correctness-surface.md) | vcrpy's default matcher ignores headers, and `x-fantasy-filter` is not stable across processes — why the matcher canonicalises JSON, why `build_vcr()` is the only constructor, and what a corpus structurally cannot prove |
 Nothing here should duplicate what the code, git history, `CLAUDE.md`, or
 `docs/ARCHITECTURE.md` already record.
