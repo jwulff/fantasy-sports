@@ -157,6 +157,7 @@ auditable place.
 The agent-native claim lives or dies here.
 
 - **JSON** when stdout is not a TTY; **rich table** when it is; `--output csv` flattens.
+  `--output` overrides the detection in both directions.
 - Every payload wrapped and **versioned from day one**:
 
 ```json
@@ -166,12 +167,30 @@ The agent-native claim lives or dies here.
   "league_id": "123456",
   "season": 2026,
   "generated_at": "2026-08-26T18:04:11Z",
-  "data": { }
+  "data_as_of": "2026-08-26T17:56:11Z",
+  "data_age_seconds": 480,
+  "sources": [
+    {"name": "mTeam", "fetched_at": "2026-08-26T17:56:11Z", "age_seconds": 480, "cached": true}
+  ],
+  "untrusted": {},
+  "data": { },
+  "error": null
 }
 ```
 
 The moment a cron job or an agent parses this, it is an API. Retrofitting a schema
 version later is miserable; adding it now is free.
+
+Success and failure carry the **same key set**; `data` and `error` are the
+discriminator and exactly one is non-null. `data_as_of` / `data_age_seconds`
+report the oldest contributing upstream fetch and `sources` itemizes each one
+(R4). `untrusted` is reserved empty for §12's attacker-influenceable text.
+
+**Timestamps are UTC or they are refused.** `espn-api` builds datetimes with
+`datetime.fromtimestamp()` and no `tz=`, so they are naive and host-local — the
+same league would render a different kickoff on a laptop and on a CI runner,
+with nothing reporting an error. The envelope raises on a naive datetime rather
+than guessing; adapters re-derive from raw epoch milliseconds.
 
 ### Error taxonomy — the part agents actually need
 
@@ -188,6 +207,28 @@ down" (retry later) without parsing English:
 | `PROVIDER_UNAVAILABLE` | ESPN 5xx / timeout | Retry with backoff |
 | `RATE_LIMITED` | Throttled | Retry after `retry_after` |
 | `SCHEMA_DRIFT` | Response shape unrecognized | Stop; file an issue |
+
+Every error payload carries `code`, `message`, `retryable`, `agent_action`,
+`remediation` and `details`, all of them always present and `null` when empty.
+`agent_action` is the class-level instruction; **`remediation` is the instance's
+concrete next step** — the environment variable or the file that would fix *this*
+failure. It is a first-class key rather than an entry in `details` because it is
+the part a caller acts on, and a key in a general-purpose bag is a key some
+consumers never read (ADR-0004 as amended, decided on #6).
+
+Each code carries its own **exit status** so a cron job can branch without
+parsing anything: `AUTH_MISSING` 3, `AUTH_EXPIRED` 4, `LEAGUE_NOT_FOUND` 5,
+`CONFIG_INVALID` 6, `PROVIDER_UNAVAILABLE` 7, `RATE_LIMITED` 8, `SCHEMA_DRIFT` 9;
+`0` success, `1` an unclassified crash, `2` a usage error.
+
+**stdout stays byte-empty on failure**, and a failure is always JSON whatever
+`--output` asked for. A consumer piping stdout into a parser must never receive
+half a payload followed by an error, and a table-formatted error is prose again.
+
+**An unclassifiable failure maps to `PROVIDER_UNAVAILABLE`, never to
+`RATE_LIMITED`.** Availability tells an agent to retry with bounded backoff,
+which is safe when we are wrong; a false throttle tells it to back off and wait,
+which is not.
 
 `SCHEMA_DRIFT` is what makes the health system (§11) actionable — it is the
 trigger for both the canary's issue-filing and the client-side health check.

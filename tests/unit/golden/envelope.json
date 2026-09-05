@@ -1,0 +1,51 @@
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "espn",
+  "league_id": "123456",
+  "season": 2026,
+  "generated_at": "2026-08-26T18:04:11Z",
+  "data_as_of": "2026-08-26T17:56:11Z",
+  "data_age_seconds": 480,
+  "sources": [
+    {
+      "name": "mTeam",
+      "fetched_at": "2026-08-26T17:56:11Z",
+      "age_seconds": 480,
+      "cached": true
+    },
+    {
+      "name": "mRoster",
+      "fetched_at": "2026-08-26T18:04:11Z",
+      "age_seconds": 0,
+      "cached": false
+    }
+  ],
+  "untrusted": {},
+  "data": [
+    {
+      "provider": "espn",
+      "provider_id": "1",
+      "name": "Team Chaos",
+      "wins": 8,
+      "losses": 3,
+      "points_for": 1234.5,
+      "raw": {
+        "id": 1,
+        "abbrev": "CHAO"
+      }
+    },
+    {
+      "provider": "espn",
+      "provider_id": "2",
+      "name": "Bench Warmers",
+      "wins": 5,
+      "losses": 6,
+      "points_for": 1102.25,
+      "raw": {
+        "id": 2,
+        "abbrev": "BNCH"
+      }
+    }
+  ],
+  "error": null
+}

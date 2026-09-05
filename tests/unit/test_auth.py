@@ -399,7 +399,7 @@ def test_a_genuinely_malformed_swid_is_rejected(given):
     with pytest.raises(AuthMissingError) as excinfo:
         chain.normalize_swid(given)
     assert excinfo.value.code == "AUTH_MISSING"
-    assert excinfo.value.details["remediation"]
+    assert excinfo.value.remediation
 
 
 def test_swid_case_is_preserved():
@@ -465,9 +465,11 @@ def test_require_credentials_raises_auth_missing():
     err = excinfo.value
     assert err.code == "AUTH_MISSING"
     assert err.to_dict()["code"] == "AUTH_MISSING"
-    remediation = err.details.get("remediation", "")
+    remediation = err.remediation or ""
     assert "auth login" in remediation
     assert "FANTASY_SPORTS_ESPN_S2" in remediation
+    assert err.to_dict()["remediation"] == remediation, "first-class, not a detail"
+    assert err.details == {}, "nothing left behind in the general-purpose bag"
 
 
 def test_require_credentials_returns_a_complete_set():
@@ -486,11 +488,17 @@ def test_revealing_an_absent_credential_is_auth_missing():
     assert excinfo.value.code == "AUTH_MISSING"
 
 
-def test_an_error_without_remediation_omits_it_from_the_payload():
+def test_an_error_without_remediation_reports_it_as_null_rather_than_absent():
+    """A first-class key is always present (ADR-0004 as amended by U5, #6).
+
+    Absent-when-empty makes reading it optional, and the whole point of the
+    taxonomy is that a failure tells its caller what to do next.
+    """
     payload = AuthMissingError("plain").to_dict()
     assert payload["code"] == "AUTH_MISSING"
     assert payload["message"] == "plain"
-    assert "details" not in payload
+    assert payload["remediation"] is None
+    assert payload["details"] is None
 
 
 def test_an_absent_optional_credential_does_not_block_the_gate():
@@ -544,7 +552,7 @@ def test_a_spec_with_no_env_vars_still_produces_a_usable_remediation():
     spec = chain.CredentialSpec(name="token", label="API token")
     with pytest.raises(AuthMissingError) as excinfo:
         chain.require_credentials([spec], environ={}, keychain_reader=lambda _: None, config={})
-    remediation = excinfo.value.details["remediation"]
+    remediation = excinfo.value.remediation
     assert "auth login" in remediation
     assert "environment" not in remediation
 

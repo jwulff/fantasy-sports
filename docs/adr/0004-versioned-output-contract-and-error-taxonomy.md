@@ -3,7 +3,9 @@
 **Status:** Accepted
 **Date:** 2026-08-26
 **Amended:** 2026-09-05 — `CONFIG_INVALID` added to the taxonomy
-(jwulff/fantasy-sports#35, decided on #6).
+(jwulff/fantasy-sports#35, decided on #6); the envelope's full key set, the
+`remediation` key, and the exit-status table fixed by the output layer
+(jwulff/fantasy-sports#6).
 
 ## Context
 
@@ -64,6 +66,98 @@ retrying changes it.*
 Adding a code is an API change, which is an argument for doing it now rather
 than later — the package is `0.1.0.dev0`, nothing is published, and no consumer
 parses the taxonomy yet. This is the cheapest moment the change will ever have.
+
+### Amendment, 2026-09-05: the full envelope, `remediation`, and exit statuses
+
+Three things the original decision left to the implementing unit, fixed here by
+jwulff/fantasy-sports#6 because a consumer now exists that parses them.
+
+**1. The envelope's complete key set.** The shape above was illustrative; this
+is the contract. Success and failure carry the *identical* keys, and `data` and
+`error` are the discriminator — exactly one is non-null. A consumer that has to
+branch on which keys *exist* before it can branch on what happened is a consumer
+that will get it wrong once.
+
+```json
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "espn",
+  "league_id": "123456",
+  "season": 2026,
+  "generated_at": "2026-08-26T18:04:11Z",
+  "data_as_of": "2026-08-26T17:56:11Z",
+  "data_age_seconds": 480,
+  "sources": [
+    {"name": "mTeam", "fetched_at": "2026-08-26T17:56:11Z", "age_seconds": 480, "cached": true}
+  ],
+  "untrusted": {},
+  "data": [],
+  "error": null
+}
+```
+
+`data_as_of` / `data_age_seconds` report the **oldest** contributing upstream
+fetch and `sources` itemizes each one, which is origin R4. `untrusted` is a
+path-to-string map reserved **now, empty**, for attacker-influenceable text;
+jwulff/fantasy-sports#17 populates it. Reserving it here rather than adding it
+there is the difference between #17 being a provider change and #17 being a
+schema-version bump on the one contract every consumer parses.
+
+Timestamps are UTC with a literal `Z`, always. `espn-api` builds its datetimes
+with `datetime.fromtimestamp()` and no `tz=`, so they are naive and host-local;
+the envelope **refuses** a naive datetime rather than guessing, and adapters
+re-derive from raw epoch milliseconds.
+
+**2. `remediation` is a first-class error key, not an entry in `details`.**
+#36 put it in `details` deliberately, on the grounds that promoting it is a
+contract change and a refactor is the wrong place to make one quietly. It is
+promoted here. Remediation is the part a caller *acts on*; leaving it in a
+general-purpose bag makes reading it optional, which means some consumers will
+not, and the whole point of the taxonomy is that a failure tells its caller what
+to do next. `agent_action` is the class-level instruction ("ask the human to
+re-auth"); `remediation` is this instance's concrete next step, naming the
+environment variable or the file that would actually fix *this* failure.
+
+Every error key is now always present, `null` when empty — `details` included.
+A key that disappears when it is empty is a key some consumers will never look
+for, which is the same failure mode one level down.
+
+```json
+{
+  "code": "AUTH_EXPIRED",
+  "message": "ESPN rejected the stored cookies.",
+  "retryable": false,
+  "agent_action": "Ask the human to re-extract their ESPN cookies.",
+  "remediation": "Re-extract espn_s2 and SWID from DevTools, then run `auth login`.",
+  "details": {"status": 401}
+}
+```
+
+**3. Exit statuses, one per code.** "Cron jobs can branch on exit codes" is only
+true if the codes are distinct, so nothing collapses onto `1`.
+
+| Code | Exit |
+|---|---|
+| *success* | `0` |
+| *unclassified crash* | `1` |
+| *usage error* | `2` |
+| `AUTH_MISSING` | `3` |
+| `AUTH_EXPIRED` | `4` |
+| `LEAGUE_NOT_FOUND` | `5` |
+| `CONFIG_INVALID` | `6` |
+| `PROVIDER_UNAVAILABLE` | `7` |
+| `RATE_LIMITED` | `8` |
+| `SCHEMA_DRIFT` | `9` |
+
+All inside the portable range: `126`, `127` and `128+n` are claimed by the shell
+for "not executable", "not found" and "killed by signal N". Changing a number is
+an API change, exactly like renaming a code.
+
+**Two rules the renderers enforce**, both about a program reading stdout:
+**stdout stays byte-empty on failure** — a consumer piping it into a parser must
+never receive half a payload followed by an error — and **a failure is always
+JSON**, whatever `--output` asked for, because a table-formatted error is prose
+again.
 
 ## Consequences
 
