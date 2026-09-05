@@ -122,36 +122,50 @@ Three deliberate choices in the data, all load-bearing:
 
 ---
 
-## 3. Not yet built: a box-score fixture
+## 3. The box-score interaction, derived from an MIT corpus
 
-Box scores are not part of the Provider Protocol and are not read by any v0.1
-command, so U7 does not need one. The League Gazette does (#29), and the recipe
-is proven — recorded here so whoever lands it does not rediscover it:
+`synthetic_2026.yaml` carries one `mMatchupScore` + `mScoreboard` interaction
+that serves `box-scores --week 1`: one matchup, 15 lineup entries per side,
+with per-player projected and actual points.
 
-`cwendt94/espn-api` is **MIT licensed** (Copyright (c) 2019 Christian Wendt) and
-its test corpus contains a real, unredacted ESPN box-score payload at
-`tests/football/unit/data/league_boxscore_2018.json` — a genuine `schedule[]`
-response, unused upstream because the library refuses box scores before 2019.
+It could not be recorded. `espn-api` refuses box scores before 2019 and the
+canary league (`1234`) exists only for 2018, so the league this project
+designates for recording can never produce one (ARCHITECTURE §14 item 6, as
+amended).
 
-- The raw file is 43,593,721 bytes. Slicing to one matchup and its two teams
-  still leaves 1.9 MB, because every player carries a full-season `stats` array.
-- Dropping every stat row except the requested scoring period's actual
-  (`statSourceId: 0`) and projected (`statSourceId: 1`), plus
-  `draftRanksByRankType`, `rankings`, `outlooks`, `seasonOutlook` and
-  `ownership`, gives **129,370 bytes** pretty-printed.
-- The 2019 guard is enforced on `League(year=...)`, not on the payload, so
-  rewriting `seasonId` to 2019 in the fixture is sufficient.
-- Shape is
-  `schedule[].home.rosterForCurrentScoringPeriod.entries[].playerPoolEntry.player.stats[]`,
-  with `entries[]` carrying `lineupSlotId`, `playerId`, `injuryStatus` and
-  `acquisitionType`.
+**Provenance.** The payload is derived from
+`tests/football/unit/data/league_boxscore_2018.json` in
+[`cwendt94/espn-api`](https://github.com/cwendt94/espn-api), **MIT licensed,
+Copyright (c) 2019 Christian Wendt**. It is a real ESPN response, unused
+upstream because their own suite cannot exercise it either.
 
-**MIT attribution is required, not optional.** The copyright notice must travel
-with the derived file: put Christian Wendt's notice and a link to the source
-file in a header next to the fixture, and record here that it is a trimmed
-derivative rather than something we recorded.
+**MIT attribution is required, not optional.** The copyright notice travels
+with the derived file, which is why it is recorded here and in
+`tests/unit/test_box_scores.py`.
 
----
+**How it was derived**, so it can be rebuilt:
+
+1. Take `schedule[0]` from the source and both its sides.
+2. On each side, keep only stat rows for the requested scoring period with
+   `statSourceId` 0 (actual) and 1 (projected). Drop `draftRanksByRankType`,
+   `rankings`, `outlooks`, `seasonOutlook`, `ownership`.
+3. Rewrite `seasonId` to a supported season and the team ids to the fixture's
+   own (`1`, `2`). The pre-2019 refusal is enforced on the *season requested*,
+   not on the payload.
+4. Keep `teams` to the two teams the matchup references.
+
+43,593,721 bytes becomes roughly 79 KB. One matchup and one scoring period is
+the whole trim; the size is almost entirely full-season per-player stat arrays.
+
+**The request carries two views in one call.** `espn-api` asks for
+`view=mMatchupScore&view=mScoreboard` together, so the interaction's URI must
+list both. A URI naming only `mScoreboard` looks right, matches nothing, and
+fails as though the fixture were missing — see §8.
+
+**What it proves and what it does not.** It proves the adapter reads the shape
+it was told about, and that bench and starter slots are separated correctly.
+It does not prove ESPN still sends that shape, and it never exercises the
+compressed-body path (§2).
 
 ## 4. What is *not* a cassette, on purpose
 

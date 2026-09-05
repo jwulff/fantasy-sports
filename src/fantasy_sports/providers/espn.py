@@ -108,9 +108,11 @@ from fantasy_sports.core.errors import (
     SchemaDriftError,
 )
 from fantasy_sports.core.models import (
+    BoxScore,
     CredentialSpec,
     FreeAgent,
     League,
+    LineupEntry,
     Matchup,
     Player,
     RosterSlot,
@@ -966,6 +968,55 @@ class EspnProvider:
                 for index, item in enumerate(found)
             ]
 
+    def fetch_box_scores(self, league_id: str, season: int, week: int) -> list[BoxScore]:
+        """One scoring period's matchups with both lineups, player by player.
+
+        ``week`` is a scoring period, resolved to a matchup period the same way
+        :meth:`fetch_matchups` does it — ``espn-api``'s ``box_scores()`` filters
+        on ``matchupPeriodId``, so passing an NFL week straight through returns
+        the wrong playoff round without complaining.
+
+        ESPN has no ``mBoxscore`` view. ``espn-api`` stitches
+        ``mMatchupScore`` + ``mScoreboard`` client-side with two side-calls,
+        which is why this costs more than :meth:`fetch_matchups` and is a
+        separate method rather than a flag.
+
+        The library refuses box scores before 2019 outright. That refusal
+        surfaces as ``PROVIDER_UNAVAILABLE`` naming the season, not as an empty
+        list: "no box score exists for this season" and "nobody scored" are
+        different answers and a consumer cannot tell them apart from ``[]``.
+        """
+        with self._read(league_id, season, "fetch_box_scores") as league:
+            scoring_period = _as_int(week)
+            if scoring_period is None:
+                raise LeagueNotFoundError(
+                    f"A week must be an integer scoring period; got {week!r}.",
+                    details={"week": str(week)},
+                )
+            matchup_period = _matchup_period_for(league, scoring_period)
+            try:
+                found = league.box_scores(matchup_period)
+            except Exception as exc:  # noqa: BLE001 - library raises bare Exception
+                if "box score" in str(exc).lower():
+                    raise ProviderUnavailableError(
+                        f"ESPN does not serve box scores for the {season} season.",
+                        remediation=(
+                            "Box scores exist from 2019 onward. Use `matchups` for an "
+                            "earlier season; it returns team-level scores."
+                        ),
+                        details={"season": str(season), "week": str(scoring_period)},
+                    ) from exc
+                raise
+            return [
+                _box_score(
+                    item,
+                    scoring_period=scoring_period,
+                    matchup_period=matchup_period,
+                    index=index,
+                )
+                for index, item in enumerate(found)
+            ]
+
     def fetch_transactions(
         self,
         league_id: str,
@@ -1510,15 +1561,30 @@ def _owner_names(team: Any) -> tuple[str, ...]:
 
 
 def _member_name(member: Mapping[str, Any]) -> str:
-    display = member.get("displayName")
-    if isinstance(display, str) and display.strip():
-        return display.strip()
+    """A member's most human name, real name first.
+
+    Order matters and is not the obvious one. ``displayName`` is always
+    present, so preferring it looks safer — but in a real private league half
+    of them are account handles that name nobody: ``espn19919360``,
+    ``ESPNFAN4690433888``. The same members carry ``firstName`` and
+    ``lastName``. A consumer printing "ESPNFAN4690433888 lost to johnwulff" is
+    not publishable, so the real name wins and the handle is the fallback
+    (jwulff/fantasy-sports#29).
+
+    A public league may carry no names at all, in which case this is empty.
+    That is ordinary data, not drift.
+    """
     parts = [
         str(member.get(key, "")).strip()
         for key in ("firstName", "lastName")
         if str(member.get(key, "")).strip()
     ]
-    return " ".join(parts)
+    if parts:
+        return " ".join(parts)
+    display = member.get("displayName")
+    if isinstance(display, str) and display.strip():
+        return display.strip()
+    return ""
 
 
 def _roster_slots(data: Mapping[str, Any]) -> dict[str, int]:
@@ -1774,6 +1840,73 @@ def _matchup(
         matchup_period_id=matchup_period,
         raw=dict(raw),
     )
+
+
+BENCH_SLOTS: frozenset[str] = frozenset({"BE", "IR"})
+"""Slots that do not count toward a team's score.
+
+ESPN's own vocabulary, kept here rather than in ``core/`` because slot
+semantics explicitly do not normalize (ADR-0002). ``IR`` counts as bench for
+scoring even though it is not a bench slot for roster-legality purposes.
+"""
+
+
+def _box_score(
+    box: Any,
+    *,
+    scoring_period: int,
+    matchup_period: int,
+    index: int,
+) -> BoxScore:
+    home_id = _team_id_of(box.home_team)
+    away_id = _team_id_of(box.away_team)
+    return BoxScore(
+        provider=PROVIDER,
+        provider_id=f"{matchup_period}-{index}",
+        week=matchup_period,
+        team_a_provider_id=str(home_id),
+        team_a_score=float(getattr(box, "home_score", 0.0) or 0.0),
+        team_a_lineup=_lineup(getattr(box, "home_lineup", None)),
+        team_b_provider_id=str(away_id),
+        team_b_score=float(getattr(box, "away_score", 0.0) or 0.0),
+        team_b_lineup=_lineup(getattr(box, "away_lineup", None)),
+        is_playoff=bool(getattr(box, "is_playoff", False)),
+        scoring_period_id=scoring_period,
+        matchup_period_id=matchup_period,
+        raw={"matchup_type": getattr(box, "matchup_type", None)},
+    )
+
+
+def _lineup(players: Any) -> tuple[LineupEntry, ...]:
+    return tuple(_lineup_entry(player) for player in (players or []))
+
+
+def _lineup_entry(player: Any) -> LineupEntry:
+    slot = str(getattr(player, "slot_position", "") or "")
+    return LineupEntry(
+        provider=PROVIDER,
+        provider_id=str(getattr(player, "playerId", "") or ""),
+        slot=slot,
+        player_name=str(getattr(player, "name", "") or ""),
+        position=_optional_str(getattr(player, "position", None)),
+        pro_opponent=_optional_str(getattr(player, "pro_opponent", None)),
+        projected_points=_optional_float(getattr(player, "projected_points", None)),
+        actual_points=_optional_float(getattr(player, "points", None)),
+        started=slot not in BENCH_SLOTS and bool(slot),
+        raw={},
+    )
+
+
+def _optional_str(value: Any) -> str | None:
+    text = str(value).strip() if value is not None else ""
+    return text or None
+
+
+def _optional_float(value: Any) -> float | None:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _team_id_of(team: Any) -> int:

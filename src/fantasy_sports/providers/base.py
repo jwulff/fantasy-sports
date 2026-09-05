@@ -61,6 +61,7 @@ from datetime import datetime
 from typing import Any, Final, Protocol, runtime_checkable
 
 from fantasy_sports.core.models import (
+    BoxScore,
     CredentialSpec,
     FreeAgent,
     League,
@@ -81,6 +82,7 @@ PROVIDER_METHODS: Final[tuple[str, ...]] = (
     "fetch_standings",
     "fetch_roster",
     "fetch_matchups",
+    "fetch_box_scores",
     "fetch_transactions",
     "fetch_free_agents",
     "fetch_raw",
@@ -149,6 +151,22 @@ class Provider(Protocol):
         collapse several scoring weeks into one matchup. The adapter resolves
         that internally and records both identifiers on the returned
         :class:`~fantasy_sports.core.models.Matchup` and in its ``raw``.
+        """
+        ...
+
+    def fetch_box_scores(self, league_id: str, season: int, week: int) -> list[BoxScore]:
+        """One week's matchups with both lineups, player by player.
+
+        Separate from :meth:`fetch_matchups` rather than a flag on it. A box
+        score costs extra upstream requests on every provider surveyed, and
+        most callers of ``matchups`` want the pairing and the score, not
+        fifteen lines per side.
+
+        Required of every provider because all three surveyed expose per-player
+        weekly scoring. A provider that cannot serve a *particular* week — ESPN
+        refuses seasons before 2019 — raises rather than returning an empty
+        list, because "no box score exists" and "nobody scored" are different
+        answers and a consumer cannot tell them apart from ``[]``.
         """
         ...
 

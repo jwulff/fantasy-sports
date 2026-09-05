@@ -166,7 +166,8 @@ def test_league_info_carries_the_roster_slot_configuration(espn: RecordedEspn):
 def test_teams_lists_every_team_with_plural_owners(espn: RecordedEspn):
     data = league_commands.teams().data
     assert [team["provider_id"] for team in data] == ["1", "2"]
-    assert data[0]["owner_names"] == ["alpha"]
+    # Real name over the account handle "alpha" (jwulff/fantasy-sports#29).
+    assert data[0]["owner_names"] == ["Ann Alpha"]
 
 
 def test_standings_are_ranked_and_not_merely_teams_reordered(espn: RecordedEspn):

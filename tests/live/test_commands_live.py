@@ -141,6 +141,42 @@ def test_every_read_command_answers_a_real_private_league(cli: CliRunner, target
     assert str(settings["data"]["mSettings"]["payload"]["id"]) == league_id
 
 
+def test_box_scores_return_both_lineups_with_projections(cli: CliRunner):
+    """The payload the Gazette is built from, against a league ESPN really serves.
+
+    No assertion names a player or a team: rosters change weekly and a test
+    that fails when someone drops a running back is a test that gets muted.
+    What is asserted is structural — both lineups present, every entry
+    carrying the fields a recap needs, and starters and bench separated.
+    """
+    payload = _envelope(cli, ["box-scores", "--week", "1"])
+    found = payload["data"]
+    assert found, "a real league's week has matchups"
+    for box in found:
+        assert box["team_a_provider_id"] != box["team_b_provider_id"]
+        for side in ("team_a_lineup", "team_b_lineup"):
+            lineup = box[side]
+            assert lineup, f"{side} is empty"
+            assert any(entry["started"] for entry in lineup), f"{side} has no starters"
+            for entry in lineup:
+                assert entry["player_name"]
+                assert entry["slot"]
+                assert entry["projected_points"] is not None
+
+
+def test_owner_names_are_people_not_account_handles(cli: CliRunner):
+    """#29: half of a real league's `displayName`s name nobody.
+
+    Asserted as a property rather than against a name, so it survives someone
+    changing their ESPN profile: at least one owner name must contain a space,
+    which an account handle like `ESPNFAN4690433888` never does.
+    """
+    teams = _envelope(cli, ["teams"])["data"]
+    names = [name for team in teams for name in team["owner_names"]]
+    assert names, "a real private league exposes members"
+    assert any(" " in name for name in names), f"all handles, no people: {len(names)} names"
+
+
 def test_roster_accepts_a_team_name_as_well_as_an_id(cli: CliRunner):
     teams = _envelope(cli, ["teams"])["data"]
     by_id = _envelope(cli, ["roster", "--team", teams[0]["provider_id"]])["data"]
