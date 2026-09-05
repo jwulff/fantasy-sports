@@ -9,6 +9,14 @@ Two things live here, and both are security controls rather than conveniences:
    response bodies *before* anything reaches disk. ESPN returns owner SWIDs
    inline in roster payloads, so header filtering alone is not enough.
 
+   A brace-wrapped SWID in a body becomes a per-GUID **pseudonym**, not one
+   shared placeholder, so the ``teams[].owners`` -> ``members[].id`` join
+   survives the scrub (jwulff/fantasy-sports#38). Cassettes are scrubbed under
+   the deterministic, public ``CASSETTE_SWID_SALT`` — the default — because a
+   committed fixture has to re-record byte-identically. That determinism is
+   exactly what makes a cassette pseudonym a confirmable mapping, and it is why
+   the cache uses a random per-store salt instead. See ``core/redaction.py``.
+
 2. **The repo-wide credential scan.** :func:`scan_paths` re-reads what is
    actually on disk and fails if any committed fixture still matches a
    credential pattern. The hook is the control; the scan is the audit that the
@@ -38,11 +46,15 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 import pytest
 
 from fantasy_sports.core.redaction import (
+    CASSETTE_SWID_SALT,  # noqa: F401 -- re-exported for tests/unit/test_scrubbing.py
     CREDENTIAL_PATTERNS,
     CREDENTIAL_PLACEHOLDER,
     CREDENTIAL_QUERY_PARAMS,
     SWID_PLACEHOLDER,  # noqa: F401 -- re-exported for tests/unit/test_scrubbing.py
+    SWID_PSEUDONYM_SENTINEL,  # noqa: F401 -- re-exported for tests/unit/test_scrubbing.py
     UnscrubbableResponseError,
+    is_swid_pseudonym,  # noqa: F401 -- re-exported for tests/unit/test_scrubbing.py
+    swid_pseudonym,  # noqa: F401 -- re-exported for tests/unit/test_scrubbing.py
 )
 from fantasy_sports.core.redaction import scrub_credential_patterns as scrub_text
 
