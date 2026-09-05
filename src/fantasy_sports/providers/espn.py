@@ -1904,7 +1904,10 @@ def _position_key(position: str) -> str | None:
     """``position`` as ESPN spells it, or ``None`` if ESPN has no such slot."""
     from espn_api.football.constant import POSITION_MAP
 
-    for candidate in (position, position.upper(), position.replace("/", "/").upper()):
+    # `POSITION_MAP` holds both directions in one dict, so a *string* key with
+    # an `int` value is a name ESPN's filter understands; an `int` key with a
+    # string value is the reverse lookup and is not what we want here.
+    for candidate in (position, position.upper()):
         if candidate in POSITION_MAP and isinstance(POSITION_MAP[candidate], int):
             return candidate
     return None
