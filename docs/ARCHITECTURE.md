@@ -600,6 +600,17 @@ above and are binding.
    re-extract cookies that were never the problem. The adapter must double-probe
    before deciding.
 
+   **Reinforced 2026-09-05 (U7, #4).** ESPN's 401 body is *not* bare — it
+   carries a machine-readable `details[].type` — but on this path that type is a
+   constant. Probed against a real private league one variable at a time, no
+   cookies, a valid `SWID` with an invalid `espn_s2`, and either cookie alone
+   all return `AUTH_LEAGUE_NOT_VISIBLE`. The body settles nothing, so **the
+   double-probe is mandatory rather than a fallback**, and it stays
+   library-owned: `espn-api`'s `checkRequestStatus` already swaps the URL shape
+   and retries before raising. What we add is the classification above it, which
+   never reports `AUTH_EXPIRED` from a reason that proves nothing about the
+   credential. See `docs/memory/espn-401-tells-you-nothing.md`.
+
 2. **`SCHEMA_DRIFT` is entirely ours to build — `espn-api` offers nothing.**
    Shape problems surface as raw `KeyError`/`TypeError` from inside object
    constructors doing unguarded dict access. This is a real wrapping layer with
@@ -626,6 +637,21 @@ above and are binding.
    league `espn-api`'s own integration test has hit daily and unattended for
    years. Publicly accessible and structurally stable. Reuse it rather than
    standing one up.
+
+   **Amended 2026-09-05 (U7, #4): valid for league, team, standings, roster,
+   draft, settings, matchup and transaction reads only — never for box scores
+   or free agents.** Verified against real ESPN with `espn-api` 0.46.0:
+   `League(1234, 2018).box_scores(1)` raises `Cant use box score before 2019`,
+   `free_agents()` raises the same for its own view, and league 1234 does not
+   exist for 2019, 2021, 2023 or 2025 (`ESPNInvalidLeague`). The library's
+   refusal is on the *year*, so no request is ever made and no cassette can be
+   recorded. Those two payloads are covered by a hand-authored fixture instead
+   (`scripts/build_synthetic_cassette.py`), and the box score the League Gazette
+   depends on (#29) has a proven MIT-licensed derivation recipe on #4. Two
+   further consequences: the canary's matchup periods are 1:1 with its scoring
+   periods, so the playoff-week split is not observable against it either, and
+   its `members[]` carry ids with **no display names at all**, so team-to-person
+   mapping must not be built on ESPN member names. See `docs/testing.md`.
 
 7. **`mBoxscore` and `mPendingTransactions` are not real views.** Box scores are
    `mMatchupScore` + `mScoreboard` stitched client-side with two side-calls.
