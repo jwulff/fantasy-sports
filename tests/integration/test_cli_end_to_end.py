@@ -20,6 +20,7 @@ skipped test.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -80,8 +81,26 @@ def cli() -> Any:
     return CliRunner()
 
 
+#: A rich-rendered help panel is not a string you can search. Rich splits a
+#: single option name across escape runs — `--league` arrives as
+#: `ESC[1;36m-ESC[0mESC[1;36m-leagueESC[0m` — and wraps it at the terminal
+#: width. Both depend on the environment, so a bare `"--league" in output`
+#: passes on a laptop (no colour, wide terminal) and fails in CI, for reasons
+#: that have nothing to do with the CLI.
+_ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+
+#: Belt to the ANSI-stripping braces: ask rich for no colour and a wide
+#: terminal so the raw output is closer to readable in a failure message.
+_RUNNER_ENV = {"COLUMNS": "200", "NO_COLOR": "1", "TERM": "dumb", "FORCE_COLOR": ""}
+
+
 def _invoke(cli: Any, args: list[str]) -> Any:
-    return cli.invoke(build_app(), args)
+    return cli.invoke(build_app(), args, env=_RUNNER_ENV)
+
+
+def _searchable(output: str) -> str:
+    """Help or usage output with colour removed and wrapping collapsed."""
+    return re.sub(r"\s+", "", _ANSI.sub("", output))
 
 
 # --------------------------------------------------------------------------- #
@@ -125,7 +144,7 @@ def test_an_unknown_output_format_is_a_usage_error_not_a_taxonomy_failure(
     """Bad arguments are the CLI's own failure mode, and exit 2 is reserved for it."""
     result = _invoke(cli, ["teams", "--output", "yaml"])
     assert result.exit_code == EXIT_USAGE
-    assert "yaml" in result.output
+    assert "yaml" in _searchable(result.output)
     assert espn.calls == [], "a bad format must be caught before the provider runs"
 
 
@@ -245,7 +264,7 @@ def test_an_unknown_league_exits_with_its_own_status(cli: Any, espn: RecordedEsp
 def test_a_missing_required_option_is_a_usage_error(cli: Any, espn: RecordedEspn):
     result = _invoke(cli, ["roster"])
     assert result.exit_code == EXIT_USAGE
-    assert "--team" in result.output
+    assert "--team" in _searchable(result.output)
 
 
 # --------------------------------------------------------------------------- #
@@ -256,23 +275,26 @@ def test_a_missing_required_option_is_a_usage_error(cli: Any, espn: RecordedEspn
 def test_the_two_help_surfaces_list_the_same_commands(cli: Any):
     """One registry, two renderings. A command becomes visible by registration."""
     fast = render_help()
-    typed = _invoke(cli, ["--help"]).output
+    typed = _searchable(_invoke(cli, ["--help"]).output)
     for spec in REGISTRY.values():
-        surface = typed if spec.group is None else _invoke(cli, [spec.group, "--help"]).output
+        surface = (
+            typed
+            if spec.group is None
+            else _searchable(_invoke(cli, [spec.group, "--help"]).output)
+        )
         assert spec.name in surface, f"{spec.invocation} is missing from typer's help"
         assert spec.name in fast or spec.group in fast
 
 
 def test_every_declared_option_appears_in_its_command_help(cli: Any):
     for spec in REGISTRY.values():
-        output = _invoke(cli, [*spec.path, "--help"]).output
-        flat = " ".join(output.split())
+        flat = _searchable(_invoke(cli, [*spec.path, "--help"]).output)
         for param in spec.cli_params:
             assert param.cli_flags[0] in flat, f"{spec.invocation}: {param.name} undocumented"
 
 
 def test_the_root_help_documents_every_global_option(cli: Any):
-    flat = " ".join(_invoke(cli, ["--help"]).output.split())
+    flat = _searchable(_invoke(cli, ["--help"]).output)
     for param in GLOBAL_PARAMS:
         assert param.cli_flags[0] in flat
 
