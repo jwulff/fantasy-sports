@@ -309,8 +309,13 @@ class FetchRecord:
         )
 
     def payload(self, view: str) -> Any:
-        """The raw payload recorded for ``view``, or ``None``."""
-        found = self.responses.get(view)
+        """The raw payload recorded for ``view``, or ``None``.
+
+        Accepts a bare view name as well as a full key, so a caller that does
+        not care which scoring period a repeated view was fetched for does not
+        have to know the key shape. The most recent fetch wins.
+        """
+        found = self.responses.get(view) or _latest(self.responses, view)
         return None if found is None else found.payload
 
 
@@ -507,7 +512,7 @@ class _Transport:
                 provider=PROVIDER,
                 details={"view": view},
             ) from exc
-        self.responses[view] = RawResponse(
+        self.responses[_record_key(view, params)] = RawResponse(
             view=view,
             payload=payload,
             fetched_at=self._now(),
@@ -655,6 +660,32 @@ def _view_of(params: Mapping[str, Any] | None) -> str:
     if isinstance(view, str):
         return view
     return "+".join(str(item) for item in view)
+
+
+def _record_key(view: str, params: Mapping[str, Any] | None) -> str:
+    """Where one response is filed on :class:`FetchRecord`.
+
+    The view name alone is not enough. ``fetch_transactions(since=...)`` asks
+    ``mTransactions2`` about every scoring period in the season, and filing
+    seventeen distinct responses under one key keeps the last one and silently
+    drops sixteen -- which is exactly the data loss R1 exists to prevent. The
+    scoring period is the only parameter that varies for a repeated view, so it
+    is the only one in the key; ``RawResponse.view`` keeps the bare name for
+    lookups that do not care.
+    """
+    period = None if params is None else _as_int(params.get("scoringPeriodId"))
+    return view if period is None else f"{view}@{period}"
+
+
+def _latest(responses: Mapping[str, RawResponse], view: str) -> RawResponse | None:
+    """The most recently fetched response for ``view``, whatever its key.
+
+    Later wins, because a repeated view is a repeated *fetch*: after
+    ``load_roster_week(3)`` the week-3 ``mRoster`` is the one the object model
+    is actually holding.
+    """
+    found = [item for item in responses.values() if item.view == view]
+    return max(found, key=lambda item: item.fetched_at) if found else None
 
 
 def _filter_dimension(headers: Mapping[str, str] | None) -> dict[str, str] | None:
@@ -1150,8 +1181,8 @@ class EspnProvider:
 
     def _bootstrap_payload(self, league_id: str, season: int) -> Mapping[str, Any]:
         responses = self._transport(league_id, season).responses
-        for view, response in responses.items():
-            if "mTeam" in view.split("+") and isinstance(response.payload, Mapping):
+        for response in responses.values():
+            if "mTeam" in response.view.split("+") and isinstance(response.payload, Mapping):
                 return response.payload
         return {}
 
@@ -1530,7 +1561,7 @@ def _kickoff_map(responses: Mapping[str, RawResponse]) -> dict[tuple[int, int], 
     item 8 requires; the output layer refuses a naive datetime outright, so
     reaching for the library's value fails loudly rather than silently.
     """
-    response = responses.get("proTeamSchedules_wl")
+    response = _latest(responses, "proTeamSchedules_wl")
     kickoffs: dict[tuple[int, int], int] = {}
     if response is None or not isinstance(response.payload, Mapping):
         return kickoffs
@@ -1565,7 +1596,7 @@ def _roster_entries(
     and the bootstrap's copy is now the wrong week.
     """
     for view in ("mRoster", "mTeam+mRoster+mMatchup+mSettings+mStandings"):
-        response = transport.responses.get(view)
+        response = _latest(transport.responses, view)
         if response is None or not isinstance(response.payload, Mapping):
             continue
         for team in response.payload.get("teams", []) or []:
@@ -1581,7 +1612,7 @@ def _roster_entries(
 
 
 def _free_agent_entries(responses: Mapping[str, RawResponse]) -> dict[int, Mapping[str, Any]]:
-    response = responses.get("kona_player_info")
+    response = _latest(responses, "kona_player_info")
     if response is None or not isinstance(response.payload, Mapping):
         return {}
     players = response.payload.get("players", [])
@@ -1700,7 +1731,7 @@ def _schedule_entries(
 ) -> dict[tuple[int, int], Mapping[str, Any]]:
     """Raw ``schedule[]`` entries for one matchup period, keyed by team-id pair."""
     for view in ("mMatchupScore", "mTeam+mRoster+mMatchup+mSettings+mStandings"):
-        response = responses.get(view)
+        response = _latest(responses, view)
         if response is None or not isinstance(response.payload, Mapping):
             continue
         schedule = response.payload.get("schedule", [])

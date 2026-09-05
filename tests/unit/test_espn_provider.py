@@ -267,6 +267,24 @@ def test_the_adapter_satisfies_the_protocol_by_answering_every_method(canary: Es
     assert canary.credential_specs()[0].name == "espn_s2"
 
 
+def test_a_repeated_view_does_not_overwrite_its_own_record(canary: EspnProvider):
+    """R1's harder half: a view asked the same question seventeen times.
+
+    ``fetch_transactions(since=...)`` sweeps ``mTransactions2`` across every
+    scoring period in the season. Filing all of them under the view name keeps
+    the last and silently drops the rest, which is the data loss R1 exists to
+    prevent -- and it is invisible, because the *normalized* output is still
+    complete.
+    """
+    canary.fetch_transactions(*CANARY, since=datetime(1970, 1, 1, tzinfo=UTC))
+    record = canary.last_fetch
+    assert record is not None
+    swept = [key for key in record.responses if key.startswith("mTransactions2")]
+    assert len(swept) > 1
+    assert record.payload("mTransactions2") is not None, "a bare view name still resolves"
+    assert len({id(record.responses[key].payload) for key in swept}) == len(swept)
+
+
 def test_a_read_records_every_contributing_response_keyed_by_request(canary: EspnProvider):
     """R1: a composite read fans out, and one payload would drop data."""
     canary.fetch_league(*CANARY)
@@ -373,6 +391,7 @@ def test_a_past_week_roster_reads_that_week_not_the_current_one(canary: EspnProv
     assert week_one
     record = canary.last_fetch
     assert record is not None
+    assert "mRoster@1" in record.responses
     assert record.payload("mRoster") is not None
 
 
