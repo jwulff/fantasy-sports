@@ -26,5 +26,11 @@ config.local.toml
 # conftest.py. Unscrubbed recordings land here and are ignored by design.
 tests/cassettes/**/*.unscrubbed.yaml
 
+# Private-league recordings. Scrubbing removes the *credentials*; it does not
+# remove nine other people's team names, display names and pseudonymised member
+# ids, and those are not ours to commit. `scripts/record_espn_cassettes.py`
+# writes any non-canary league here. See docs/testing.md §6.
+tests/cassettes/private/
+
 # macOS
 .DS_Store

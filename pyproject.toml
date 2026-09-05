@@ -50,6 +50,13 @@ dev = [
     "pytest-json-report>=1.5.0",
     "vcrpy>=6.0.2",
     "pytest-recording>=0.13.2",
+    # Declared, not inherited. The credential scan parses cassette YAML itself
+    # to see inside `!!binary` scalars (`scan_file`), and the fixture tests read
+    # recordings back off disk. Both `import yaml` directly; it happens to
+    # arrive through `vcrpy` today, and would vanish without warning the day
+    # vcrpy changes serializers. Dev group only — ADR-0008's five-dependency
+    # budget counts `[project].dependencies`, which is untouched.
+    "pyyaml>=6.0.2",
     "requests-mock>=1.12.1",
     "ruff>=0.8.4",
 ]

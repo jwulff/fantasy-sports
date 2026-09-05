@@ -1,6 +1,7 @@
-"""Shared test configuration, and the cassette scrub-before-write hook.
+"""Shared test configuration, and the cassette harness.
 
-Two things live here, and both are security controls rather than conveniences:
+Three things live here, and the first two are security controls rather than
+conveniences:
 
 1. **The scrub-before-write hook.** ``vcrpy`` scrubs nothing by default: every
    credential it sees is written to the cassette verbatim. :func:`vcr_config`
@@ -22,6 +23,15 @@ Two things live here, and both are security controls rather than conveniences:
    credential pattern. The hook is the control; the scan is the audit that the
    control was in force when the fixture was written.
 
+3. **The ``x-fantasy-filter`` request matcher.** vcrpy's default matcher is
+   method/scheme/host/port/path/query and ignores headers *entirely*. ESPN
+   scopes free agents, transactions and the activity feed by a JSON
+   ``x-fantasy-filter`` header against an otherwise identical URL, so under the
+   default matcher two such recordings collide and every filter-gated test
+   asserts against whichever one replays first — and passes.
+   :func:`match_fantasy_filter` closes that, and :func:`build_vcr` is the only
+   supported way to get a ``VCR`` with it registered.
+
 Unit tests never touch the network: ``pytest-socket`` is enabled through
 ``addopts`` in ``pyproject.toml``, so a cassette miss or a stray live call
 fails loudly instead of quietly reaching ESPN.
@@ -36,6 +46,7 @@ typed into a source file in the first place.
 
 from __future__ import annotations
 
+import json
 import subprocess
 from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass
@@ -185,6 +196,105 @@ def scrub_response(response: Any) -> Any:
     return response
 
 
+# --------------------------------------------------------------------------- #
+# Matching: the ``x-fantasy-filter`` header is part of the request identity
+# --------------------------------------------------------------------------- #
+
+#: The header ESPN scopes free agents, transactions, the activity feed and box
+#: scores by. It is JSON, it travels in a header rather than the URL, and it
+#: changes the response completely.
+FILTER_HEADER = "x-fantasy-filter"
+
+#: The name :func:`build_vcr` registers :func:`match_fantasy_filter` under.
+#: ``match_on`` entries are looked up by name in ``VCR.matchers``, so a bare
+#: ``vcr.VCR(**build_vcr_config())`` raises ``KeyError`` at ``use_cassette``
+#: time. That is deliberate: failing loudly beats silently matching on less.
+FILTER_MATCHER = "fantasy_filter"
+
+
+def canonical_filter(value: Any) -> Any:
+    """An order-independent canonical form of one ``x-fantasy-filter`` value.
+
+    Compared as raw strings this header is **not stable across processes**.
+    ``espn-api`` builds it with ``json.dumps`` over a Python ``set`` --
+    ``{"transactions": {"filterType": {"value": list(types)}}}`` in
+    ``football/league.py`` -- and ``str`` hashing is randomised per interpreter,
+    so the same query serialises its ``value`` list in a different order on
+    every run. A literal string comparison would make the committed
+    ``mTransactions2`` interactions replay or miss depending on
+    ``PYTHONHASHSEED``: a matcher that is flaky is worse than no matcher.
+
+    So the comparison is over parsed JSON with object keys sorted and array
+    elements sorted by their own canonical form. Every filter ESPN accepts is a
+    *set* of values (``filterType``, ``filterSlotIds``,
+    ``filterIncludeMessageTypeIds``), so order carries no meaning and sorting
+    loses nothing. A value that is not JSON is compared as the raw string --
+    unparseable is not a licence to treat two different headers as one.
+    """
+    if value is None:
+        return None
+    if isinstance(value, list | tuple):  # a header deserialised from YAML
+        value = value[0] if value else None
+        if value is None:
+            return None
+    try:
+        parsed = json.loads(value)
+    except (TypeError, ValueError):
+        return value
+    return _canonical(parsed)
+
+
+def _canonical(node: Any) -> str:
+    if isinstance(node, Mapping):
+        return "{" + ",".join(f"{key}:{_canonical(node[key])}" for key in sorted(node)) + "}"
+    if isinstance(node, list | tuple):
+        return "[" + ",".join(sorted(_canonical(item) for item in node)) + "]"
+    return json.dumps(node, sort_keys=True)
+
+
+def filter_of(request: Any) -> Any:
+    """The ``x-fantasy-filter`` header of a request, or ``None``."""
+    headers = getattr(request, "headers", None) or {}
+    try:
+        return headers.get(FILTER_HEADER)  # vcrpy's HeadersDict is case-insensitive
+    except AttributeError:  # pragma: no cover - a plain mapping, in a unit test
+        return next((v for k, v in headers.items() if k.lower() == FILTER_HEADER), None)
+
+
+def match_fantasy_filter(request: Any, recorded: Any) -> None:
+    """``match_on`` matcher: two filters against one URL are two payloads.
+
+    Raises rather than returning ``False`` so vcrpy's "requests differ" report
+    names the header. The values themselves are not echoed: a filter is not a
+    credential, but it is league data, and a failure message lands in CI logs.
+    """
+    if canonical_filter(filter_of(request)) != canonical_filter(filter_of(recorded)):
+        raise AssertionError(
+            f"{FILTER_HEADER} differs "
+            f"(sent {'a filter' if filter_of(request) else 'none'}, "
+            f"recorded {'a filter' if filter_of(recorded) else 'none'})"
+        )
+
+
+def build_vcr(**overrides: Any) -> Any:
+    """A ``vcr.VCR`` configured by :func:`build_vcr_config`, matcher registered.
+
+    Every recording and every replay in this repository goes through here.
+    Constructing ``vcr.VCR`` directly skips :func:`match_fantasy_filter`, which
+    is the whole point of the harness.
+    """
+    import vcr
+
+    recorder = vcr.VCR(**(build_vcr_config() | overrides))
+    recorder.register_matcher(FILTER_MATCHER, match_fantasy_filter)
+    return recorder
+
+
+def pytest_recording_configure(config: pytest.Config, vcr: Any) -> None:
+    """``pytest-recording`` builds its own ``VCR``; give it the matcher too."""
+    vcr.register_matcher(FILTER_MATCHER, match_fantasy_filter)
+
+
 def build_vcr_config() -> dict[str, Any]:
     """The vcrpy configuration that makes an unscrubbed cassette unwritable."""
     return {
@@ -205,16 +315,23 @@ def build_vcr_config() -> dict[str, Any]:
         "decode_compressed_response": True,
         "before_record_request": scrub_request,
         "before_record_response": scrub_response,
-        # vcrpy's default matcher. U9 adds the ``x-fantasy-filter`` header
-        # matcher on top of this; do not treat this list as final.
-        "match_on": ["method", "scheme", "host", "port", "path", "query"],
+        # vcrpy's default matcher plus the filter header. Without the last
+        # entry two `kona_player_info` reads that differ only in
+        # `filterSlotIds` match the same recorded interaction and the
+        # position-filtered test asserts against the unfiltered response.
+        "match_on": ["method", "scheme", "host", "port", "path", "query", FILTER_MATCHER],
         "cassette_library_dir": str(CASSETTE_LIBRARY_DIR),
     }
 
 
 @pytest.fixture(scope="module")
 def vcr_config() -> dict[str, Any]:
-    """``pytest-recording`` reads this fixture for every ``@pytest.mark.vcr``."""
+    """``pytest-recording`` reads this fixture for every ``@pytest.mark.vcr``.
+
+    The ``fantasy_filter`` entry in ``match_on`` is resolved by the
+    :func:`pytest_recording_configure` hook above, which registers the matcher
+    on the ``VCR`` instance ``pytest-recording`` builds for itself.
+    """
     return build_vcr_config()
 
 
