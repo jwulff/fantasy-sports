@@ -28,7 +28,6 @@ typed into a source file in the first place.
 
 from __future__ import annotations
 
-import re
 import subprocess
 from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass
@@ -38,15 +37,22 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import pytest
 
+from fantasy_sports.core.redaction import (
+    CREDENTIAL_PATTERNS,
+    CREDENTIAL_PLACEHOLDER,
+    CREDENTIAL_QUERY_PARAMS,
+    SWID_PLACEHOLDER,  # noqa: F401 -- re-exported for tests/unit/test_scrubbing.py
+    UnscrubbableResponseError,
+)
+from fantasy_sports.core.redaction import scrub_credential_patterns as scrub_text
+
 TESTS_DIR = Path(__file__).resolve().parent
 REPO_ROOT = TESTS_DIR.parent
 CASSETTE_LIBRARY_DIR = TESTS_DIR / "cassettes"
 
 #: What a scrubbed value looks like in a cassette. Chosen so that no credential
-#: pattern below can match it -- ``espn_s2=REDACTED`` must read as clean.
-REDACTED = "REDACTED"
-#: SWID GUIDs keep their brace shape so replayed payloads stay parseable.
-SWID_PLACEHOLDER = "{SWID-REDACTED}"
+#: pattern can match it -- ``espn_s2=REDACTED`` must read as clean.
+REDACTED = CREDENTIAL_PLACEHOLDER
 
 #: Headers whose value is the credential itself. The ESPN request auth *is*
 #: ``Cookie: espn_s2=...; SWID={...}``, which makes ``cookie`` load-bearing.
@@ -63,68 +69,20 @@ SENSITIVE_HEADERS = frozenset(
 
 #: Query-parameter names that carry a credential when ESPN is called by URL
 #: rather than by cookie.
-SENSITIVE_QUERY_PARAMS = frozenset({"espn_s2", "swid"})
-
-
-# --------------------------------------------------------------------------- #
-# Credential patterns
-# --------------------------------------------------------------------------- #
-
-# A SWID is a brace-wrapped GUID: {1A2B3C4D-5E6F-...}. This is the shape ESPN
-# echoes inside roster/owner payloads, which is the case header filtering misses.
-_SWID_GUID_RE = re.compile(
-    r"\{[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\}"
-)
-
-# A GUID sitting under a ``swid``-ish key without its braces.
-_SWID_KEYED_RE = re.compile(
-    r"""(swid)                       # the key
-        (["']?\s*[:=]\s*["']?)       # separator, quoted on either side or not
-        (?!REDACTED\b)
-        [0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}
-    """,
-    re.IGNORECASE | re.VERBOSE,
-)
-
-# ``espn_s2=<blob>``. The value class excludes ``$``, ``{`` and ``}`` so that a
-# CI expression such as ``ESPN_S2: ${{ secrets.ESPN_S2 }}`` is not a finding.
-_ESPN_S2_RE = re.compile(
-    r"""(espn_s2)
-        (["']?\s*[:=]\s*["']?)
-        (?!REDACTED\b)
-        [^\s"';,&{}$\[\]]{8,}
-    """,
-    re.IGNORECASE | re.VERBOSE,
-)
-
-#: Name -> pattern. Names appear in failure output; matched text never does.
-CREDENTIAL_PATTERNS: dict[str, re.Pattern[str]] = {
-    "SWID GUID": _SWID_GUID_RE,
-    "GUID under a swid key": _SWID_KEYED_RE,
-    "espn_s2 value": _ESPN_S2_RE,
-}
+SENSITIVE_QUERY_PARAMS = CREDENTIAL_QUERY_PARAMS
 
 
 # --------------------------------------------------------------------------- #
 # Scrubbing
 # --------------------------------------------------------------------------- #
-
-
-class UnscrubbableResponseError(RuntimeError):
-    """A response body could not be read, so it could not be proven scrubbed.
-
-    Raised instead of recording it. ``vcrpy`` stores a still-compressed body as
-    opaque bytes, and a regex over opaque bytes finds nothing -- the recording
-    would look clean and carry a credential. Failing loudly is the point of
-    this unit.
-    """
-
-
-def scrub_text(text: str) -> str:
-    """Replace every credential pattern in ``text`` with its placeholder."""
-    text = _SWID_GUID_RE.sub(SWID_PLACEHOLDER, text)
-    text = _SWID_KEYED_RE.sub(rf"\1\2{SWID_PLACEHOLDER}", text)
-    return _ESPN_S2_RE.sub(rf"\1\2{REDACTED}", text)
+#
+# The patterns, ``scrub_text``, and ``UnscrubbableResponseError`` moved to
+# ``fantasy_sports.core.redaction`` when the HTTP cache (#8) needed to redact a
+# response body before writing it to SQLite. They are imported above rather
+# than redefined here: two copies of a credential regex is exactly the seam
+# ``docs/memory/parallel-wave-seams.md`` was written about. What stays in this
+# file is the part that is genuinely test-only -- the vcrpy hooks and the
+# repo-wide scan of committed fixtures.
 
 
 def _scrub_header_value(name: str, value: Any) -> Any:
