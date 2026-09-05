@@ -9,6 +9,7 @@ individual files when their topic is relevant.
 | [typer-vendors-click.md](typer-vendors-click.md) | typer 0.27 bundles click privately and drops the dependency — `import click` fails at runtime, on an error path |
 | [ruff-format-rewrites-markdown.md](ruff-format-rewrites-markdown.md) | `ruff format .` silently reformats Python inside `docs/*.md` — why `extend-exclude = ["docs"]` must stay |
 | [import-budget-and-the-fastpath.md](import-budget-and-the-fastpath.md) | Importing typer costs 44 ms against a 50 ms budget — why the argparse front door exists and how the two help surfaces stay in sync |
+| [credential-leak-channels.md](credential-leak-channels.md) | The three automatic channels a credential leaks through — captured-locals reprs, caller-formatted messages, cassettes — and why fail-soft belongs to the chain, not the reader |
 
 Nothing here should duplicate what the code, git history, `CLAUDE.md`, or
 `docs/ARCHITECTURE.md` already record.
