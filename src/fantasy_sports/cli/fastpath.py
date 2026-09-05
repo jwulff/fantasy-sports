@@ -22,20 +22,38 @@ _HELP_FLAGS = frozenset({"--help", "-h"})
 
 USAGE = "Usage: fantasy-sports [OPTIONS] COMMAND [ARGS]..."
 
-GLOBAL_OPTIONS: tuple[tuple[str, str], ...] = (
-    ("-l, --league TEXT", "Named league profile to target. Defaults to the configured default."),
-    ("--season INTEGER", "Override the profile's season for this invocation."),
-    ("-o, --output FORMAT", "json, table, or csv. Defaults to json when stdout is not a TTY."),
-    ("--fresh", "Bypass the cache and refresh the entry."),
-    ("--no-cache", "Bypass the cache without writing to it."),
+_META_OPTIONS: tuple[tuple[str, str], ...] = (
     ("-V, --version", "Show the version and exit."),
     ("-h, --help", "Show this message and exit."),
 )
+"""The two flags this module answers itself. Everything else comes from the
+registry's :data:`~fantasy_sports.commands.GLOBAL_PARAMS`, so the option list a
+user reads here and the options typer actually accepts cannot drift."""
+
+
+def global_options() -> tuple[tuple[str, str], ...]:
+    """Every option accepted before or after a command, plus the two meta flags.
+
+    Global options are accepted on **both** sides of the command name, which is
+    why they are listed here rather than only in each command's own help.
+    """
+    from fantasy_sports.commands import GLOBAL_PARAMS
+
+    return (*((p.display, p.help) for p in GLOBAL_PARAMS), *_META_OPTIONS)
+
+
+def _group_summary(group: str) -> str:
+    """One line naming a group's subcommands, so ``--help`` lists them all."""
+    from fantasy_sports.commands import in_group
+
+    names = [spec.name for spec in in_group(group)]
+    label = "subcommand" if len(names) == 1 else "subcommands"
+    return f"{len(names)} {label}: " + ", ".join(names)
 
 
 def render_help() -> str:
     """Build top-level help from the registry, importing nothing expensive."""
-    from fantasy_sports.commands import REGISTRY, groups, in_group, top_level
+    from fantasy_sports.commands import REGISTRY, groups, top_level
 
     lines = [
         USAGE,
@@ -43,20 +61,18 @@ def render_help() -> str:
         "  Agent-native CLI for fantasy sports leagues. Every payload is a versioned",
         "  envelope; every failure is a machine-readable code on stderr.",
         "",
-        "Options:",
+        "Options (accepted before or after the command):",
     ]
-    width = max(len(flag) for flag, _ in GLOBAL_OPTIONS)
-    lines += [f"  {flag.ljust(width)}  {blurb}" for flag, blurb in GLOBAL_OPTIONS]
+    options = global_options()
+    width = max(len(flag) for flag, _ in options)
+    lines += [f"  {flag.ljust(width)}  {blurb}" for flag, blurb in options]
 
     if not REGISTRY:
-        lines += ["", "Commands:", "  (none registered yet — see jwulff/fantasy-sports#9)"]
+        lines += ["", "Commands:", "  (none registered)"]
         return "\n".join(lines)
 
     entries = [(s.name, s.summary) for s in top_level()]
-    entries += [
-        (g, f"{len(in_group(g))} subcommands: " + ", ".join(s.name for s in in_group(g)))
-        for g in groups()
-    ]
+    entries += [(g, _group_summary(g)) for g in groups()]
     width = max(len(name) for name, _ in entries)
     lines += ["", "Commands:"]
     lines += [f"  {name.ljust(width)}  {summary}" for name, summary in sorted(entries)]

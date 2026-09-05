@@ -70,12 +70,21 @@ settled before it is:
 1. **It is not a credential check.** It answers 200 with *no cookies at all*,
    for an arbitrary SWID belonging to someone else. It can only ever answer the
    membership question, never the credential one.
-2. **The league-listing shape is unverified.** Probed with a SWID that has no
-   fantasy leagues, `fantasyData.totalFantasyLeagues` is `0` and no per-league
-   entries appear anywhere in the response. Where a league id actually shows up
-   — a `preferences[]` entry, a `groupId`, something else — was not observable.
-   Building classification on a shape nobody has seen is the guessing this whole
-   memory is about.
+2. ~~**The league-listing shape is unverified.**~~ **Resolved 2026-09-05,
+   during U8 (#9)** — probed with a SWID that *does* have leagues, so the shape
+   is now observed rather than guessed. `fantasyData.totalFantasyLeagues` is
+   the count and `fantasyData.leaguesBySportLeague` breaks it down by sport,
+   but neither carries an id. The league ids live in **`preferences[]`**: one
+   entry per league with `type.id == 9` (`"Fantasy League Manager"`), whose
+   `metaData.entry.groups[].groupId` is the league id, alongside `seasonId`,
+   `entryId` (the user's own team id), the group name, and a `href` that
+   repeats the id as a query parameter. The earlier probe saw nothing because
+   an account with no leagues has no such preference entries — an absence of
+   rows, not an absent field.
+
+   That removes the "shape nobody has seen" objection. Reason 1 above stands
+   unchanged and is still enough on its own: this can answer the *membership*
+   question and never the credential one.
 
 **One trap if it is ever wired in:** the SWID travels in the *URL path*,
 percent-encoded. The cassette scrubber matches brace-wrapped GUIDs and

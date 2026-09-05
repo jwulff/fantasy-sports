@@ -55,25 +55,69 @@ def _header_line(payload: Mapping[str, Any]) -> str:
     return " · ".join(parts)
 
 
-def _add_rows(table: Any, data: Any) -> None:
+OMITTED_COLUMNS = frozenset({"raw"})
+"""Keys the table leaves out. ``raw`` only, and only here.
+
+Every normalized object carries the provider's own sub-object (``CLAUDE.md``
+rule 3), which is right for the contract and ruinous for a hundred-column
+terminal: one ESPN team payload wraps over a dozen lines and squeezes ``name``
+and ``wins`` into six characters each, so ``standings`` at a TTY became
+unreadable the moment real commands started emitting real objects
+(jwulff/fantasy-sports#9). JSON and CSV still carry it, and :func:`render`
+prints a line saying where it went — the table is the convenience surface, and
+a convenience nobody can read is not one.
+"""
+
+
+def _visible(item: Mapping[str, Any]) -> dict[str, Any]:
+    """``item`` without its omitted keys, at every depth.
+
+    Recursive because the worst offender is nested: a roster slot's ``raw`` is
+    modest, and the ``player`` it contains has a ``raw`` of its own that fills
+    the cell on its own.
+    """
+    return {
+        str(key): _visible_value(value)
+        for key, value in item.items()
+        if str(key) not in OMITTED_COLUMNS
+    }
+
+
+def _visible_value(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return _visible(value)
+    if isinstance(value, list):
+        return [_visible_value(item) for item in value]
+    return value
+
+
+def _add_rows(table: Any, data: Any) -> bool:
+    """Fill ``table`` from ``data``; return whether a column was omitted."""
     if isinstance(data, Mapping):
         table.add_column("field")
         table.add_column("value")
-        for key, value in data.items():
-            table.add_row(str(key), _cell(value))
-        return
+        shown = _visible(data)
+        for key, value in shown.items():
+            table.add_row(key, _cell(value))
+        return shown != dict(data)
     if isinstance(data, list) and all(isinstance(item, Mapping) for item in data):
         columns: list[str] = []
+        omitted = False
+        rows = []
         for item in data:
-            columns.extend(str(key) for key in item if str(key) not in columns)
+            shown = _visible(item)
+            omitted = omitted or shown != dict(item)
+            columns.extend(key for key in shown if key not in columns)
+            rows.append(shown)
         for name in columns:
             table.add_column(name)
-        for item in data:
-            table.add_row(*(_cell(item.get(name)) for name in columns))
-        return
+        for row in rows:
+            table.add_row(*(_cell(row.get(name)) for name in columns))
+        return omitted
     table.add_column("value")
     for item in data:
         table.add_row(_cell(item))
+    return False
 
 
 def render(envelope: Envelope) -> str:
@@ -99,8 +143,12 @@ def render(envelope: Envelope) -> str:
         console.print("(no rows)")
     else:
         table = Table(box=SIMPLE, pad_edge=False, show_edge=False)
-        _add_rows(table, data if isinstance(data, list | Mapping) else [data])
+        omitted = _add_rows(table, data if isinstance(data, list | Mapping) else [data])
         console.print(table)
+        if omitted:
+            console.print(
+                "`raw` omitted from this table; use --output json for the provider payload."
+            )
 
     if payload["sources"]:
         console.print(

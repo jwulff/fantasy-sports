@@ -94,3 +94,19 @@ def test_typer_app_builds_from_the_registry():
 
     app = build_app()
     assert {g.name for g in app.registered_groups} == set(groups())
+
+
+def test_help_survives_an_empty_registry():
+    """Rendering must not crash before anything is registered, or in a fixture
+    that clears the registry to test something else."""
+    from fantasy_sports.commands import REGISTRY
+
+    saved = dict(REGISTRY)
+    REGISTRY.clear()
+    try:
+        out = render_help()
+        assert out.startswith("Usage: fantasy-sports")
+        assert "(none registered)" in out
+    finally:
+        REGISTRY.clear()
+        REGISTRY.update(saved)

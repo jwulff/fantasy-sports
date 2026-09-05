@@ -963,7 +963,7 @@ def test_a_tty_invocation_emits_a_table_and_output_still_overrides_it():
 
 
 def test_cli_runner_sees_the_exact_json_envelope_shape():
-    """The issue's `CliRunner` criterion, without wiring `cli/app.py` (that is #9)."""
+    """The issue's `CliRunner` criterion, now through the real `cli/app.py` wiring."""
     from typer.testing import CliRunner
 
     from fantasy_sports.cli.app import build_app
@@ -974,7 +974,10 @@ def test_cli_runner_sees_the_exact_json_envelope_shape():
     try:
         register(
             CommandSpec(
-                name="standings", summary="Standings.", handler="_fake_commands:emit_envelope"
+                name="standings",
+                summary="Standings.",
+                handler="_fake_commands:emit_envelope",
+                takes_league=False,
             )
         )
         result = CliRunner().invoke(build_app(), ["standings"])
@@ -999,7 +1002,12 @@ def test_cli_runner_sees_an_error_on_stderr_with_an_empty_stdout():
     REGISTRY.clear()
     try:
         register(
-            CommandSpec(name="roster", summary="Roster.", handler="_fake_commands:emit_failure")
+            CommandSpec(
+                name="roster",
+                summary="Roster.",
+                handler="_fake_commands:raises_auth_expired",
+                takes_league=False,
+            )
         )
         result = CliRunner().invoke(build_app(), ["roster"])
         assert result.exit_code == EXIT_CODES[ErrorCode.AUTH_EXPIRED]
@@ -1008,3 +1016,67 @@ def test_cli_runner_sees_an_error_on_stderr_with_an_empty_stdout():
     finally:
         REGISTRY.clear()
         REGISTRY.update(saved)
+
+
+# --------------------------------------------------------------------------- #
+# `raw` and the table
+# --------------------------------------------------------------------------- #
+
+
+def test_the_table_omits_raw_and_says_so_while_json_and_csv_keep_it():
+    """The table is the convenience surface; JSON is the contract.
+
+    Every normalized object carries the provider's own sub-object (CLAUDE.md
+    rule 3). One ESPN team payload wraps over a dozen lines at 100 columns and
+    squeezes `name` and `wins` to six characters each, so a real `standings`
+    at a TTY was unreadable (jwulff/fantasy-sports#9). It is dropped from the
+    table only, with a line saying where it went.
+    """
+    envelope = sample_envelope()
+    rendered = table_renderer.render(envelope)
+
+    assert "abbrev" not in rendered
+    assert "`raw` omitted" in rendered
+    assert "Team Chaos" in rendered
+
+    assert "abbrev" in json_renderer.render(envelope)
+    assert "abbrev" in csv_renderer.render(envelope)
+
+
+def test_a_nested_raw_is_omitted_too():
+    """A roster slot's own `raw` is modest; the player inside it is not."""
+    envelope = Envelope.success(
+        provider="espn",
+        data=[
+            {
+                "slot": "QB",
+                "player": {"name": "Ada Lovelace", "raw": {"eligibleSlots": [0, 20, 21]}},
+                "raw": {"lineupSlotId": 0},
+            }
+        ],
+        generated_at=GENERATED_AT,
+    )
+    rendered = table_renderer.render(envelope)
+    assert "Ada Lovelace" in rendered
+    assert "eligibleSlots" not in rendered
+    assert "lineupSlotId" not in rendered
+
+
+def test_a_payload_without_raw_gets_no_omission_notice():
+    """The notice appears because something was dropped, not on every table."""
+    envelope = Envelope.success(
+        provider="espn", data=[{"name": "Team Chaos", "wins": 8}], generated_at=GENERATED_AT
+    )
+    assert "`raw` omitted" not in table_renderer.render(envelope)
+
+
+def test_a_single_object_table_also_drops_raw():
+    envelope = Envelope.success(
+        provider="espn",
+        data={"name": "Synthetic Test League", "raw": {"gameId": 1}},
+        generated_at=GENERATED_AT,
+    )
+    rendered = table_renderer.render(envelope)
+    assert "Synthetic Test League" in rendered
+    assert "gameId" not in rendered
+    assert "`raw` omitted" in rendered

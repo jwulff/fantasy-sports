@@ -34,6 +34,21 @@ def test_registry_is_typer_free():
     assert not (_modules_after("import fantasy_sports.commands") & set(EXPENSIVE))
 
 
+def test_resolving_every_command_stays_free_of_the_cli_and_the_provider():
+    """ADR-0003: a command is a plain function, importable without a CLI.
+
+    Resolving all ten handlers must not drag in typer, rich, `espn_api`,
+    `requests`, or `keyring`. That is the executable form of "the MCP server is
+    a projection": whatever imports a command gets the command, and nothing
+    else.
+    """
+    code = (
+        "from fantasy_sports.commands import REGISTRY\n"
+        "[spec.resolve() for spec in REGISTRY.values()]"
+    )
+    assert not (_modules_after(code) & set(EXPENSIVE))
+
+
 def test_rendering_help_stays_cheap():
     code = "from fantasy_sports.cli.fastpath import render_help; render_help()"
     assert not (_modules_after(code) & set(EXPENSIVE))

@@ -1,6 +1,7 @@
 espn · league 123456 · season 2026 · generated 2026-08-26T18:04:11Z · data age 480s
-provider   provider_id   name            wins   losses   points_for   raw                        
-─────────────────────────────────────────────────────────────────────────────────────────────────
-espn       1             Team Chaos      8      3        1234.5       {"id": 1, "abbrev": "CHAO"}
-espn       2             Bench Warmers   5      6        1102.25      {"id": 2, "abbrev": "BNCH"}
+provider   provider_id   name            wins   losses   points_for
+───────────────────────────────────────────────────────────────────
+espn       1             Team Chaos      8      3        1234.5    
+espn       2             Bench Warmers   5      6        1102.25   
+`raw` omitted from this table; use --output json for the provider payload.
 sources: mTeam 480s (cached), mRoster 0s
