@@ -14,7 +14,7 @@ anywhere**: a real private league's payload carries other people's SWIDs, so it
 must never become a fixture without going through the scrub hooks in
 ``tests/conftest.py``.
 
-``enable_socket`` is load-bearing — see ``test_espn_live.py``.
+Sockets are re-enabled per module — see ``test_espn_live.py`` for why.
 """
 
 from __future__ import annotations
@@ -31,7 +31,16 @@ from typer.testing import CliRunner
 from fantasy_sports.auth.chain import ESPN_CREDENTIALS, resolve_credentials
 from fantasy_sports.cli.app import build_app
 
-pytestmark = [pytest.mark.live, pytest.mark.enable_socket]
+pytestmark = pytest.mark.live
+
+
+@pytest.fixture(autouse=True)
+def _reach_the_network() -> None:
+    """Undo ``--disable-socket`` for this module. See ``test_espn_live.py``."""
+    from pytest_socket import enable_socket
+
+    enable_socket()
+
 
 LEAGUE_ENV = "FANTASY_SPORTS_ESPN_LEAGUE"
 SEASON_ENV = "FANTASY_SPORTS_ESPN_SEASON"

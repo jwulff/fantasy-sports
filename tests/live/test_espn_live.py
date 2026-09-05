@@ -32,13 +32,30 @@ from fantasy_sports.auth.chain import ESPN_CREDENTIALS, resolve_credentials
 from fantasy_sports.core.errors import AuthMissingError, LeagueNotFoundError
 from fantasy_sports.providers.espn import EspnProvider
 
-# `enable_socket` is load-bearing, not decoration. `addopts` in
-# `pyproject.toml` carries `--disable-socket` for the whole run, so without
-# this marker every live test fails with "A test tried to use
-# socket.getaddrinfo" and tells you nothing about ESPN. A `tests/live/conftest.py`
-# would be the tidier home for it, but a second `conftest` basename collides
-# with `tests/conftest.py` under pytest's default import mode.
-pytestmark = [pytest.mark.live, pytest.mark.enable_socket]
+pytestmark = pytest.mark.live
+
+
+@pytest.fixture(autouse=True)
+def _reach_the_network() -> None:
+    """Undo ``--disable-socket`` for this module, and only for this module.
+
+    ``addopts`` in ``pyproject.toml`` carries ``--disable-socket`` so a cassette
+    miss fails loudly instead of quietly calling ESPN — and ``addopts`` applies
+    to **every** run, ``-m live`` included. Before this fixture existed,
+    ``uv run pytest -m live`` failed every test with "A test tried to use
+    socket.getaddrinfo": the ADR-0005 canary had never actually run.
+
+    A fixture rather than ``pytest.mark.enable_socket`` because
+    ``tests/unit/test_cassette_harness.py`` reads these files as text and
+    requires the exact line ``pytestmark = pytest.mark.live``; a fixture leaves
+    that guarantee legible. A ``tests/live/conftest.py`` is not an option
+    either — a second ``conftest`` basename shadows ``tests/conftest.py`` under
+    pytest's default import mode and breaks unrelated modules.
+    """
+    from pytest_socket import enable_socket
+
+    enable_socket()
+
 
 CANARY_LEAGUE = "1234"
 CANARY_SEASON = 2018
