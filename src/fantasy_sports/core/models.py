@@ -332,11 +332,23 @@ class FreeAgent(ProviderObject):
 
 @dataclass(frozen=True)
 class CredentialSpec:
-    """What a provider needs to authenticate, and how staleness is detected.
+    """What a provider needs to authenticate, where it comes from, and how
+    staleness is detected.
 
-    Returned by ``Provider.credential_specs()``. A provider needing no
-    credentials at all — Sleeper — returns an empty list, which is itself a
-    useful signal about that provider's operational risk profile.
+    **One shape, two callers.** ``Provider.credential_specs()`` describes what
+    a provider *requires*; ``auth/chain.py`` resolves that description against
+    the environment, the Keychain, and ``config.toml``. Those were briefly two
+    dataclasses of the same name, built in parallel off the same commit
+    (jwulff/fantasy-sports#35). They are one description of one thing, so they
+    are one class: a provider that declares a credential and a chain that
+    resolves it must not be able to disagree about what it is called.
+
+    Only :attr:`name` and :attr:`label` are required. A provider describing its
+    needs abstractly can stop there; the resolution fields carry defaults so
+    declaring a credential never obliges an author to invent an environment
+    variable for it. A provider needing no credentials at all — Sleeper —
+    returns an empty list, which is itself a useful signal about that
+    provider's operational risk profile.
 
     :attr:`staleness` describes *how expiry becomes visible*, not a predicted
     lifetime. No ESPN documentation, library source, or community post states
@@ -345,7 +357,21 @@ class CredentialSpec:
     """
 
     name: str
+    """Canonical name — the Keychain account, the config key, e.g. ``espn_s2``."""
+
     label: str
+    """Human-facing name, e.g. ``ESPN_S2 cookie``."""
+
+    env_vars: tuple[str, ...] = ()
+    """Environment variables to check, in order. The namespaced one first.
+
+    Empty means this credential has no environment fallback, which the chain
+    handles by simply moving to the next link.
+    """
+
+    guidance: str = ""
+    """One line telling a human where to find this value in DevTools."""
+
     secret: bool = True
     required: bool = True
     staleness: str | None = None

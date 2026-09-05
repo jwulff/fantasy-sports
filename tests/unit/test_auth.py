@@ -17,6 +17,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from fantasy_sports.auth import chain, staleness
+from fantasy_sports.core.errors import AuthMissingError
 
 # A sentinel that cannot occur by accident anywhere in rendered output.
 SECRET = "AEBqp7SENTINELs2cookievalue0123456789abcdefXYZ%2Fzz"
@@ -68,24 +69,28 @@ def test_credential_set_repr_is_redacted():
 def test_error_message_is_scrubbed_even_when_a_caller_interpolates_a_secret():
     """The failure mode this defends against is a *caller* mistake.
 
-    Someone writes ``raise AuthError(f"bad cookie {value}")`` in a future unit.
-    The value never reaches ``args``, ``str()``, or the payload.
+    Someone writes ``raise AuthMissingError(f"bad cookie {value}")`` in a
+    future unit. The value never reaches ``args``, ``str()``, or the payload.
+
+    The scrubbing itself now lives on ``core.errors.FantasySportsError`` and so
+    covers every error type, not only the auth ones; see
+    ``tests/unit/test_errors.py`` for the non-auth form of this claim.
     """
     chain.Secret(SECRET)  # registers the value with the scrubber
-    err = chain.AuthError(f"rejected cookie {SECRET} for espn_s2")
+    err = AuthMissingError(f"rejected cookie {SECRET} for espn_s2")
 
     assert SECRET not in str(err)
     assert SECRET not in repr(err)
     assert SECRET not in "".join(str(a) for a in err.args)
-    assert SECRET not in json.dumps(err.to_payload())
+    assert SECRET not in json.dumps(err.to_dict())
     assert chain.REDACTED in str(err)
 
 
 def test_secret_is_absent_from_a_rendered_traceback():
     chain.Secret(SECRET)
     try:
-        raise chain.AuthError(f"boom {SECRET}")
-    except chain.AuthError as exc:
+        raise AuthMissingError(f"boom {SECRET}")
+    except AuthMissingError as exc:
         rendered = "".join(traceback.format_exception(exc))
     assert SECRET not in rendered
 
@@ -101,11 +106,11 @@ def test_secret_is_absent_from_a_traceback_that_captures_local_variables():
 
     def inner() -> None:
         held = chain.Secret(SECRET)  # noqa: F841 — deliberately live in the frame
-        raise chain.AuthError("resolution failed")
+        raise AuthMissingError("resolution failed")
 
     try:
         inner()
-    except chain.AuthError as exc:
+    except AuthMissingError as exc:
         rendered = "".join(
             traceback.TracebackException.from_exception(exc, capture_locals=True).format()
         )
@@ -153,9 +158,9 @@ def test_redact_is_a_no_op_when_nothing_is_registered():
 
 def test_rejected_swid_error_does_not_echo_the_value():
     bad = "NOTAGUID" + SECRET
-    with pytest.raises(chain.AuthError) as excinfo:
+    with pytest.raises(AuthMissingError) as excinfo:
         chain.normalize_swid(bad)
-    rendered = str(excinfo.value) + json.dumps(excinfo.value.to_payload())
+    rendered = str(excinfo.value) + json.dumps(excinfo.value.to_dict())
     assert bad not in rendered
     assert SECRET not in rendered
 
@@ -363,46 +368,6 @@ def test_resolving_from_env_never_imports_keyring():
 # ---------------------------------------------------------------------------
 
 
-def test_load_config_credentials_reads_the_credentials_table(tmp_path):
-    path = tmp_path / "config.toml"
-    path.write_text('default = "dynasty"\n\n[credentials]\nespn_s2 = "abc"\nswid = "{x}"\n')
-    assert chain.load_config_credentials(path) == {"espn_s2": "abc", "swid": "{x}"}
-
-
-def test_load_config_credentials_ignores_non_string_values(tmp_path):
-    path = tmp_path / "config.toml"
-    path.write_text('[credentials]\nespn_s2 = 12\nswid = "ok"\n')
-    assert chain.load_config_credentials(path) == {"swid": "ok"}
-
-
-def test_a_missing_config_file_is_not_an_error(tmp_path):
-    assert chain.load_config_credentials(tmp_path / "nope.toml") == {}
-
-
-def test_a_malformed_config_file_is_not_an_error(tmp_path):
-    path = tmp_path / "config.toml"
-    path.write_text("this is not = = toml\n")
-    assert chain.load_config_credentials(path) == {}
-
-
-def test_a_config_file_without_a_credentials_table_is_empty(tmp_path):
-    path = tmp_path / "config.toml"
-    path.write_text('default = "dynasty"\n')
-    assert chain.load_config_credentials(path) == {}
-
-
-def test_config_dir_honours_xdg_config_home(monkeypatch, tmp_path):
-    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
-    assert chain.config_dir() == tmp_path / "fantasy-sports"
-
-
-def test_config_dir_falls_back_to_dot_config(monkeypatch, tmp_path):
-    """macOS gets `~/.config` too — never Application Support (ARCHITECTURE §7)."""
-    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
-    monkeypatch.setattr(chain.Path, "home", classmethod(lambda cls: tmp_path))
-    assert chain.config_dir() == tmp_path / ".config" / "fantasy-sports"
-
-
 def test_read_from_config_falls_back_to_the_real_file(monkeypatch, tmp_path):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
     directory = tmp_path / "fantasy-sports"
@@ -431,10 +396,10 @@ def test_swid_is_repaired_to_the_braced_form(given):
     ids=["empty", "blank", "words", "truncated", "trailing", "empty-braces", "short"],
 )
 def test_a_genuinely_malformed_swid_is_rejected(given):
-    with pytest.raises(chain.AuthError) as excinfo:
+    with pytest.raises(AuthMissingError) as excinfo:
         chain.normalize_swid(given)
     assert excinfo.value.code == "AUTH_MISSING"
-    assert excinfo.value.remediation
+    assert excinfo.value.details["remediation"]
 
 
 def test_swid_case_is_preserved():
@@ -453,7 +418,7 @@ def test_normalize_credential_dispatches_on_name():
     ids=["empty", "blank", "whole-header", "space"],
 )
 def test_a_malformed_opaque_cookie_is_rejected(given):
-    with pytest.raises(chain.AuthError):
+    with pytest.raises(AuthMissingError):
         chain.normalize_opaque_cookie(given)
 
 
@@ -495,13 +460,14 @@ def test_absent_credentials_produce_a_credential_set_not_a_crash():
 
 
 def test_require_credentials_raises_auth_missing():
-    with pytest.raises(chain.AuthError) as excinfo:
+    with pytest.raises(AuthMissingError) as excinfo:
         chain.require_credentials(environ={}, keychain_reader=_keychain({}), config={})
     err = excinfo.value
     assert err.code == "AUTH_MISSING"
-    assert err.to_payload()["code"] == "AUTH_MISSING"
-    assert "auth login" in (err.remediation or "")
-    assert "FANTASY_SPORTS_ESPN_S2" in (err.remediation or "")
+    assert err.to_dict()["code"] == "AUTH_MISSING"
+    remediation = err.details.get("remediation", "")
+    assert "auth login" in remediation
+    assert "FANTASY_SPORTS_ESPN_S2" in remediation
 
 
 def test_require_credentials_returns_a_complete_set():
@@ -515,13 +481,32 @@ def test_require_credentials_returns_a_complete_set():
 
 def test_revealing_an_absent_credential_is_auth_missing():
     credentials = chain.CredentialSet()
-    with pytest.raises(chain.AuthError) as excinfo:
+    with pytest.raises(AuthMissingError) as excinfo:
         credentials.reveal("espn_s2")
     assert excinfo.value.code == "AUTH_MISSING"
 
 
 def test_an_error_without_remediation_omits_it_from_the_payload():
-    assert chain.AuthError("plain").to_payload() == {"code": "AUTH_MISSING", "message": "plain"}
+    payload = AuthMissingError("plain").to_dict()
+    assert payload["code"] == "AUTH_MISSING"
+    assert payload["message"] == "plain"
+    assert "details" not in payload
+
+
+def test_a_spec_with_no_env_vars_still_produces_a_usable_remediation():
+    """`CredentialSpec.env_vars` is optional now that the two specs are one.
+
+    A provider may declare a credential with no environment fallback. Naming a
+    variable that does not exist would be worse than naming none, so the
+    clause is dropped rather than invented — and `spec.env_vars[0]` must not
+    become an `IndexError` on the way.
+    """
+    spec = chain.CredentialSpec(name="token", label="API token")
+    with pytest.raises(AuthMissingError) as excinfo:
+        chain.require_credentials([spec], environ={}, keychain_reader=lambda _: None, config={})
+    remediation = excinfo.value.details["remediation"]
+    assert "auth login" in remediation
+    assert "environment" not in remediation
 
 
 def test_secret_equality_and_hashing():
@@ -552,7 +537,7 @@ def test_save_repairs_the_swid_and_reports_what_it_fixed(tmp_path):
 
 def test_save_writes_nothing_when_any_value_is_malformed(tmp_path):
     written: dict[str, str] = {}
-    with pytest.raises(chain.AuthError):
+    with pytest.raises(AuthMissingError):
         chain.save_credentials(
             {"espn_s2": "abcdefghij", "swid": "nonsense"},
             writer=lambda name, value: written.__setitem__(name, value),
@@ -562,7 +547,7 @@ def test_save_writes_nothing_when_any_value_is_malformed(tmp_path):
 
 
 def test_save_rejects_an_unknown_credential_name(tmp_path):
-    with pytest.raises(chain.AuthError) as excinfo:
+    with pytest.raises(AuthMissingError) as excinfo:
         chain.save_credentials(
             {"yahoo_token": "x"}, writer=lambda n, v: None, state_path=tmp_path / "s.json"
         )

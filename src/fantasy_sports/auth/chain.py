@@ -14,9 +14,12 @@ Three rules this module exists to hold:
 
 1. **Never render a credential.** Values are carried in :class:`Secret`, which
    redacts itself in ``repr``, ``str``, ``format``, and therefore in every
-   traceback that captures locals. :func:`redact` scrubs known values out of
-   arbitrary text, so a caller who interpolates a cookie into an error message
-   still cannot leak it. See ``tests/unit/test_auth.py``.
+   traceback that captures locals. The scrub set and :func:`redact` live in
+   ``core/redaction.py`` so that ``core.errors.FantasySportsError`` can scrub
+   *every* error message at construction, not only this module's — a caller
+   who interpolates a cookie into any error still cannot leak it. They are
+   re-exported here because this is where they are used. See
+   ``tests/unit/test_auth.py`` and ``docs/memory/credential-leak-channels.md``.
 2. **Import ``keyring`` lazily.** ADR-0008 budgets ``--help`` at 50 ms and
    ``tests/unit/test_imports.py`` asserts ``keyring`` is absent from
    ``sys.modules`` on cheap paths. The import lives inside
@@ -29,25 +32,32 @@ from __future__ import annotations
 
 import os
 import re
-import tomllib
 from collections.abc import Callable, Iterable, Mapping, MutableMapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
 
+from fantasy_sports.config import credentials as config_credentials
+from fantasy_sports.core.errors import AuthMissingError
+from fantasy_sports.core.models import CredentialSpec
+from fantasy_sports.core.redaction import (
+    REDACTED,
+    forget_secrets,
+    redact,
+    remember_secret,
+)
+
 __all__ = [
     "ENV_PREFIX",
     "ESPN_CREDENTIALS",
     "REDACTED",
     "SERVICE",
-    "AuthError",
     "CredentialSet",
     "CredentialSource",
     "CredentialSpec",
     "ResolvedCredential",
     "Secret",
-    "config_dir",
     "forget_secrets",
     "normalize_credential",
     "normalize_opaque_cookie",
@@ -56,6 +66,7 @@ __all__ = [
     "read_from_env",
     "read_from_keychain",
     "redact",
+    "remember_secret",
     "require_credentials",
     "resolve_credential",
     "resolve_credentials",
@@ -67,53 +78,15 @@ SERVICE = "fantasy-sports"
 
 ENV_PREFIX = "FANTASY_SPORTS_"
 
-REDACTED = "***redacted***"
-
-_MIN_SCRUBBABLE = 8
-"""Values shorter than this are not added to the scrub set.
-
-Scrubbing a three-character value out of arbitrary text would corrupt
-unrelated words far more often than it would protect anything. A real ESPN
-credential is orders of magnitude longer than this floor.
-"""
-
-_KNOWN_SECRETS: set[str] = set()
-"""Every credential value this process has wrapped in a :class:`Secret`.
-
-Process-global on purpose. Redaction has to work on text the credential was
-merely *interpolated into* — a request URL, a formatted exception, a log line
-assembled three layers away — and at that point the only thing linking the
-text to the secret is the value itself.
-"""
-
-
 # ---------------------------------------------------------------------------
 # Redaction
 # ---------------------------------------------------------------------------
 
-
-def remember_secret(value: str) -> None:
-    """Register ``value`` so :func:`redact` will scrub it out of any text."""
-    if value and len(value) >= _MIN_SCRUBBABLE:
-        _KNOWN_SECRETS.add(value)
-
-
-def forget_secrets() -> None:
-    """Empty the scrub set. Exists for tests; nothing in production calls it."""
-    _KNOWN_SECRETS.clear()
-
-
-def redact(text: str) -> str:
-    """Replace every known credential value in ``text`` with :data:`REDACTED`.
-
-    Longest-first, so a value that contains another value cannot leave a
-    fragment behind.
-    """
-    if not _KNOWN_SECRETS:
-        return text
-    for value in sorted(_KNOWN_SECRETS, key=len, reverse=True):
-        text = text.replace(value, REDACTED)
-    return text
+# `REDACTED`, `redact`, `remember_secret`, and `forget_secrets` are imported
+# from `core.redaction` above and re-exported. They live in `core/` because
+# `core.errors.FantasySportsError` scrubs its message at construction, and
+# `core/` cannot import `auth/` — this module imports `core.models`. Callers
+# that already say `chain.redact(...)` are unaffected.
 
 
 class Secret:
@@ -167,43 +140,23 @@ class Secret:
 # ---------------------------------------------------------------------------
 
 
-class AuthError(Exception):
-    """An auth failure carrying a stable machine code (ARCHITECTURE §5).
+def _auth_missing(message: str, *, remediation: str | None = None) -> AuthMissingError:
+    """Build the ``AUTH_MISSING`` error this module raises for every failure.
 
-    **Seam.** ``core/errors.py`` is being written in parallel for #3 and did
-    not exist on ``origin/main`` when this branch was cut, so this class is
-    defined locally rather than duplicating or pre-empting that taxonomy. The
-    ``code`` attribute and the :meth:`to_payload` shape deliberately match
-    ARCHITECTURE §5, so adopting the shared base class later is a one-line
-    change here and no change at all for callers.
+    Every auth failure here is ``AUTH_MISSING``, a *malformed* credential
+    included. The correct agent response is identical — ask the human to run
+    ``auth login`` — so a second code would describe an internal distinction
+    rather than a different action, and adding a taxonomy code is an API change
+    (``CLAUDE.md`` rule 4). Decision recorded on jwulff/fantasy-sports#34.
 
-    ``code`` is :data:`AUTH_MISSING` for every failure this module raises. A
-    malformed credential is reported as missing rather than under a new code
-    because the correct agent response is identical — ask the human to run
-    ``auth login`` — and because adding a taxonomy code is an API change
-    (``CLAUDE.md`` rule 4), not something a credential validator should do on
-    its own.
+    ``remediation`` is the human-facing next step and is per-instance: it names
+    the actual environment variables that would satisfy *this* failure, which
+    the class-level ``agent_action`` cannot. It rides in ``details``, the
+    taxonomy's existing per-instance channel, so ADR-0004's payload keys are
+    unchanged. Message and details are scrubbed by
+    :class:`~fantasy_sports.core.errors.FantasySportsError` at construction.
     """
-
-    code = "AUTH_MISSING"
-
-    def __init__(self, message: str, *, remediation: str | None = None) -> None:
-        # Scrub at construction, not at render. Once the message is stored
-        # redacted there is no path — args, str(), repr(), traceback, payload —
-        # that can put the value back.
-        super().__init__(redact(message))
-        self.remediation = remediation
-
-    @property
-    def message(self) -> str:
-        return str(self.args[0]) if self.args else ""
-
-    def to_payload(self) -> dict[str, object]:
-        """The stderr JSON body for this error (ARCHITECTURE §5)."""
-        payload: dict[str, object] = {"code": self.code, "message": self.message}
-        if self.remediation:
-            payload["remediation"] = self.remediation
-        return payload
+    return AuthMissingError(message, details={"remediation": remediation} if remediation else None)
 
 
 # ---------------------------------------------------------------------------
@@ -217,23 +170,6 @@ class CredentialSource(StrEnum):
     ENV = "env"
     KEYCHAIN = "keychain"
     CONFIG = "config"
-
-
-@dataclass(frozen=True)
-class CredentialSpec:
-    """One credential a provider needs, independent of where it comes from."""
-
-    name: str
-    """Canonical name — the Keychain account, the config key, e.g. ``espn_s2``."""
-
-    label: str
-    """Human-facing name, e.g. ``ESPN_S2 cookie``."""
-
-    env_vars: tuple[str, ...]
-    """Environment variables to check, in order. The namespaced one first."""
-
-    guidance: str
-    """One line telling a human where to find this value in DevTools."""
 
 
 ESPN_CREDENTIALS: tuple[CredentialSpec, ...] = (
@@ -291,14 +227,14 @@ def normalize_swid(value: str) -> str:
     mistake (usually the wrong cookie entirely) and repairing it would only
     delay the diagnosis.
 
-    :raises AuthError: if ``value`` is not a GUID, with or without braces.
+    :raises AuthMissingError: if ``value`` is not a GUID, with or without braces.
     """
     candidate = _unquote(value)
     match = _SWID_RE.match(candidate)
     if match is None:
         # The value is never echoed: a malformed credential is still a
         # credential, and the user is about to paste the right one anyway.
-        raise AuthError(
+        raise _auth_missing(
             f"SWID is not a GUID (got {len(candidate)} characters). "
             "Expected 8-4-4-4-12 hex digits, optionally wrapped in curly braces.",
             remediation="Re-copy the SWID cookie value from DevTools, braces included.",
@@ -317,12 +253,12 @@ def normalize_opaque_cookie(value: str) -> str:
     """
     candidate = _unquote(value)
     if not candidate:
-        raise AuthError(
+        raise _auth_missing(
             "Cookie value is empty.",
             remediation="Copy the cookie value from DevTools and try again.",
         )
     if any(ch.isspace() for ch in candidate) or ";" in candidate:
-        raise AuthError(
+        raise _auth_missing(
             f"Cookie value contains whitespace or ';' ({len(candidate)} characters). "
             "That usually means a whole Cookie header was pasted instead of one value.",
             remediation="Paste only the value of the cookie, not the whole header.",
@@ -341,19 +277,6 @@ def normalize_credential(name: str, value: str) -> str:
 # ---------------------------------------------------------------------------
 # The chain
 # ---------------------------------------------------------------------------
-
-
-def config_dir() -> Path:
-    """XDG-style config directory, on every platform (ARCHITECTURE §7).
-
-    ``platformdirs``' macOS branch returns ``~/Library/Application Support``,
-    which conflicts with the paths this project committed to, so it is not
-    used. This helper is a temporary seam: when the config layer (#7) lands a
-    canonical ``config_dir()``, delete this one and import that.
-    """
-    base = os.environ.get("XDG_CONFIG_HOME")
-    root = Path(base).expanduser() if base else Path.home() / ".config"
-    return root / SERVICE
 
 
 def read_from_env(spec: CredentialSpec, environ: Mapping[str, str] | None = None) -> str | None:
@@ -392,33 +315,17 @@ def read_from_keychain(spec: CredentialSpec) -> str | None:
 
 
 def read_from_config(spec: CredentialSpec, config: Mapping[str, str] | None = None) -> str | None:
-    """Third link. Reads ``[credentials]`` from ``config.toml``.
+    """Third link. Reads ``[credentials]`` through the config layer.
 
-    Seam: when #7's config loader lands, pass its parsed ``[credentials]``
-    table in as ``config`` and this file read goes away. Until then this reads
-    the documented path directly with ``tomllib`` rather than creating a
-    competing config loader in ``config/``.
+    Passing ``config`` injects an already-parsed table — the seam the tests and
+    the provider layer use. Otherwise the read goes through
+    :func:`fantasy_sports.config.credentials.load_credentials`, which fails
+    soft for the reason the chain needs it to: an unreadable config file is an
+    absent credential, not an auth failure.
     """
-    table = load_config_credentials() if config is None else config
+    table = config_credentials.load_credentials() if config is None else config
     value = table.get(spec.name)
     return value if value and value.strip() else None
-
-
-def load_config_credentials(path: Path | None = None) -> Mapping[str, str]:
-    """Parse the ``[credentials]`` table out of ``config.toml``. Fails soft."""
-    target = config_dir() / "config.toml" if path is None else path
-    try:
-        with target.open("rb") as handle:
-            document = tomllib.load(handle)
-    except (OSError, tomllib.TOMLDecodeError):
-        # A missing, unreadable, or malformed config file is not an auth
-        # failure — it is an absent credential, which the caller already
-        # handles as AUTH_MISSING with a useful remediation.
-        return {}
-    table = document.get("credentials")
-    if not isinstance(table, dict):
-        return {}
-    return {k: v for k, v in table.items() if isinstance(v, str)}
 
 
 @dataclass(frozen=True)
@@ -454,7 +361,7 @@ class CredentialSet:
         """Return one credential's value. Raises ``AUTH_MISSING`` if absent."""
         found = self.resolved.get(name)
         if found is None:
-            raise AuthError(
+            raise _auth_missing(
                 f"No value for credential {name!r}.",
                 remediation="Run `fantasy-sports auth login`.",
             )
@@ -516,7 +423,7 @@ def _wrap(spec: CredentialSpec, value: str, source: CredentialSource) -> Resolve
     """
     try:
         cleaned = normalize_credential(spec.name, value)
-    except AuthError:
+    except AuthMissingError:
         cleaned = value.strip()
     return ResolvedCredential(name=spec.name, source=source, secret=Secret(cleaned))
 
@@ -561,17 +468,27 @@ def require_credentials(
     )
     if credentials.missing:
         names = ", ".join(credentials.missing)
-        raise AuthError(
+        raise _auth_missing(
             f"No credentials configured for: {names}.",
-            remediation=(
-                "Run `fantasy-sports auth login`, or set "
-                + " and ".join(
-                    spec.env_vars[0] for spec in specs if spec.name in credentials.missing
-                )
-                + " in the environment."
-            ),
+            remediation=_remediation_for(specs, credentials.missing),
         )
     return credentials
+
+
+def _remediation_for(specs: Iterable[CredentialSpec], missing: Iterable[str]) -> str:
+    """The next step for a human, naming the env vars that would satisfy it.
+
+    ``CredentialSpec.env_vars`` is optional now that the provider-facing and
+    resolution-facing specs are one class, so a spec may legitimately declare
+    no environment fallback. Naming a variable that does not exist would be
+    worse than naming none, so the clause is dropped rather than invented.
+    """
+    absent = set(missing)
+    variables = [spec.env_vars[0] for spec in specs if spec.name in absent and spec.env_vars]
+    login = "Run `fantasy-sports auth login`"
+    if not variables:
+        return f"{login}."
+    return f"{login}, or set " + " and ".join(variables) + " in the environment."
 
 
 # ---------------------------------------------------------------------------
@@ -608,7 +525,7 @@ def save_credentials(
     known = {spec.name: spec for spec in specs}
     unknown = sorted(set(values) - set(known))
     if unknown:
-        raise AuthError(f"Unknown credential name(s): {', '.join(unknown)}.")
+        raise _auth_missing(f"Unknown credential name(s): {', '.join(unknown)}.")
 
     # Validate everything first; write nothing until all of it is good.
     normalized: dict[str, str] = {}

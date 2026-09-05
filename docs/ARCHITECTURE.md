@@ -184,6 +184,7 @@ down" (retry later) without parsing English:
 | `AUTH_MISSING` | No credentials configured | Ask human to run `auth login` |
 | `AUTH_EXPIRED` | ESPN cookies rejected | Ask human to re-extract cookies |
 | `LEAGUE_NOT_FOUND` | Bad league ID or no access | Ask human |
+| `CONFIG_INVALID` | `config.toml` will not parse | Ask human to fix the file |
 | `PROVIDER_UNAVAILABLE` | ESPN 5xx / timeout | Retry with backoff |
 | `RATE_LIMITED` | Throttled | Retry after `retry_after` |
 | `SCHEMA_DRIFT` | Response shape unrecognized | Stop; file an issue |
