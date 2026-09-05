@@ -314,6 +314,16 @@ register(
 
 register(
     CommandSpec(
+        name="box-scores",
+        summary="List both lineups for a week's matchups, player by player, with projections.",
+        handler="fantasy_sports.commands.box_scores:box_scores",
+        shape=DataShape.COLLECTION,
+        params=(Param(name="week", help=_WEEK_HELP, annotation=int | None),),
+    )
+)
+
+register(
+    CommandSpec(
         name="transactions",
         summary="List recent roster moves, newest first, walking scoring periods backward.",
         handler="fantasy_sports.commands.transactions:transactions",

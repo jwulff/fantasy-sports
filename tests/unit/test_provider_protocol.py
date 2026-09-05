@@ -18,9 +18,11 @@ from datetime import UTC, datetime
 import pytest
 
 from fantasy_sports.core.models import (
+    BoxScore,
     CredentialSpec,
     FreeAgent,
     League,
+    LineupEntry,
     Matchup,
     Player,
     RosterSlot,
@@ -116,6 +118,38 @@ class _StubProvider:
                 team_a_score=118.4,
                 team_b_provider_id="2",
                 team_b_score=101.9,
+                is_playoff=False,
+                raw={"week": week},
+                scoring_period_id=week,
+                matchup_period_id=week,
+            )
+        ]
+
+    def fetch_box_scores(self, league_id: str, season: int, week: int) -> list[BoxScore]:
+        return [
+            BoxScore(
+                provider=self.name,
+                provider_id=f"{season}-w{week}-1",
+                week=week,
+                team_a_provider_id="7",
+                team_a_score=118.4,
+                team_a_lineup=(
+                    LineupEntry(
+                        provider=self.name,
+                        provider_id=self.player_id,
+                        slot="QB",
+                        player_name="A Quarterback",
+                        position="QB",
+                        pro_opponent="OPP",
+                        projected_points=18.2,
+                        actual_points=21.0,
+                        started=True,
+                        raw={},
+                    ),
+                ),
+                team_b_provider_id="2",
+                team_b_score=101.9,
+                team_b_lineup=(),
                 is_playoff=False,
                 raw={"week": week},
                 scoring_period_id=week,
@@ -283,6 +317,13 @@ def test_an_unrelated_object_is_not_a_provider():
 
 
 def test_the_protocol_surface_is_exactly_what_issue_3_requires():
+    """#3's surface, plus `fetch_box_scores` added by #29.
+
+    Required of every provider rather than optional: all three surveyed expose
+    per-player weekly scoring, and an optional method would push a `hasattr`
+    check into every consumer. A provider that cannot serve a *particular*
+    week raises; the capability is not in doubt, the week is.
+    """
     assert PROVIDER_METHODS == (
         "credential_specs",
         "fetch_league",
@@ -290,6 +331,7 @@ def test_the_protocol_surface_is_exactly_what_issue_3_requires():
         "fetch_standings",
         "fetch_roster",
         "fetch_matchups",
+        "fetch_box_scores",
         "fetch_transactions",
         "fetch_free_agents",
         "fetch_raw",

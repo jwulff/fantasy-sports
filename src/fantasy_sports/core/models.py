@@ -51,6 +51,8 @@ __all__ = [
     "CredentialSpec",
     "FreeAgent",
     "League",
+    "BoxScore",
+    "LineupEntry",
     "Matchup",
     "Player",
     "ProviderObject",
@@ -131,19 +133,29 @@ class ProviderObject:
     def to_dict(self) -> dict[str, Any]:
         """A plain-Python view for the output layer.
 
-        Nested models expand, tuples become lists, and ``raw`` is passed
-        through by reference — it is the provider's payload, and copying it
-        would be both wasteful and a chance to alter it.
+        Nested models expand **at any depth**, including inside a tuple or a
+        list — a box score's lineups are a tuple of models, and leaving them
+        unexpanded meant a caller reading ``data`` in Python saw dataclasses
+        where a caller reading the same payload as JSON saw mappings. Two views
+        of one contract that disagree is worse than either.
+
+        Tuples become lists. ``raw`` is passed through by reference: it is the
+        provider's payload, and copying it would be both wasteful and a chance
+        to alter it.
         """
-        out: dict[str, Any] = {}
-        for f in fields(self):  # type: ignore[arg-type]  # always a dataclass subclass
-            value = getattr(self, f.name)
-            if isinstance(value, ProviderObject):
-                value = value.to_dict()
-            elif isinstance(value, tuple):
-                value = list(value)
-            out[f.name] = value
-        return out
+        return {
+            f.name: _plain(getattr(self, f.name))
+            for f in fields(self)  # type: ignore[arg-type]  # always a dataclass subclass
+        }
+
+
+def _plain(value: Any) -> Any:
+    """One value as plain Python, expanding models wherever they are nested."""
+    if isinstance(value, ProviderObject):
+        return value.to_dict()
+    if isinstance(value, tuple | list):
+        return [_plain(item) for item in value]
+    return value
 
 
 @dataclass(frozen=True)
@@ -275,6 +287,67 @@ class Matchup(ProviderObject):
     matchup_period_id: int | None = None
     """ESPN's matchup period. Equal to :attr:`scoring_period_id` in the regular
     season, which is exactly why the split is easy to miss."""
+
+
+@dataclass(frozen=True)
+class LineupEntry(ProviderObject):
+    """One player's line in one team's lineup for one week.
+
+    The unit a fantasy box score is actually made of, and the thing a weekly
+    recap is written from: who was started, who was benched, what each was
+    projected for, and what each returned.
+    """
+
+    provider: str
+    provider_id: str
+    """The provider's player id."""
+    raw: Mapping[str, Any]
+    slot: str
+    """Lineup slot as the provider names it, e.g. ``RB``, ``FLEX``, ``BE``.
+    Slot vocabulary does not normalize across providers (ADR-0002)."""
+    player_name: str
+    position: str | None = None
+    """The player's own position, which is not the slot they filled."""
+    pro_opponent: str | None = None
+    projected_points: float | None = None
+    actual_points: float | None = None
+    started: bool = False
+    """Whether this slot counted toward the team's score. Derived from the
+    slot, because 'is this a bench slot' is a provider question."""
+
+
+@dataclass(frozen=True)
+class BoxScore(ProviderObject):
+    """One matchup with both lineups, player by player.
+
+    Deliberately separate from :class:`Matchup` rather than an optional field
+    on it. A box score costs extra upstream requests, is unavailable for some
+    seasons entirely, and carries a different shape — folding it in would make
+    every caller of ``matchups`` pay for detail most of them never read.
+    """
+
+    provider: str
+    provider_id: str
+    raw: Mapping[str, Any]
+    week: int
+    team_a_provider_id: str
+    team_a_score: float
+    team_a_lineup: tuple[LineupEntry, ...]
+    team_b_provider_id: str
+    team_b_score: float
+    team_b_lineup: tuple[LineupEntry, ...]
+    is_playoff: bool = False
+    scoring_period_id: int | None = None
+    matchup_period_id: int | None = None
+
+    @property
+    def team_a_bench_points(self) -> float:
+        """Points left on team A's bench. Ordinary arithmetic, not a projection."""
+        return round(sum(e.actual_points or 0.0 for e in self.team_a_lineup if not e.started), 2)
+
+    @property
+    def team_b_bench_points(self) -> float:
+        return round(sum(e.actual_points or 0.0 for e in self.team_b_lineup if not e.started), 2)
 
 
 @dataclass(frozen=True)

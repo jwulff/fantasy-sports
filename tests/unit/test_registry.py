@@ -35,6 +35,7 @@ V01_SURFACE = frozenset(
     {
         "auth login",
         "auth status",
+        "box-scores",
         "free-agents",
         "league info",
         "matchups",
@@ -48,7 +49,12 @@ V01_SURFACE = frozenset(
 
 
 def test_the_v01_surface_is_registered_and_nothing_else_is():
-    """ARCHITECTURE §12, as a set. A new command here is a scope change."""
+    """ARCHITECTURE §12, as a set. A new command here is a scope change.
+
+    `box-scores` is one, made deliberately for jwulff/fantasy-sports#29: the
+    Gazette needs per-player lines and folding them into `matchups` would have
+    changed that command's data shape, which is a runtime contract.
+    """
     assert set(REGISTRY) == V01_SURFACE
 
 

@@ -463,8 +463,10 @@ def test_the_owner_to_member_join_produces_a_name_per_team(synthetic: EspnProvid
     (jwulff/fantasy-sports#38) produces.
     """
     teams = {team.provider_id: team for team in synthetic.fetch_teams(*SYNTHETIC)}
-    assert teams["1"].owner_names == ("alpha",)
-    assert teams["2"].owner_names == ("bravo",)
+    # `firstName`/`lastName` beat `displayName`: in a real league half the
+    # display names are account handles that name nobody (#29).
+    assert teams["1"].owner_names == ("Ann Alpha",)
+    assert teams["2"].owner_names == ("Bo Bravo",)
 
 
 def test_a_playoff_week_keeps_the_scoring_and_matchup_periods_distinguishable(
