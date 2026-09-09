@@ -462,6 +462,63 @@ def test_no_cache_neither_reads_nor_overwrites_an_existing_entry(tmp_path: Path)
 
 
 # --------------------------------------------------------------------------- #
+# fetched_at (jwulff/fantasy-sports#51)
+# --------------------------------------------------------------------------- #
+
+
+def test_a_hit_reports_the_entrys_stored_at_not_the_call_time(tmp_path: Path):
+    """The whole bug: a hit must carry *when the bytes were written*, not now."""
+    clock = Clock()
+    fetch = RecordingFetch(default=b'{"n": 1}')
+    store = store_at(tmp_path, clock)
+    context = roster_context()
+
+    written = CachingFetcher(fetch, store).fetch(LEAGUE_URL, None, context=context)
+    assert written.cached is False
+    assert written.fetched_at is None, "a live fetch is 'now'; the caller already knows that"
+
+    clock.advance(90)
+    hit = CachingFetcher(fetch, store).fetch(LEAGUE_URL, None, context=context)
+    assert hit.cached is True
+    assert hit.fetched_at == clock.now - 90, "must be the write time, not this call's time"
+
+
+def test_a_miss_that_writes_also_leaves_fetched_at_none(tmp_path: Path):
+    """A miss is a live fetch too — the caller's own clock already knows 'now'."""
+    fetch = RecordingFetch(default=b'{"n": 1}')
+    store = store_at(tmp_path)
+
+    result = CachingFetcher(fetch, store).fetch(LEAGUE_URL, None, context=roster_context())
+
+    assert result.cached is False
+    assert result.stored is True
+    assert result.fetched_at is None
+
+
+def test_fresh_and_bypass_both_leave_fetched_at_none(tmp_path: Path):
+    """Neither is a hit, so neither may report the old entry's write time."""
+    clock = Clock()
+    fetch = RecordingFetch(default=b'{"n": 1}')
+    store = store_at(tmp_path, clock)
+    context = roster_context()
+
+    CachingFetcher(fetch, store).fetch(LEAGUE_URL, None, context=context)
+    clock.advance(300)
+
+    refreshed = CachingFetcher(fetch, store, mode=CacheMode.FRESH).fetch(
+        LEAGUE_URL, None, context=context
+    )
+    bypassed = CachingFetcher(fetch, store, mode=CacheMode.BYPASS).fetch(
+        LEAGUE_URL, None, context=context
+    )
+
+    assert refreshed.cached is False
+    assert refreshed.fetched_at is None
+    assert bypassed.cached is False
+    assert bypassed.fetched_at is None
+
+
+# --------------------------------------------------------------------------- #
 # Purge by tag
 # --------------------------------------------------------------------------- #
 
