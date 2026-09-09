@@ -70,22 +70,39 @@ def emit(
     fmt: OutputFormat | str | None = None,
     stdout: Any = None,
     stderr: Any = None,
+    guidance: str | None = None,
 ) -> int:
     """Write ``envelope`` to the right stream and return the process exit status.
 
     A success renders to stdout in the resolved format and returns ``0``. A
     failure renders as JSON to stderr, writes **nothing** to stdout, and returns
     that code's exit status.
+
+    ``guidance`` is the client health check's human-readable prose
+    (ARCHITECTURE §11.3) — appended to stderr *after* the JSON error, and only
+    when stderr is a terminal. A script piping stderr into a parser must see
+    nothing but the JSON document it already handles; a human watching the
+    same run gets the extra paragraph explaining what to do next.
     """
     stdout = sys.stdout if stdout is None else stdout
     stderr = sys.stderr if stderr is None else stderr
 
     if envelope.error is not None:
         stderr.write(json_renderer.render(envelope))
+        if guidance and _is_interactive(stderr):
+            stderr.write("\n" + guidance + "\n")
         return exit_code_for(envelope.error)
 
     stdout.write(render(envelope, fmt, stream=stdout))
     return EXIT_OK
+
+
+def _is_interactive(stream: Any) -> bool:
+    isatty = getattr(stream, "isatty", None)
+    try:
+        return bool(isatty()) if callable(isatty) else False
+    except (ValueError, OSError):
+        return False
 
 
 def emit_failure(
@@ -103,8 +120,24 @@ def emit_failure(
     already carries a taxonomy code keeps it, and anything else becomes
     ``PROVIDER_UNAVAILABLE`` rather than a traceback (see
     :func:`fantasy_sports.output.errors.classify`).
+
+    Also the single entry point for the client health check (ADR-0005 §11.3):
+    on ``SCHEMA_DRIFT`` or ``PROVIDER_UNAVAILABLE``, and only then,
+    :func:`fantasy_sports.health.client.evaluate_failure` gets one chance to
+    fold an upgrade notice or a known-outage note into the envelope. It cannot
+    raise — see that function's own docstring — so this call site does not
+    need its own try/except to keep the fail-open guarantee.
     """
+    error = classify(exc)
+    health, guidance = _check_health(error, provider=provider)
     envelope = Envelope.failure(
-        classify(exc), provider=provider, league_id=league_id, season=season
+        error, provider=provider, league_id=league_id, season=season, health=health
     )
-    return emit(envelope, stdout=stdout, stderr=stderr)
+    return emit(envelope, stdout=stdout, stderr=stderr, guidance=guidance)
+
+
+def _check_health(error: Any, *, provider: str | None) -> tuple[dict[str, Any] | None, str | None]:
+    from fantasy_sports import __version__
+    from fantasy_sports.health.client import evaluate_failure
+
+    return evaluate_failure(error, current_version=__version__, provider=provider)

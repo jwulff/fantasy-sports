@@ -468,6 +468,30 @@ def format_findings(findings: Iterable[CredentialFinding]) -> str:
 
 
 # --------------------------------------------------------------------------- #
+# The client health check (jwulff/fantasy-sports#10) opts every test out
+# --------------------------------------------------------------------------- #
+
+
+@pytest.fixture(autouse=True)
+def _no_health_check_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Opt every test out of the client health check unless it says otherwise.
+
+    ``emit_failure`` fires a real (fail-open) network request on
+    ``SCHEMA_DRIFT`` and ``PROVIDER_UNAVAILABLE`` — most of this suite's own
+    error-path tests. ``pytest-socket`` blocks the attempt, so nothing here was
+    ever at risk of reaching GitHub, but a *caught* ``SocketBlockedError`` is
+    still an attempt: a test that never meant to exercise the health check
+    would otherwise depend on that block firing correctly to stay offline.
+    ``tests/unit/test_health.py`` overrides this with
+    ``monkeypatch.delenv(fantasy_sports.health.client.NO_CHECK_ENV, raising=False)``
+    for the tests that exist to check the check itself.
+    """
+    from fantasy_sports.health.client import NO_CHECK_ENV
+
+    monkeypatch.setenv(NO_CHECK_ENV, "1")
+
+
+# --------------------------------------------------------------------------- #
 # Collection
 # --------------------------------------------------------------------------- #
 
