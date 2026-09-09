@@ -58,6 +58,8 @@ cron job can branch on failure without parsing anything. The full shape is in
 - [Research](docs/research/) — background briefs that informed the design
 - [Changelog](CHANGELOG.md) — notable changes by release
 - [Releasing](docs/RELEASING.md) — how a release actually gets to PyPI
+- [Security Policy](SECURITY.md): where credentials are stored, what is redacted, and how to report a problem privately
+- [Contributing](CONTRIBUTING.md): fresh-clone setup, running tests, and PR conventions
 
 ## License
 
