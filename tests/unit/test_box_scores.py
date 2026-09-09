@@ -25,7 +25,7 @@ from _harness import RecordedEspn, install_espn, isolate_home  # noqa: E402
 
 from fantasy_sports.commands import REGISTRY, DataShape  # noqa: E402
 from fantasy_sports.commands.box_scores import box_scores  # noqa: E402
-from fantasy_sports.core.errors import ErrorCode, ProviderUnavailableError  # noqa: E402
+from fantasy_sports.core.errors import ErrorCode, NotAvailableError  # noqa: E402
 from fantasy_sports.core.models import BoxScore, LineupEntry  # noqa: E402
 from fantasy_sports.providers.espn import BENCH_SLOTS, _member_name  # noqa: E402
 
@@ -138,9 +138,10 @@ def test_a_season_without_box_scores_is_refused_by_name_not_returned_empty(
         current_week = WEEK
 
     monkeypatch.setattr(adapter.EspnProvider, "_read", lambda self, *a, **k: _ctx(_Refuses()))
-    with pytest.raises(ProviderUnavailableError) as err:
+    with pytest.raises(NotAvailableError) as err:
         adapter.EspnProvider().fetch_box_scores("99", 2018, WEEK)
-    assert err.value.code == ErrorCode.PROVIDER_UNAVAILABLE
+    assert err.value.code == ErrorCode.NOT_AVAILABLE
+    assert err.value.retryable is False
     assert "2018" in err.value.details["season"]
     assert "2019" in err.value.remediation
 

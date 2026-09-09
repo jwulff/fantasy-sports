@@ -38,7 +38,9 @@ from conftest import build_vcr
 from fantasy_sports.core.errors import (
     AuthExpiredError,
     AuthMissingError,
+    ErrorCode,
     LeagueNotFoundError,
+    NotAvailableError,
     ProviderUnavailableError,
     RateLimitedError,
     SchemaDriftError,
@@ -552,6 +554,37 @@ def test_a_position_espn_would_silently_ignore_is_refused(synthetic: EspnProvide
     with pytest.raises(ValueError, match="not an ESPN position"):
         synthetic.fetch_free_agents(*SYNTHETIC, 2, position="PUNTER")
     assert synthetic.fetch_free_agents(*SYNTHETIC, 2, position="wr")
+
+
+def test_a_season_without_free_agents_is_refused_by_name_not_returned_empty(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """The free-agents twin of the box-scores refusal (jwulff/fantasy-sports#45).
+
+    ``espn-api`` refuses ``free_agents()`` before 2019 the same way it refuses
+    ``box_scores()`` — a bare ``Exception`` naming the season, raised before
+    ESPN is ever asked. It must land on ``NOT_AVAILABLE`` with
+    ``retryable=False``, not on ``PROVIDER_UNAVAILABLE``'s bounded-retry
+    instruction, which would tell an agent to keep asking ESPN for something it
+    will never serve.
+    """
+    from fantasy_sports.providers import espn as adapter
+
+    class _Refuses:
+        def free_agents(self, **kwargs: Any):
+            raise Exception("Cant use free agents before 2019")
+
+    @contextmanager
+    def _ctx(value: Any) -> Iterator[Any]:
+        yield value
+
+    monkeypatch.setattr(adapter.EspnProvider, "_read", lambda self, *a, **k: _ctx(_Refuses()))
+    with pytest.raises(NotAvailableError) as err:
+        adapter.EspnProvider().fetch_free_agents("99", 2018, 1)
+    assert err.value.code == ErrorCode.NOT_AVAILABLE
+    assert err.value.retryable is False
+    assert "2018" in err.value.details["season"]
+    assert "2019" in err.value.remediation
 
 
 def test_a_position_filtered_read_gets_its_own_recording(synthetic: EspnProvider):

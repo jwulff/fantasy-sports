@@ -46,6 +46,7 @@ EXIT_CODES: dict[ErrorCode, int] = {
     ErrorCode.PROVIDER_UNAVAILABLE: 7,
     ErrorCode.RATE_LIMITED: 8,
     ErrorCode.SCHEMA_DRIFT: 9,
+    ErrorCode.NOT_AVAILABLE: 10,
 }
 """Taxonomy code -> process exit status. One status per code, and never zero."""
 

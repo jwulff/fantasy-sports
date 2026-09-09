@@ -5,7 +5,8 @@
 **Amended:** 2026-09-05 — `CONFIG_INVALID` added to the taxonomy
 (jwulff/fantasy-sports#35, decided on #6); the envelope's full key set, the
 `remediation` key, and the exit-status table fixed by the output layer
-(jwulff/fantasy-sports#6).
+(jwulff/fantasy-sports#6). 2026-09-08 — `NOT_AVAILABLE` added to the taxonomy
+(jwulff/fantasy-sports#45).
 
 ## Context
 
@@ -44,6 +45,7 @@ code:**
 | `AUTH_EXPIRED` | Credentials rejected | Ask the human to re-auth |
 | `LEAGUE_NOT_FOUND` | Bad ID or no access | Ask the human |
 | `CONFIG_INVALID` | `config.toml` will not parse | Ask the human to fix the file |
+| `NOT_AVAILABLE` | Provider positively refuses this request; never sent | Don't retry; check `remediation` |
 | `PROVIDER_UNAVAILABLE` | Upstream 5xx / timeout | Retry with backoff |
 | `RATE_LIMITED` | Throttled | Retry after `retry_after` |
 | `SCHEMA_DRIFT` | Response shape unrecognized | Stop; file an issue |
@@ -148,6 +150,7 @@ true if the codes are distinct, so nothing collapses onto `1`.
 | `PROVIDER_UNAVAILABLE` | `7` |
 | `RATE_LIMITED` | `8` |
 | `SCHEMA_DRIFT` | `9` |
+| `NOT_AVAILABLE` | `10` |
 
 All inside the portable range: `126`, `127` and `128+n` are claimed by the shell
 for "not executable", "not found" and "killed by signal N". Changing a number is
@@ -158,6 +161,40 @@ an API change, exactly like renaming a code.
 never receive half a payload followed by an error — and **a failure is always
 JSON**, whatever `--output` asked for, because a table-formatted error is prose
 again.
+
+### Amendment, 2026-09-08: `NOT_AVAILABLE`
+
+`espn-api` refuses some reads outright, on the *year*, before any HTTP request
+is made — `League(1234, 2018).box_scores(1)` and `.free_agents()` both raise a
+bare `Exception` naming the season, and ESPN will not start serving 2018 box
+scores no matter how many times it is asked. The ESPN adapter mapped these
+through its catch-all to `PROVIDER_UNAVAILABLE`, per this ADR's original
+instruction to send unrecognised library exceptions there. That is wrong in one
+specific, actionable way: `PROVIDER_UNAVAILABLE` carries `retryable: true` and
+"retry with bounded exponential backoff" — an agent that believes it will back
+off and retry forever against something that can never succeed
+(jwulff/fantasy-sports#45).
+
+This is the *opposite* of the R12 failure this ADR's error taxonomy guards
+against. R12 says an unclassifiable failure must land on `PROVIDER_UNAVAILABLE`
+rather than being guessed into `RATE_LIMITED`; this is a **positively
+classifiable** condition — the adapter knows exactly why the request will never
+succeed — landing there anyway and inheriting a retry instruction that is
+false.
+
+`NOT_AVAILABLE` is added: `retryable: false`, agent action "do not retry as
+sent; check `remediation` for a supported alternative." The cost of an eighth
+code is weighed and accepted here rather than deferred, for the same reason
+`CONFIG_INVALID` was added above — the package has no published consumers yet,
+so this is the cheapest moment the change will ever have, and a misleading
+`retryable` flag is a worse contract than one more code every consumer parses.
+
+The catch-all in `providers/espn.py` still lands genuinely unrecognised
+exceptions on `PROVIDER_UNAVAILABLE`; this narrows what reaches it rather than
+replacing it. `espn-api` keeps no structured attribute for these refusals — a
+bare `Exception` with a sentence, nothing else — so the adapter keys off the
+known message text, matched against the specific known refusals rather than a
+loose substring.
 
 ## Consequences
 

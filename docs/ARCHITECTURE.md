@@ -204,6 +204,7 @@ down" (retry later) without parsing English:
 | `AUTH_EXPIRED` | ESPN cookies rejected | Ask human to re-extract cookies |
 | `LEAGUE_NOT_FOUND` | Bad league ID or no access | Ask human |
 | `CONFIG_INVALID` | `config.toml` will not parse | Ask human to fix the file |
+| `NOT_AVAILABLE` | ESPN positively refuses this request; never sent | Don't retry; check `remediation` |
 | `PROVIDER_UNAVAILABLE` | ESPN 5xx / timeout | Retry with backoff |
 | `RATE_LIMITED` | Throttled | Retry after `retry_after` |
 | `SCHEMA_DRIFT` | Response shape unrecognized | Stop; file an issue |
@@ -218,8 +219,8 @@ consumers never read (ADR-0004 as amended, decided on #6).
 
 Each code carries its own **exit status** so a cron job can branch without
 parsing anything: `AUTH_MISSING` 3, `AUTH_EXPIRED` 4, `LEAGUE_NOT_FOUND` 5,
-`CONFIG_INVALID` 6, `PROVIDER_UNAVAILABLE` 7, `RATE_LIMITED` 8, `SCHEMA_DRIFT` 9;
-`0` success, `1` an unclassified crash, `2` a usage error.
+`CONFIG_INVALID` 6, `PROVIDER_UNAVAILABLE` 7, `RATE_LIMITED` 8, `SCHEMA_DRIFT` 9,
+`NOT_AVAILABLE` 10; `0` success, `1` an unclassified crash, `2` a usage error.
 
 **stdout stays byte-empty on failure**, and a failure is always JSON whatever
 `--output` asked for. A consumer piping stdout into a parser must never receive
@@ -229,6 +230,14 @@ half a payload followed by an error, and a table-formatted error is prose again.
 `RATE_LIMITED`.** Availability tells an agent to retry with bounded backoff,
 which is safe when we are wrong; a false throttle tells it to back off and wait,
 which is not.
+
+**`NOT_AVAILABLE` is the opposite case: a *positively classifiable* refusal, not
+an unclassifiable one.** `espn-api` refuses some reads outright, on the year,
+before any request is made — box scores and free agents before 2019, for
+instance. That is not "we don't know what happened"; it is "we know exactly
+what happened, and it will never succeed as asked", so it must not inherit
+`PROVIDER_UNAVAILABLE`'s bounded-retry instruction (ADR-0004 amendment,
+jwulff/fantasy-sports#45).
 
 `SCHEMA_DRIFT` is what makes the health system (§11) actionable — it is the
 trigger for both the canary's issue-filing and the client-side health check.
