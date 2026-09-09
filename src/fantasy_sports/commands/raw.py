@@ -23,12 +23,16 @@ deliberate: seeing what ESPN actually sends is the entire point of an escape
 hatch, and a refusal would push a user toward reconstructing the request by
 hand, with no labelling at all.
 
-**Why a malformed ``--filter`` reports ``CONFIG_INVALID``.** A filter that is
-not JSON produces exactly the failure above — ESPN ignores it and answers with
-its default subset — so it cannot be passed through silently. The taxonomy has
-no argument-invalid code and adding one is an API change, so this uses the one
-code whose semantics are "a human must change something; retrying unchanged
-cannot work". See ``commands/free_agents.py`` for the same decision.
+**Why a malformed ``--filter``, or a missing ``--view``, reports
+``CONFIG_INVALID``.** Both are cases the CLI cannot validate at the argument
+parser — only the provider's behaviour makes them wrong — and both leave an
+agent with the same correct next step: stop, ask a human, retrying unchanged
+cannot work. That is exactly ``CONFIG_INVALID``'s semantics, and
+jwulff/fantasy-sports#48 (ADR-0004 amended by ADR-0009) is the settled decision
+not to add a ninth code for this: an ``ARGUMENT_INVALID`` code would tell an
+agent the identical thing under a different name. ``kind="argument"`` on the
+raised error marks the cause for a consumer that wants the distinction without
+a second exit status. See ``commands/free_agents.py`` for the same reasoning.
 
 Nothing here imports typer (ADR-0003).
 """
@@ -111,6 +115,7 @@ def _requested_views(view: Sequence[str] | None) -> list[str]:
     if not names:
         raise ConfigInvalidError(
             "`raw` needs at least one --view; ESPN has no default view.",
+            kind="argument",
             remediation="Pass --view mSettings (repeat the flag for several views).",
         )
     seen: set[str] = set()
@@ -126,7 +131,9 @@ def _fantasy_filter(value: str | None) -> Any:
     except ValueError as exc:
         raise ConfigInvalidError(
             f"--filter must be JSON for the x-fantasy-filter header: {exc}",
+            kind="argument",
             remediation='Pass something like --filter \'{"players":{"limit":50}}\'.',
+            details={"filter": value},
         ) from exc
 
 
