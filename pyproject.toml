@@ -82,6 +82,11 @@ select = ["E", "F", "I", "UP", "B", "SIM", "C4"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--disable-socket --allow-unix-socket"
+# Repo root on sys.path so `tests/unit/test_canary_shapes.py` can
+# `import scripts.canary.shapes` (jwulff/fantasy-sports#11) without a
+# per-test sys.path hack. `scripts/` is a regular package (has __init__.py)
+# for exactly this reason; it is still excluded from the shipped wheel.
+pythonpath = ["."]
 markers = [
     "live: hits real ESPN with real credentials; excluded from normal CI (see tests/live/)",
 ]
