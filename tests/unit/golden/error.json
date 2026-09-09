@@ -18,6 +18,7 @@
     "remediation": "Re-extract espn_s2 and SWID from DevTools, then run `auth login`.",
     "details": {
       "status": 401
-    }
+    },
+    "health": null
   }
 }

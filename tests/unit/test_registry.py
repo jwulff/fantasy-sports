@@ -30,13 +30,15 @@ def clean_registry():
     REGISTRY.update(saved)
 
 
-#: The v0.1 command surface, exactly as ARCHITECTURE §12 lists it. `doctor`
-#: belongs to the health issue and no write command exists yet.
+#: The v0.1 command surface, exactly as ARCHITECTURE §12 lists it, plus
+#: `doctor` (jwulff/fantasy-sports#10, ADR-0005 §11.4). No write command
+#: exists yet.
 V01_SURFACE = frozenset(
     {
         "auth login",
         "auth status",
         "box-scores",
+        "doctor",
         "free-agents",
         "league info",
         "matchups",
@@ -54,7 +56,8 @@ def test_the_v01_surface_is_registered_and_nothing_else_is():
 
     `box-scores` is one, made deliberately for jwulff/fantasy-sports#29: the
     Gazette needs per-player lines and folding them into `matchups` would have
-    changed that command's data shape, which is a runtime contract.
+    changed that command's data shape, which is a runtime contract. `doctor`
+    is another, added for jwulff/fantasy-sports#10.
     """
     assert set(REGISTRY) == V01_SURFACE
 

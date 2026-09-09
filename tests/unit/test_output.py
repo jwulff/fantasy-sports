@@ -80,7 +80,7 @@ ENVELOPE_KEYS = [
 ]
 
 #: Every key in the ``error`` object, in order. Same rule.
-ERROR_KEYS = ["code", "message", "retryable", "agent_action", "remediation", "details"]
+ERROR_KEYS = ["code", "message", "retryable", "agent_action", "remediation", "details", "health"]
 
 GENERATED_AT = datetime(2026, 8, 26, 18, 4, 11, tzinfo=UTC)
 EIGHT_MINUTES_EARLIER = GENERATED_AT - timedelta(minutes=8)
@@ -806,6 +806,84 @@ def test_emit_failure_keeps_a_code_the_raiser_already_established():
     )
     assert code == EXIT_CODES[ErrorCode.SCHEMA_DRIFT]
     assert stdlib_json.loads(stderr.getvalue())["error"]["details"]["path"] == ["Team.wins"]
+
+
+def test_emit_failure_folds_a_real_health_check_result_into_the_envelope(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """The wiring: ``emit_failure`` -> ``health.client.evaluate_failure`` -> the envelope.
+
+    ``tests/unit/test_health_client.py`` covers ``evaluate_failure`` itself in
+    depth; this proves ``output/__init__.py`` actually calls it and folds the
+    result into what reaches stderr, TTY guidance included.
+    """
+    import requests
+
+    from fantasy_sports.health.client import NO_CHECK_ENV
+    from fantasy_sports.output import emit_failure
+
+    monkeypatch.delenv(NO_CHECK_ENV, raising=False)
+
+    class _Manifest:
+        status_code = 200
+
+        def json(self) -> dict[str, object]:
+            return {"latest_version": "999.0.0", "providers": {}}
+
+    monkeypatch.setattr(requests, "get", lambda *a, **k: _Manifest())
+
+    stdout, stderr = io.StringIO(), _Tty()
+    code = emit_failure(
+        SchemaDriftError("mTeam lost `wins`", path="Team.wins"),
+        provider="espn",
+        stdout=stdout,
+        stderr=stderr,
+    )
+    assert code == EXIT_CODES[ErrorCode.SCHEMA_DRIFT]
+    assert stdout.getvalue() == ""
+    text = stderr.getvalue()
+    body, end = stdlib_json.JSONDecoder().raw_decode(text)
+    assert body["error"]["health"]["latest_version"] == "999.0.0"
+    assert body["error"]["health"]["upgrade_available"] is True
+    assert "999.0.0" in text[end:]  # the appended human guidance, since stderr is a TTY
+
+
+def test_guidance_is_appended_to_stderr_after_the_json_when_interactive():
+    """ARCHITECTURE §11.3: human prose after the real error, terminal only."""
+    envelope = sample_error_envelope()
+    stdout, stderr = io.StringIO(), _Tty()
+    emit(
+        envelope, stdout=stdout, stderr=stderr, guidance="  You are on 0.1.2 — 0.1.4 is available."
+    )
+    text = stderr.getvalue()
+    assert text.startswith(json_renderer.render(envelope))
+    assert "0.1.4 is available" in text
+
+
+def test_guidance_is_withheld_from_a_pipe():
+    """A consumer piping stderr into a parser must see nothing but the JSON."""
+    envelope = sample_error_envelope()
+    stderr = io.StringIO()
+    emit(envelope, stdout=io.StringIO(), stderr=stderr, guidance="You are on 0.1.2.")
+    assert stderr.getvalue() == json_renderer.render(envelope)
+
+
+def test_no_guidance_appends_nothing_even_when_interactive():
+    envelope = sample_error_envelope()
+    stderr = _Tty()
+    emit(envelope, stdout=io.StringIO(), stderr=stderr, guidance=None)
+    assert stderr.getvalue() == json_renderer.render(envelope)
+
+
+def test_a_stream_whose_isatty_raises_is_treated_as_a_pipe_for_guidance():
+    class Grumpy(io.StringIO):
+        def isatty(self) -> bool:
+            raise OSError("no controlling terminal")
+
+    envelope = sample_error_envelope()
+    stderr = Grumpy()
+    emit(envelope, stdout=io.StringIO(), stderr=stderr, guidance="should not appear")
+    assert "should not appear" not in stderr.getvalue()
 
 
 def test_a_success_writes_only_to_stdout():

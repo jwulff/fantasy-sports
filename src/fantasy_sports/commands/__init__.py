@@ -423,6 +423,25 @@ register(
 
 register(
     CommandSpec(
+        name="doctor",
+        summary="Run every health check: config, credentials, cache, version, provider status.",
+        handler="fantasy_sports.commands.doctor:doctor",
+        shape=DataShape.OBJECT,
+        takes_league=False,
+        params=(
+            Param(
+                name="live",
+                help="Also attempt to reach each configured league's provider. "
+                "Touches the network and requires credentials.",
+                annotation=bool,
+                default=False,
+            ),
+        ),
+    )
+)
+
+register(
+    CommandSpec(
         name="login",
         group="auth",
         summary="Store ESPN cookies in the Keychain. Prompts without echoing; never prints them.",

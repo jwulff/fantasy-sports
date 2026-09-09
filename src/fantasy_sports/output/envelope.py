@@ -229,6 +229,17 @@ class Envelope:
     payload needs that answer to tell "suppressed" from "never had it"
     (jwulff/fantasy-sports#52).
     """
+    health: Mapping[str, Any] | None = None
+    """The client health check's verdict (ADR-0005 §11.3), ``error`` only.
+
+    ``None`` on every success and on most failures — the check fires only for
+    ``SCHEMA_DRIFT`` and ``PROVIDER_UNAVAILABLE``, and only when it produced
+    something (``fantasy_sports.health.client.evaluate_failure`` is the single
+    place that decides). Carried on the envelope rather than on the error
+    itself because the check runs at *render* time, against whatever error was
+    raised — a :class:`FantasySportsError` is built long before anything knows
+    whether an upgrade is available.
+    """
 
     @classmethod
     def success(
@@ -264,6 +275,7 @@ class Envelope:
         season: int | None = None,
         generated_at: datetime | None = None,
         untrusted: Mapping[str, str] | None = None,
+        health: Mapping[str, Any] | None = None,
     ) -> Envelope:
         """Wrap a failure.
 
@@ -280,6 +292,7 @@ class Envelope:
             sources=(),
             generated_at=generated_at or utc_now(),
             untrusted=dict(untrusted or {}),
+            health=health,
         )
 
     @property
@@ -304,6 +317,14 @@ class Envelope:
         now = self.generated_at
         sources = [source.to_dict(now) for source in self.sources]
         oldest = min(self.sources, key=lambda s: s.fetched_at, default=None)
+        error: dict[str, Any] | None = None
+        if self.error is not None:
+            # `health` rides on the error dict, not the envelope's own key
+            # set, so a consumer that already destructures `error` for `code`
+            # and `remediation` finds it in the same place. Always present and
+            # `None` when the check did not fire or found nothing, matching
+            # every other optional key in this payload (ARCHITECTURE §5).
+            error = {**self.error.to_dict(), "health": dict(self.health) if self.health else None}
         return {
             "schema": SCHEMA,
             "provider": self.provider,
@@ -316,5 +337,5 @@ class Envelope:
             "untrusted": {str(key): str(value) for key, value in self.untrusted.items()},
             "raw_omitted": self.raw_omitted,
             "data": _plain(self.data),
-            "error": self.error.to_dict() if self.error is not None else None,
+            "error": error,
         }
