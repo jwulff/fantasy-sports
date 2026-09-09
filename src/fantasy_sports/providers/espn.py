@@ -6,7 +6,7 @@ resolution for traded players, and its standings tiebreaker cascade are years of
 reverse engineering we would otherwise repeat badly. What the library does
 **not** do is everything this module exists for.
 
-The five things this module adds on top of ``espn-api``
+The six things this module adds on top of ``espn-api``
 -------------------------------------------------------
 
 **1. A transport seam under the library** (:class:`_Transport`). ``espn-api``
@@ -61,6 +61,17 @@ silently drops whatever routes only through the other, and
 ``core.Transaction`` must never inherit that asymmetry (research §6 item 2).
 :meth:`EspnProvider.fetch_transactions` reads both and merges them.
 
+**6. Telling the cache which seasons are over.** ``cache/tags.py`` caches a
+season forever once it knows that season is behind the current one, but "what
+season is it" is not a clock's business — the NFL calendar spans a year
+boundary, and the answer that matters is ESPN's own. ``espn-api`` offers
+nothing here either, so :meth:`_Transport._note_season_status` reads it
+straight from ESPN's ``status`` block (``latestScoringPeriod`` vs.
+``finalScoringPeriod``) the moment a response reveals it, and
+:meth:`_Transport._upgrade_ttl` corrects the one entry — the league
+bootstrap — whose own write already happened before that block was readable
+(jwulff/fantasy-sports#44).
+
 What ``raw`` carries, and where the whole response went
 ------------------------------------------------------
 
@@ -97,7 +108,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Final
 
-from fantasy_sports.cache.tags import TTL_SECONDS, RequestContext, Resource
+from fantasy_sports.cache.tags import TTL_SECONDS, RequestContext, Resource, tags_for, ttl_for
 from fantasy_sports.core.errors import (
     AuthExpiredError,
     AuthMissingError,
@@ -457,6 +468,18 @@ class _Transport:
         self.responses: dict[str, RawResponse] = {}
         self.completed_through: int | None = None
         """Scoring periods at or below this are finished and cache forever."""
+        self.current_season: int | None = None
+        """The season in progress, once known -- see :meth:`_note_season_status`.
+
+        Unlike ``completed_through``, this is not something we can compute up
+        front from ``current_week``. It has to come from ESPN's own ``status``
+        block (``latestScoringPeriod`` vs. ``finalScoringPeriod``), which lives
+        inside a response body -- and the first request of a cold league is the
+        one that would benefit most, whose ``RequestContext`` is necessarily
+        built *before* that body exists. So this starts ``None`` and is filled
+        in the moment a response reveals it, then reused by :meth:`_context`
+        for every later request in this league.
+        """
 
         # Instance-level replacement, so nothing outside this league is touched.
         espn_request.league_get = self.league_get
@@ -510,7 +533,9 @@ class _Transport:
         league_scoped: bool,
     ) -> Any:
         view = _view_of(params)
-        body, cached, fetched_at = self._body(url, params, headers, extend=extend, view=view)
+        body, cached, stored, fetched_at = self._body(
+            url, params, headers, extend=extend, view=view
+        )
         try:
             payload = json.loads(body)
         except (ValueError, TypeError) as exc:
@@ -520,6 +545,15 @@ class _Transport:
                 provider=PROVIDER,
                 details={"view": view},
             ) from exc
+        self._note_season_status(
+            payload,
+            body=body,
+            url=url,
+            params=params,
+            headers=headers,
+            view=view,
+            stored=stored,
+        )
         self.responses[_record_key(view, params)] = RawResponse(
             view=view,
             payload=payload,
@@ -533,6 +567,41 @@ class _Transport:
         )
         return payload
 
+    def _note_season_status(
+        self,
+        payload: Any,
+        *,
+        body: str,
+        url: str,
+        params: Mapping[str, Any] | None,
+        headers: Mapping[str, str] | None,
+        view: str,
+        stored: bool,
+    ) -> None:
+        """Learn ``current_season`` from ``payload``, the first time it appears.
+
+        ESPN's own ``status`` block -- ``latestScoringPeriod`` vs.
+        ``finalScoringPeriod`` -- says whether *this* season has played out,
+        which is the signal ``ttl_for`` needs (jwulff/fantasy-sports#44). Not
+        every view carries it (only the league bootstrap and anything
+        including ``mMatchupScore`` do), so this is a no-op until one does, and
+        a no-op again once ``current_season`` is known.
+
+        A season that has not finished is the current one: ESPN has no notion
+        of "an old season still being played," so ``current_season`` is set to
+        this request's own season in that case, which makes
+        ``context.season < context.current_season`` false -- ordinary TTLs,
+        correctly.
+        """
+        if self.current_season is not None:
+            return
+        finished = _season_finished(payload)
+        if finished is None:
+            return
+        self.current_season = self._season + 1 if finished else self._season
+        if finished and stored and self._store is not None:
+            self._upgrade_ttl(url, params, headers, view=view, body=body)
+
     def _body(
         self,
         url: str,
@@ -541,17 +610,19 @@ class _Transport:
         *,
         extend: str,
         view: str,
-    ) -> tuple[str, bool, datetime | None]:
+    ) -> tuple[str, bool, bool, datetime | None]:
         """The response body, from the cache where one is configured.
 
-        The third element is the entry's true fetch time on a cache hit, and
-        ``None`` on anything else — a live fetch, a ``--fresh`` refresh, or a
-        ``--no-cache`` bypass all happen "now", which the caller already knows
-        without our help.
+        The third element is whether *this call* wrote the entry -- distinct
+        from a cache hit, and what :meth:`_note_season_status` needs to decide
+        whether there is anything of its own left to correct. The fourth is
+        the entry's true fetch time on a cache hit, and ``None`` on anything
+        else -- a live fetch, a ``--fresh`` refresh, or a ``--no-cache`` bypass
+        all happen "now", which the caller already knows without our help.
         """
         if self._store is None:
             body = _as_text(self._live(url, params, headers, extend=extend, view=view))
-            return body, False, None
+            return body, False, False, None
 
         from fantasy_sports.cache.store import CachingFetcher
 
@@ -573,7 +644,7 @@ class _Transport:
             if result.cached and result.fetched_at is not None
             else None
         )
-        return result.body, result.cached, fetched_at
+        return result.body, result.cached, result.stored, fetched_at
 
     def _context(self, view: str, params: Mapping[str, Any] | None) -> RequestContext:
         """What the cache needs to know about this request.
@@ -603,6 +674,40 @@ class _Transport:
                 and self.completed_through is not None
                 and week <= self.completed_through
             ),
+            current_season=self.current_season,
+        )
+
+    def _upgrade_ttl(
+        self,
+        url: str,
+        params: Mapping[str, Any] | None,
+        headers: Mapping[str, str] | None,
+        *,
+        view: str,
+        body: str,
+    ) -> None:
+        """Re-write the entry :meth:`_body` just wrote, now with the TTL it
+        should have had.
+
+        :meth:`_context` had no way to know this season was historical when it
+        built the context this call's write used -- the signal lives inside
+        the very body that write is storing. The entry already exists with an
+        ordinary TTL; this corrects it in place with the same key, same body,
+        and the context :meth:`_context` would build now that
+        ``current_season`` is set. Cheap: one SQLite upsert on the key that was
+        just written, not a purge or a second fetch.
+        """
+        from fantasy_sports.cache.store import cache_key, canonical_url
+
+        assert self._store is not None  # only called when it is (see caller)
+        key = cache_key(url, params, extra=_filter_dimension(headers))
+        context = self._context(view, params)
+        self._store.put(
+            key,
+            body,
+            tags=tags_for(context),
+            ttl=ttl_for(context),
+            url=canonical_url(url, params),
         )
 
     def _live(
@@ -675,6 +780,34 @@ def _as_int(value: Any) -> int | None:
         return int(value)
     except (TypeError, ValueError):
         return None
+
+
+def _season_finished(payload: Any) -> bool | None:
+    """Whether the season ``payload`` describes has played out, or ``None`` if
+    ``payload`` carries no signal at all.
+
+    ESPN's ``status`` block gives two scoring-period numbers for the league
+    endpoint: ``latestScoringPeriod``, how far ESPN's own data currently
+    extends, and ``finalScoringPeriod``, the season's last possible one. The
+    season is over once the former has reached the latter -- the same
+    comparison ``espn-api``'s own ``current_week`` derivation makes
+    (``base_league.py``: ``scoringPeriodId if scoringPeriodId <=
+    finalScoringPeriod else finalScoringPeriod``). Not every view's response
+    carries ``status`` -- ``players_wl``, ``proTeamSchedules_wl``,
+    ``mDraftDetail`` and several others do not -- so ``None`` here just means
+    this particular payload has nothing to say, not that the season is
+    unfinished.
+    """
+    if not isinstance(payload, Mapping):
+        return None
+    status = payload.get("status")
+    if not isinstance(status, Mapping):
+        return None
+    latest = _as_int(status.get("latestScoringPeriod"))
+    final = _as_int(status.get("finalScoringPeriod"))
+    if latest is None or final is None:
+        return None
+    return latest >= final
 
 
 def _view_of(params: Mapping[str, Any] | None) -> str:
