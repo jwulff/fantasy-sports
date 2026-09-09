@@ -203,6 +203,60 @@ it. Nothing about the envelope's own arithmetic changed —
 `age_seconds` correctly from whatever `fetched_at` it was handed; the bug was
 that every `fetched_at` reaching it said "now."
 
+### Amendment, 2026-09-08: `untrusted` populated (R1a, jwulff/fantasy-sports#17)
+
+The container reserved above is no longer always empty. Any league member can
+set a team or league name, and that text reaches an agent that reads the
+envelope to reason and can write back to ESPN — a crafted name is a prompt-
+injection path, and `untrusted` is the documented seam for treating it as
+data rather than instructions.
+
+**What is labeled, today.** `League.name` and `Team.name`/`Team.owner_names`
+are the only normalized fields any league member controls; nothing else
+normalized carries free text yet (`docs/brainstorms/2026-08-26-agent-managed-
+fantasy-leagues-requirements.md` R1a additionally names trade notes and
+waiver/offer comments, which are not modeled as their own fields — they are
+reachable only through `raw`, and `raw` is not labeled, per the existing raw-
+passthrough exception in `CLAUDE.md` rule 3). Adding a new normalized field
+that any member can set means adding its name to that model's `_UNTRUSTED`
+classvar in `core/models.py` in the same change — not a follow-up.
+
+**The seam.** `fantasy_sports.core.models.ProviderObject._UNTRUSTED` is a
+per-class set of field names; `ProviderObject.untrusted()` reads it off one
+instance, and `fantasy_sports.core.models.collect_untrusted(data)` is the
+entry point a command calls with the model object(s) it is about to return —
+before `.to_dict()`, so the type information `.to_dict()` throws away is
+still there to consult. This is provider-agnostic: a Yahoo or Sleeper adapter
+that returns the same `League`/`Team` shape inherits the labeling for free
+the moment it populates those fields, and any future model gets it by
+declaring its own `_UNTRUSTED`.
+
+**Path syntax.** A bare field name for an object-shaped command (`"name"`
+under `league info`); `"[i].field"` for item `i` of a collection command's
+list (`"[1].name"` is the second team's `teams` response); a plural free-text
+field indexes twice (`"[0].owner_names[0]"` is the first owner of the first
+team). This mirrors how a consumer would already be walking the JSON `data`
+array — no separate addressing scheme to learn.
+
+**The value is labeled, not hidden.** `data` still carries `name` normally;
+`untrusted` is a sidecar pointing at the same value, not a redaction. An
+agent that never reads `untrusted` sees exactly the output it saw before this
+amendment.
+
+**Where the label stops mattering: rendering.** JSON, CSV and the table all
+already carry arbitrary strings safely through a real format library, not a
+convention — `json.dumps`, `csv.writer`, and (after this change)
+`rich.text.Text` for table cells, which stopped `rich` from parsing a team
+name as its own `[markup]` syntax (a name as ordinary as `Team [/bold]`
+previously crashed the table renderer with `MarkupError`; see
+`src/fantasy_sports/output/table.py::_cell`). The one surface with no such
+library on this project's dependency budget is markdown — a GitHub issue
+body, the client error reporter ADR-0007 describes, any future report.
+`fantasy_sports.output.untrusted.render_untrusted_block` renders untrusted
+text as a markdown *indented* code block, never fenced: an indented block's
+boundary is the absence of indentation on a following line, not a token like
+three backticks that the content itself could contain and close early.
+
 ## Consequences
 
 **Easier:** Agents can act correctly on failure without parsing English. Cron

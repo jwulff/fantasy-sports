@@ -184,7 +184,9 @@ version later is miserable; adding it now is free.
 Success and failure carry the **same key set**; `data` and `error` are the
 discriminator and exactly one is non-null. `data_as_of` / `data_age_seconds`
 report the oldest contributing upstream fetch and `sources` itemizes each one
-(R4). `untrusted` is reserved empty for §12's attacker-influenceable text.
+(R4). `untrusted` labels ESPN-sourced free text a league member controls —
+team and league names today — distinctly from normalized structured fields
+(R1a, ADR-0004's 2026-09-08 amendment, jwulff/fantasy-sports#17).
 
 **Timestamps are UTC or they are refused.** `espn-api` builds datetimes with
 `datetime.fromtimestamp()` and no `tz=`, so they are naive and host-local — the
