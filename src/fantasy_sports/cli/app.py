@@ -151,6 +151,7 @@ def _dispatch(spec: CommandSpec, ctx: Any, values: Mapping[str, Any]) -> int:
 
     merged = _merge_globals(spec, ctx, values)
     fmt = merged.pop("output", None)
+    no_raw = merged.pop("no_raw", False)
     try:
         resolve_format(fmt)
     except ValueError as exc:
@@ -162,6 +163,10 @@ def _dispatch(spec: CommandSpec, ctx: Any, values: Mapping[str, Any]) -> int:
         raise
     except Exception as exc:  # noqa: BLE001 - classified by the taxonomy, never a traceback
         return emit_failure(exc, provider=_provider_hint(spec))
+    # Only a success envelope reaches here — a raised exception already
+    # returned above — so `raw` needs no `envelope.ok` guard of its own.
+    if no_raw and spec.honors_no_raw:
+        envelope = envelope.without_raw()
     return emit(envelope, fmt=fmt)
 
 

@@ -74,6 +74,7 @@ ENVELOPE_KEYS = [
     "data_age_seconds",
     "sources",
     "untrusted",
+    "raw_omitted",
     "data",
     "error",
 ]
@@ -224,6 +225,75 @@ def test_the_untrusted_container_is_copied_not_aliased():
     envelope = Envelope.success(provider="espn", data=None, untrusted=supplied)
     supplied["data[1].name"] = "y"
     assert envelope.to_dict()["untrusted"] == {"data[0].name": "x"}
+
+
+# --------------------------------------------------------------------------- #
+# `raw_omitted` and `Envelope.without_raw()` — `--no-raw` (jwulff/fantasy-sports#52)
+# --------------------------------------------------------------------------- #
+
+
+def test_raw_omitted_defaults_to_false():
+    """False means 'not suppressed here', never 'raw is present'."""
+    assert sample_envelope().to_dict()["raw_omitted"] is False
+    assert sample_error_envelope().to_dict()["raw_omitted"] is False
+
+
+def test_without_raw_strips_raw_at_every_depth_and_marks_the_envelope():
+    """A roster slot's own `raw` is modest; the player nested inside it is not."""
+    envelope = Envelope.success(
+        provider="espn",
+        data=[
+            {
+                "slot": "QB",
+                "player": {"name": "Ada Lovelace", "raw": {"eligibleSlots": [0, 20, 21]}},
+                "raw": {"lineupSlotId": 0},
+            }
+        ],
+        generated_at=GENERATED_AT,
+    )
+    payload = envelope.without_raw().to_dict()
+    assert payload["raw_omitted"] is True
+    assert payload["data"] == [{"slot": "QB", "player": {"name": "Ada Lovelace"}}]
+
+
+def test_without_raw_leaves_the_original_envelope_untouched():
+    envelope = Envelope.success(
+        provider="espn", data=[{"raw": {"x": 1}}], generated_at=GENERATED_AT
+    )
+    envelope.without_raw()
+    payload = envelope.to_dict()
+    assert payload["data"] == [{"raw": {"x": 1}}]
+    assert payload["raw_omitted"] is False
+
+
+def test_without_raw_on_a_payload_that_never_had_raw_still_sets_the_flag():
+    """The flag answers 'was suppression applied', not 'did raw exist'."""
+    envelope = Envelope.success(
+        provider="espn", data=[{"name": "Team Chaos"}], generated_at=GENERATED_AT
+    )
+    payload = envelope.without_raw().to_dict()
+    assert payload["data"] == [{"name": "Team Chaos"}]
+    assert payload["raw_omitted"] is True
+
+
+def test_without_raw_plain_ifies_a_normalized_model_too():
+    """`without_raw` must work on real dataclasses, not just plain dicts."""
+    player = Player(provider="espn", provider_id="1", name="Ada", position="QB", raw={"id": 1})
+    envelope = Envelope.success(provider="espn", data=[player], generated_at=GENERATED_AT)
+    payload = envelope.without_raw().to_dict()["data"][0]
+    assert payload["name"] == "Ada"
+    assert payload["position"] == "QB"
+    assert "raw" not in payload
+
+
+def test_a_table_of_an_already_stripped_envelope_has_no_omission_notice():
+    """The table's own omission notice fires only when it drops something new."""
+    envelope = Envelope.success(
+        provider="espn", data=[{"name": "Team Chaos", "raw": {"id": 1}}], generated_at=GENERATED_AT
+    ).without_raw()
+    rendered = table_renderer.render(envelope)
+    assert "`raw` omitted" not in rendered
+    assert "Team Chaos" in rendered
 
 
 # --------------------------------------------------------------------------- #

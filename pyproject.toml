@@ -37,6 +37,7 @@ dependencies = [
 Homepage = "https://github.com/jwulff/fantasy-sports"
 Repository = "https://github.com/jwulff/fantasy-sports"
 Issues = "https://github.com/jwulff/fantasy-sports/issues"
+Changelog = "https://github.com/jwulff/fantasy-sports/blob/main/CHANGELOG.md"
 
 [project.scripts]
 fantasy-sports = "fantasy_sports.cli.app:main_entry"
