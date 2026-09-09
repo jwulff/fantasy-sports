@@ -13,13 +13,17 @@ promise holds however the provider interprets a page size.
 
 **Why a refused position reports ``CONFIG_INVALID``.** The adapter raises a bare
 ``ValueError`` for a position ESPN would ignore, leaving the classification to
-its caller, and the taxonomy has no argument-invalid code — adding one is an
-API change (ARCHITECTURE §5), not something a command module may do. Of the
-seven codes that exist, ``CONFIG_INVALID`` is the only one whose semantics are
-"a human must change something; retrying unchanged cannot work", which is
-exactly this failure. ``PROVIDER_UNAVAILABLE`` — where an unclassified
-``ValueError`` would otherwise land — would tell an agent to retry an
-invocation that can never succeed. Tracked as follow-up work on the taxonomy.
+its caller. Of the seven codes that exist, ``CONFIG_INVALID`` is the only one
+whose semantics are "a human must change something; retrying unchanged cannot
+work", which is exactly this failure. ``PROVIDER_UNAVAILABLE`` — where an
+unclassified ``ValueError`` would otherwise land — would tell an agent to retry
+an invocation that can never succeed. This is a settled decision, not a
+placeholder: jwulff/fantasy-sports#48 (ADR-0004 amended by ADR-0009) weighed
+adding an eighth ``ARGUMENT_INVALID`` code against reusing this one and chose
+reuse, because both causes tell an agent the identical thing — stop, ask a
+human, do not retry. ``kind="argument"`` on the raised error marks which cause
+this is for a consumer that wants the distinction without a second exit
+status.
 
 Nothing here imports typer (ADR-0003).
 """
@@ -66,7 +70,9 @@ def free_agents(
         # taxonomy's catch-all as PROVIDER_UNAVAILABLE with a retry hint.
         raise ConfigInvalidError(
             str(exc),
-            remediation="Pass a position ESPN recognises, or omit --pos.",
+            kind="argument",
+            remediation="Pass a position ESPN recognises (see the valid values above), "
+            "or omit --pos to get ESPN's default set.",
             details={"pos": str(pos)},
         ) from exc
     return success(ctx, [item.to_dict() for item in found[:wanted]], command="free-agents")
