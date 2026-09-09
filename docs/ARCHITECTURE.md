@@ -173,6 +173,7 @@ The agent-native claim lives or dies here.
     {"name": "mTeam", "fetched_at": "2026-08-26T17:56:11Z", "age_seconds": 480, "cached": true}
   ],
   "untrusted": {},
+  "raw_omitted": false,
   "data": { },
   "error": null
 }
@@ -187,6 +188,19 @@ report the oldest contributing upstream fetch and `sources` itemizes each one
 (R4). `untrusted` labels ESPN-sourced free text a league member controls —
 team and league names today — distinctly from normalized structured fields
 (R1a, ADR-0004's 2026-09-08 amendment, jwulff/fantasy-sports#17).
+
+**`--no-raw` strips `raw` from every normalized object in `data`, recursively,
+and sets `raw_omitted: true`** (jwulff/fantasy-sports#52). It is a global
+option, accepted on either side of the command name like `--output`, and it
+never reaches a command handler — the dispatch layer applies it to the
+envelope a handler already returned, after the handler ran. `raw_omitted:
+false` means "not suppressed here," not "`raw` is present": a stored payload
+needs that distinction to tell a genuinely raw-less response from one that had
+`raw` stripped, which matters for an archival consumer that commits envelopes
+byte for byte (`jwulff/league-gazette`'s `snapshot` command) and wants to know
+which it is looking at later. `fantasy-sports raw --view` ignores the flag —
+its whole point is an unmodified provider payload — and always reports
+`raw_omitted: false`.
 
 **Timestamps are UTC or they are refused.** `espn-api` builds datetimes with
 `datetime.fromtimestamp()` and no `tz=`, so they are naive and host-local — the
