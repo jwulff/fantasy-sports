@@ -37,6 +37,7 @@ from typing import Any
 __all__ = [
     "COMMON_PARAMS",
     "GLOBAL_PARAMS",
+    "NO_RAW_PARAM",
     "OUTPUT_PARAM",
     "REGISTRY",
     "CommandSpec",
@@ -143,12 +144,29 @@ OUTPUT_PARAM = Param(
 )
 """CLI-only. Never reaches a handler; :mod:`fantasy_sports.output` consumes it."""
 
+NO_RAW_PARAM = Param(
+    name="no_raw",
+    help="Strip `raw` from every normalized object in the payload, recursively. "
+    "Marks raw_omitted=true in the envelope. `raw --view` is passthrough by "
+    "definition and ignores this flag.",
+    annotation=bool,
+    default=False,
+)
+"""CLI-only, like ``OUTPUT_PARAM``: never reaches a handler. Unlike ``--output``,
+this does not just change how ``data`` renders — it changes ``data`` itself —
+so it is applied once, at the dispatch layer, to the envelope a handler already
+returned (:meth:`fantasy_sports.output.envelope.Envelope.without_raw`), rather
+than threaded through every handler that might have a `raw` field somewhere in
+its result.
+"""
+
 GLOBAL_PARAMS: tuple[Param, ...] = (
     COMMON_PARAMS[0],
     COMMON_PARAMS[1],
     OUTPUT_PARAM,
     COMMON_PARAMS[2],
     COMMON_PARAMS[3],
+    NO_RAW_PARAM,
 )
 """Every option the CLI accepts before *or* after the command name, in help order."""
 
@@ -181,6 +199,11 @@ class CommandSpec:
     takes_league: bool = True
     """Whether ``--league``/``--season``/``--fresh``/``--no-cache`` apply."""
 
+    honors_no_raw: bool = True
+    """Whether ``--no-raw`` strips ``data`` before this command's envelope is
+    emitted. ``False`` for exactly one command: ``raw``, whose whole point is
+    an unmodified provider payload (jwulff/fantasy-sports#52)."""
+
     @property
     def path(self) -> tuple[str, ...]:
         return (self.group, self.name) if self.group else (self.name,)
@@ -196,8 +219,8 @@ class CommandSpec:
 
     @property
     def cli_params(self) -> tuple[Param, ...]:
-        """Every option the typer projection declares, ``--output`` included."""
-        return (*self.handler_params, OUTPUT_PARAM)
+        """Every option the typer projection declares, ``--output``/``--no-raw`` included."""
+        return (*self.handler_params, OUTPUT_PARAM, NO_RAW_PARAM)
 
     def resolve(self) -> Callable[..., Any]:
         """Import and return the implementing function."""
@@ -368,6 +391,7 @@ register(
         summary="Pass a view straight through to ESPN and return its payload unmodified.",
         handler="fantasy_sports.commands.raw:raw",
         shape=DataShape.OBJECT,
+        honors_no_raw=False,
         params=(
             Param(
                 name="view",

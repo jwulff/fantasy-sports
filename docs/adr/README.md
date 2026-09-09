@@ -13,5 +13,6 @@ is the narrative; these are the citable, individually-supersedable records.
 | [0006](0006-read-only-v01-gated-writes-later.md) | Read-only v0.1; writes gated later | Partially superseded |
 | [0007](0007-client-error-reporting-via-user-credential.md) | Client error reporting uses the operator's own `gh` credential | Accepted |
 | [0008](0008-performance-and-quality-budgets.md) | Performance and quality budgets, enforced in CI | Accepted |
+| [0009](0009-config-invalid-covers-a-bad-argument-too.md) | `CONFIG_INVALID` covers a provider-rejected argument too, no eighth code | Accepted |
 
 Use `0000-template.md` for new records.

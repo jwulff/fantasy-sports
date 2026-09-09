@@ -29,6 +29,7 @@ from fantasy_sports.core.models import (
     RosterSlot,
     Team,
     Transaction,
+    collect_untrusted,
 )
 
 # --- fixtures: payloads shaped the way an adapter will hand them over --------
@@ -438,6 +439,93 @@ def test_a_credential_spec_can_describe_a_non_secret_requirement():
 def test_credential_spec_is_not_a_normalized_provider_object():
     """It describes a provider, not something a provider returned."""
     assert CredentialSpec not in NORMALIZED_MODELS
+
+
+# --- untrusted free text (R1a, jwulff/fantasy-sports#17) --------------------
+
+#: Every model whose fixture in ``PAYLOADS`` is not League or Team — the only
+#: two that declare a member-controlled free-text field today.
+_STRUCTURED_ONLY_MODELS = tuple(cls for cls in NORMALIZED_MODELS if cls not in (League, Team))
+
+
+@pytest.mark.parametrize("cls", _STRUCTURED_ONLY_MODELS, ids=_ids)
+def test_a_model_with_no_member_controlled_text_labels_nothing_untrusted(cls):
+    """Normalized structured fields are never labeled untrusted.
+
+    Every field on these models comes from ESPN's own data (ids, records,
+    positions, timestamps) rather than from something a league member typed,
+    so ``_UNTRUSTED`` is empty and ``untrusted()`` has nothing to report.
+    """
+    assert not cls._UNTRUSTED
+    model = cls.from_payload(PAYLOADS[cls])
+    assert model.untrusted() == {}
+
+
+def test_league_name_is_labeled_untrusted_and_nothing_else_on_league_is():
+    league = League.from_payload(LEAGUE_PAYLOAD)
+    assert league.untrusted() == {"name": LEAGUE_PAYLOAD["name"]}
+    # Structured fields ESPN controls are never merged into the label.
+    assert "season" not in league.untrusted()
+    assert "team_count" not in league.untrusted()
+    assert "provider_id" not in league.untrusted()
+
+
+def test_team_name_and_owner_names_are_labeled_untrusted_and_nothing_else_is():
+    team = Team.from_payload(TEAM_PAYLOAD)
+    assert team.untrusted() == {
+        "name": TEAM_PAYLOAD["name"],
+        "owner_names[0]": TEAM_PAYLOAD["owner_names"][0],
+        "owner_names[1]": TEAM_PAYLOAD["owner_names"][1],
+    }
+    # Structured fields ESPN controls are never merged into the label.
+    for structured in ("wins", "losses", "ties", "points_for", "points_against", "standing"):
+        assert structured not in team.untrusted()
+
+
+def test_a_team_with_no_owners_labels_only_its_name():
+    team = Team.from_payload({**TEAM_PAYLOAD, "owner_names": []})
+    assert team.untrusted() == {"name": TEAM_PAYLOAD["name"]}
+
+
+def test_collect_untrusted_on_a_single_object_uses_bare_field_paths():
+    """The path shape ``league info`` gets: ``data`` is a mapping, not a list."""
+    league = League.from_payload(LEAGUE_PAYLOAD)
+    assert collect_untrusted(league) == {"name": LEAGUE_PAYLOAD["name"]}
+
+
+def test_collect_untrusted_on_a_list_indexes_each_item():
+    """The path shape ``teams``/``standings`` get: ``data`` is a list."""
+    teams = [
+        Team.from_payload(TEAM_PAYLOAD),
+        Team.from_payload({**TEAM_PAYLOAD, "provider_id": "9", "name": "Second Team"}),
+    ]
+    untrusted = collect_untrusted(teams)
+    assert untrusted["[0].name"] == TEAM_PAYLOAD["name"]
+    assert untrusted["[0].owner_names[0]"] == TEAM_PAYLOAD["owner_names"][0]
+    assert untrusted["[1].name"] == "Second Team"
+
+
+def test_collect_untrusted_on_data_with_no_model_objects_is_empty():
+    """``raw``, plain dicts, and non-model data contribute nothing."""
+    assert collect_untrusted({"name": "not a model"}) == {}
+    assert collect_untrusted([{"name": "not a model"}]) == {}
+    assert collect_untrusted(None) == {}
+    assert collect_untrusted("a bare string") == {}
+
+
+def test_an_untrusted_field_declared_the_wrong_type_raises_rather_than_mislabels():
+    """A class-definition error, not something ``untrusted()`` guesses about."""
+
+    @dataclasses.dataclass(frozen=True)
+    class _BadlyDeclared(ProviderObject):
+        _UNTRUSTED = frozenset({"wins"})
+        provider: str
+        provider_id: str
+        raw: dict
+        wins: int = 0
+
+    with pytest.raises(TypeError, match="wins"):
+        _BadlyDeclared(provider="espn", provider_id="1", raw={}).untrusted()
 
 
 # --- layering ---------------------------------------------------------------

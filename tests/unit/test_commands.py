@@ -56,6 +56,7 @@ from fantasy_sports.core.errors import (
 )
 from fantasy_sports.core.redaction import forget_secrets
 from fantasy_sports.output import OutputFormat, render
+from fantasy_sports.output.errors import exit_code_for
 
 
 @pytest.fixture
@@ -176,6 +177,35 @@ def test_standings_are_ranked_and_not_merely_teams_reordered(espn: RecordedEspn)
     assert data[0]["wins"] > data[1]["wins"]
 
 
+# --------------------------------------------------------------------------- #
+# Untrusted free text (R1a, ADR-0004, jwulff/fantasy-sports#17)
+# --------------------------------------------------------------------------- #
+
+
+def test_league_info_labels_the_league_name_as_untrusted(espn: RecordedEspn):
+    payload = league_commands.info().to_dict()
+    assert payload["untrusted"] == {"name": "Synthetic Test League"}
+    # Labeling never removes it from `data` -- it is a sidecar, not a redaction.
+    assert payload["data"]["name"] == "Synthetic Test League"
+
+
+def test_teams_labels_each_teams_name_and_owners_as_untrusted(espn: RecordedEspn):
+    payload = league_commands.teams().to_dict()
+    assert payload["untrusted"]["[0].name"] == "Team Alpha"
+    assert payload["untrusted"]["[0].owner_names[0]"] == "Ann Alpha"
+    assert payload["untrusted"]["[1].name"] == "Team Bravo"
+    assert payload["untrusted"]["[1].owner_names[0]"] == "Bo Bravo"
+    # No structured field ever ends up in the untrusted map.
+    assert not any(key.endswith((".wins", ".provider_id")) for key in payload["untrusted"])
+
+
+def test_standings_also_labels_team_names_as_untrusted_in_rank_order(espn: RecordedEspn):
+    payload = league_commands.standings().to_dict()
+    # Paths follow `data`'s own order, which for standings is rank, not id.
+    assert payload["untrusted"]["[0].name"] == payload["data"][0]["name"]
+    assert payload["untrusted"]["[1].name"] == payload["data"][1]["name"]
+
+
 @pytest.mark.parametrize(
     "wanted",
     ["1", "Team Alpha", "team alpha", "Alpha", "alph"],
@@ -291,9 +321,24 @@ def test_free_agents_pos_becomes_the_fantasy_filter_espn_actually_reads(espn: Re
 def test_a_position_espn_would_silently_ignore_is_refused_before_the_request(
     espn: RecordedEspn,
 ):
-    """ESPN answers an unknown position with its *default* set and a 200."""
-    with pytest.raises(ConfigInvalidError, match="not an ESPN position"):
+    """ESPN answers an unknown position with its *default* set and a 200.
+
+    jwulff/fantasy-sports#48 (ADR-0004 amended by ADR-0009) settled this on
+    ``CONFIG_INVALID`` rather than an eighth taxonomy code: the hint text is
+    the valid ESPN positions, the exit status is the same 6 every
+    ``CONFIG_INVALID`` gets, and ``kind="argument"`` marks the cause for a
+    consumer that wants the distinction without a second exit status.
+    """
+    with pytest.raises(ConfigInvalidError, match="not an ESPN position") as excinfo:
         free_agents_command.free_agents(pos="QUARTERBACK")
+    err = excinfo.value
+    assert err.kind == "argument"
+    assert err.retryable is False
+    assert exit_code_for(err) == 6
+    payload = err.to_dict()
+    assert payload["details"] == {"pos": "QUARTERBACK", "kind": "argument"}
+    assert "QB" in payload["message"]  # the valid values, not just "invalid"
+    assert "--pos" in payload["remediation"]
 
 
 def test_raw_returns_each_requested_view_unmodified(espn: RecordedEspn):
@@ -343,16 +388,35 @@ def test_a_filter_makes_the_same_view_complete(espn: RecordedEspn):
 
 
 def test_raw_refuses_a_filter_that_is_not_json(espn: RecordedEspn):
-    """A malformed filter is ignored by ESPN, which answers its default subset."""
-    with pytest.raises(ConfigInvalidError, match="must be JSON"):
+    """A malformed filter is ignored by ESPN, which answers its default subset.
+
+    Same settled decision as the ``--pos`` case (jwulff/fantasy-sports#48,
+    ADR-0004 amended by ADR-0009): ``CONFIG_INVALID``, exit 6, ``kind="argument"``.
+    """
+    with pytest.raises(ConfigInvalidError, match="must be JSON") as excinfo:
         raw_command.raw(view=["mDraftDetail"], filter="players.limit=5")
     assert espn.calls == []
+    err = excinfo.value
+    assert err.kind == "argument"
+    assert err.retryable is False
+    assert exit_code_for(err) == 6
+    payload = err.to_dict()
+    assert payload["details"] == {"filter": "players.limit=5", "kind": "argument"}
+    assert "players" in payload["remediation"]  # a worked JSON example, not just "fix it"
 
 
 def test_raw_needs_at_least_one_view(espn: RecordedEspn):
-    with pytest.raises(ConfigInvalidError, match="needs at least one --view"):
+    """Same settled decision (jwulff/fantasy-sports#48, ADR-0004 amended by ADR-0009)."""
+    with pytest.raises(ConfigInvalidError, match="needs at least one --view") as excinfo:
         raw_command.raw(view=[])
     assert espn.calls == []
+    err = excinfo.value
+    assert err.kind == "argument"
+    assert err.retryable is False
+    assert exit_code_for(err) == 6
+    payload = err.to_dict()
+    assert payload["details"] == {"kind": "argument"}
+    assert "--view" in payload["remediation"]
 
 
 # --------------------------------------------------------------------------- #

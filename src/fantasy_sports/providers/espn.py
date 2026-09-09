@@ -121,7 +121,12 @@ from fantasy_sports.core.models import (
     Transaction,
 )
 from fantasy_sports.core.redaction import remember_secret, scrub_credential_patterns
-from fantasy_sports.output.envelope import DataSource, from_epoch_millis, utc_now
+from fantasy_sports.output.envelope import (
+    DataSource,
+    from_epoch_millis,
+    from_epoch_seconds,
+    utc_now,
+)
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from fantasy_sports.cache.store import CacheMode, CacheStore
@@ -505,7 +510,7 @@ class _Transport:
         league_scoped: bool,
     ) -> Any:
         view = _view_of(params)
-        body, cached = self._body(url, params, headers, extend=extend, view=view)
+        body, cached, fetched_at = self._body(url, params, headers, extend=extend, view=view)
         try:
             payload = json.loads(body)
         except (ValueError, TypeError) as exc:
@@ -518,7 +523,12 @@ class _Transport:
         self.responses[_record_key(view, params)] = RawResponse(
             view=view,
             payload=payload,
-            fetched_at=self._now(),
+            # A cache hit is timestamped when the entry was *written*, never
+            # when it was *read* — otherwise every hit reports itself as
+            # brand new (jwulff/fantasy-sports#51). ``_body`` only returns a
+            # ``fetched_at`` for a hit; every other path (live, ``--fresh``,
+            # ``--no-cache``) is genuinely "now".
+            fetched_at=fetched_at if fetched_at is not None else self._now(),
             cached=cached,
         )
         return payload
@@ -531,10 +541,17 @@ class _Transport:
         *,
         extend: str,
         view: str,
-    ) -> tuple[str, bool]:
-        """The response body, from the cache where one is configured."""
+    ) -> tuple[str, bool, datetime | None]:
+        """The response body, from the cache where one is configured.
+
+        The third element is the entry's true fetch time on a cache hit, and
+        ``None`` on anything else — a live fetch, a ``--fresh`` refresh, or a
+        ``--no-cache`` bypass all happen "now", which the caller already knows
+        without our help.
+        """
         if self._store is None:
-            return _as_text(self._live(url, params, headers, extend=extend, view=view)), False
+            body = _as_text(self._live(url, params, headers, extend=extend, view=view))
+            return body, False, None
 
         from fantasy_sports.cache.store import CachingFetcher
 
@@ -551,7 +568,12 @@ class _Transport:
             context=self._context(view, params),
             extra=_filter_dimension(headers),
         )
-        return result.body, result.cached
+        fetched_at = (
+            from_epoch_seconds(result.fetched_at)
+            if result.cached and result.fetched_at is not None
+            else None
+        )
+        return result.body, result.cached, fetched_at
 
     def _context(self, view: str, params: Mapping[str, Any] | None) -> RequestContext:
         """What the cache needs to know about this request.

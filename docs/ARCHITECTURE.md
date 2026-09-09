@@ -173,6 +173,7 @@ The agent-native claim lives or dies here.
     {"name": "mTeam", "fetched_at": "2026-08-26T17:56:11Z", "age_seconds": 480, "cached": true}
   ],
   "untrusted": {},
+  "raw_omitted": false,
   "data": { },
   "error": null
 }
@@ -184,7 +185,22 @@ version later is miserable; adding it now is free.
 Success and failure carry the **same key set**; `data` and `error` are the
 discriminator and exactly one is non-null. `data_as_of` / `data_age_seconds`
 report the oldest contributing upstream fetch and `sources` itemizes each one
-(R4). `untrusted` is reserved empty for §12's attacker-influenceable text.
+(R4). `untrusted` labels ESPN-sourced free text a league member controls —
+team and league names today — distinctly from normalized structured fields
+(R1a, ADR-0004's 2026-09-08 amendment, jwulff/fantasy-sports#17).
+
+**`--no-raw` strips `raw` from every normalized object in `data`, recursively,
+and sets `raw_omitted: true`** (jwulff/fantasy-sports#52). It is a global
+option, accepted on either side of the command name like `--output`, and it
+never reaches a command handler — the dispatch layer applies it to the
+envelope a handler already returned, after the handler ran. `raw_omitted:
+false` means "not suppressed here," not "`raw` is present": a stored payload
+needs that distinction to tell a genuinely raw-less response from one that had
+`raw` stripped, which matters for an archival consumer that commits envelopes
+byte for byte (`jwulff/league-gazette`'s `snapshot` command) and wants to know
+which it is looking at later. `fantasy-sports raw --view` ignores the flag —
+its whole point is an unmodified provider payload — and always reports
+`raw_omitted: false`.
 
 **Timestamps are UTC or they are refused.** `espn-api` builds datetimes with
 `datetime.fromtimestamp()` and no `tz=`, so they are naive and host-local — the
@@ -203,7 +219,7 @@ down" (retry later) without parsing English:
 | `AUTH_MISSING` | No credentials configured | Ask human to run `auth login` |
 | `AUTH_EXPIRED` | ESPN cookies rejected | Ask human to re-extract cookies |
 | `LEAGUE_NOT_FOUND` | Bad league ID or no access | Ask human |
-| `CONFIG_INVALID` | `config.toml` will not parse | Ask human to fix the file |
+| `CONFIG_INVALID` | `config.toml` will not parse, or a command argument only the provider can validate came back invalid | Ask human to fix the input named in the message |
 | `NOT_AVAILABLE` | ESPN positively refuses this request; never sent | Don't retry; check `remediation` |
 | `PROVIDER_UNAVAILABLE` | ESPN 5xx / timeout | Retry with backoff |
 | `RATE_LIMITED` | Throttled | Retry after `retry_after` |
@@ -221,6 +237,15 @@ Each code carries its own **exit status** so a cron job can branch without
 parsing anything: `AUTH_MISSING` 3, `AUTH_EXPIRED` 4, `LEAGUE_NOT_FOUND` 5,
 `CONFIG_INVALID` 6, `PROVIDER_UNAVAILABLE` 7, `RATE_LIMITED` 8, `SCHEMA_DRIFT` 9,
 `NOT_AVAILABLE` 10; `0` success, `1` an unclassified crash, `2` a usage error.
+
+**`CONFIG_INVALID` covers two causes, not one (ADR-0004 amended by ADR-0009).**
+A `config.toml` that will not parse and a CLI argument ESPN itself rejects — a
+`--pos` it does not recognise, a `--filter` that is not JSON, a `raw` with no
+`--view` — get the identical code, exit status, and `retryable: false`, because
+they tell an agent the identical thing: stop, ask a human, retrying unchanged
+cannot work. There is no eighth code for the second cause; `details.kind`
+(`"config"` or `"argument"`) is the discriminator for a consumer that wants to
+tell them apart without a second exit status to branch on.
 
 **stdout stays byte-empty on failure**, and a failure is always JSON whatever
 `--output` asked for. A consumer piping stdout into a parser must never receive

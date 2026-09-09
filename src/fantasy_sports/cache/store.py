@@ -226,6 +226,19 @@ class FetchResult:
     stored: bool = False
     """This call wrote the body to the store."""
 
+    fetched_at: float | None = None
+    """When the returned bytes were actually fetched from the provider, on the
+    store's clock (epoch seconds) — ``None`` means "just now", i.e. this call's
+    own live fetch.
+
+    Only a cache hit sets this, to the entry's ``stored_at``. A miss (live,
+    refreshed, or bypassed) leaves it ``None`` rather than stamping the
+    store's clock at all: the live fetch already happened on the caller's own
+    clock, and a decorator two layers down has no business asserting *when*
+    that was — it only knows when a hit's bytes were written, because that is
+    the one moment it did not itself observe.
+    """
+
 
 # --------------------------------------------------------------------------- #
 # The store
@@ -572,7 +585,7 @@ class CachingFetcher:
         if self.mode is CacheMode.DEFAULT:
             entry = self._store.get(key)
             if entry is not None:
-                return FetchResult(body=entry.body, cached=True)
+                return FetchResult(body=entry.body, cached=True, fetched_at=entry.stored_at)
 
         text, storable = _readable(self._fetch(url, params), swid_salt=self._store.swid_salt)
 

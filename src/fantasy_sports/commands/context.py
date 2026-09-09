@@ -176,12 +176,19 @@ def success(
     *,
     command: str,
     sources: Sequence[DataSource] | None = None,
+    untrusted: Mapping[str, str] | None = None,
 ) -> Envelope:
     """Wrap ``data`` in an envelope, with the sources the provider recorded.
 
     ``sources`` defaults to the provider's own ``last_fetch``, which is right
     for every command that makes one call. ``raw`` passes its own, because it
     issues one request per ``--view`` and each rebuilds the record.
+
+    ``untrusted`` labels ESPN-sourced free text distinctly from normalized
+    structured fields (R1a) — a command that renders League or Team objects
+    passes ``fantasy_sports.core.models.collect_untrusted(found)`` here.
+    Omitted for a command with no untrusted fields; the envelope defaults to
+    an empty map either way.
 
     :raises DataShapeError: if ``data`` does not match the shape ``command``
         declares in the registry.
@@ -198,6 +205,7 @@ def success(
         season=ctx.season,
         data=data,
         sources=sources,
+        untrusted=untrusted,
     )
 
 

@@ -1,0 +1,52 @@
+name: ESPN canary
+
+# ADR-0005 server side, detection only (jwulff/fantasy-sports#11). Hits
+# ESPN's public test league (1234, 2018) -- no credentials, no secrets. See
+# scripts/canary/README.md for the classification design and what's
+# deliberately deferred (auto-filed issues, the public health.json).
+
+on:
+  schedule:
+    # Daily at 13:00 UTC. Cron itself is unconditional; the in-season-daily /
+    # offseason-weekly cadence (ADR-0005) is decided inside
+    # scripts/canary/run.py's should_run_today(), which no-ops (exit 0) on a
+    # skipped day rather than never triggering the job at all.
+    - cron: "0 13 * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: canary
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  canary:
+    name: ESPN canary (league 1234, 2018)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+
+      # --locked, not a bare `uv sync`: this is the primary defense against
+      # the failure mode docs/research/03-espn-api-surface.md §4.2
+      # documents -- espn-api's own canary went red for 12 consecutive days
+      # from a transitive dependency release, not an ESPN change. Pinned as
+      # tightly as the runtime; refuses to silently resolve a newer
+      # transitive dependency instead of failing loudly.
+      - name: Install dependencies (locked)
+        run: uv sync --locked
+
+      # workflow_dispatch always runs in full (--force): a manually-fired
+      # canary should never silently no-op on an offseason weekday.
+      - name: Run the canary
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            uv run python scripts/canary/run.py --force
+          else
+            uv run python scripts/canary/run.py
+          fi

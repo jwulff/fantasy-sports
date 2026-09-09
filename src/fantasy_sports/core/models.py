@@ -50,6 +50,7 @@ __all__ = [
     "TRANSACTION_TYPES",
     "CredentialSpec",
     "FreeAgent",
+    "collect_untrusted",
     "League",
     "BoxScore",
     "LineupEntry",
@@ -84,6 +85,8 @@ class ProviderObject:
     _NESTED: ClassVar[Mapping[str, type[ProviderObject]]] = {}
     #: field names normalized to a tuple so a frozen object is really immutable
     _SEQUENCES: ClassVar[frozenset[str]] = frozenset()
+    #: field names an ESPN league member can set the *value* of (R1a, #17)
+    _UNTRUSTED: ClassVar[frozenset[str]] = frozenset()
 
     def __post_init__(self) -> None:
         for name in self._SEQUENCES:
@@ -148,6 +151,38 @@ class ProviderObject:
             for f in fields(self)  # type: ignore[arg-type]  # always a dataclass subclass
         }
 
+    def untrusted(self) -> dict[str, str]:
+        """Attacker-influenceable string fields on this object, path -> value.
+
+        Empty unless the concrete class declares field names in
+        :attr:`_UNTRUSTED` (R1a): any league member can set a team or league
+        name, and it reaches an agent that can write, so it must be labeled
+        separately from fields the provider itself controls (ids, records,
+        timestamps). A declared field is either a plain ``str`` or a tuple of
+        ``str`` — a plural free-text field, e.g. a co-owned team's names —
+        indexed as ``field[0]``, ``field[1]``, ... Declaring any other field
+        type is a class-definition error this raises on rather than silently
+        mislabels.
+
+        :func:`collect_untrusted` is the entry point a command actually
+        calls: it also handles a bare object versus the list a collection
+        command's ``data`` is, which this method does not know about.
+        """
+        paths: dict[str, str] = {}
+        for name in sorted(self._UNTRUSTED):
+            value = getattr(self, name)
+            if isinstance(value, str):
+                paths[name] = value
+            elif isinstance(value, tuple):
+                for index, item in enumerate(value):
+                    paths[f"{name}[{index}]"] = str(item)
+            else:
+                raise TypeError(
+                    f"{type(self).__name__}._UNTRUSTED names {name!r}, whose value is a "
+                    f"{type(value).__name__}; only str and tuple-of-str fields are supported."
+                )
+        return paths
+
 
 def _plain(value: Any) -> Any:
     """One value as plain Python, expanding models wherever they are nested."""
@@ -158,9 +193,41 @@ def _plain(value: Any) -> Any:
     return value
 
 
+def collect_untrusted(data: Any) -> dict[str, str]:
+    """The envelope's ``untrusted`` map for a command's ``data`` (R1a, ADR-0004).
+
+    Call this on the object(s) a command is about to hand to
+    ``fantasy_sports.output.envelope.Envelope.success`` — a single
+    :class:`ProviderObject` for an object-shaped command, or the list a
+    collection command returns. Paths mirror where the value sits inside the
+    rendered ``data``: a bare field name for a single object (``"name"``), or
+    ``"[i].field"`` for item ``i`` of a list — the same indexing a consumer
+    walking the JSON ``data`` array would use to find it.
+
+    Anything that is not a :class:`ProviderObject`, or a list/tuple of them,
+    contributes nothing: a command with no untrusted fields need not call
+    this at all, and ``raw`` passthrough is untouched by design — it is
+    neither a normalized field nor labeled, it is the documented raw-
+    passthrough exception (``CLAUDE.md`` rule 3).
+    """
+    if isinstance(data, ProviderObject):
+        return data.untrusted()
+    if isinstance(data, list | tuple):
+        paths: dict[str, str] = {}
+        for index, item in enumerate(data):
+            if isinstance(item, ProviderObject):
+                for path, value in item.untrusted().items():
+                    paths[f"[{index}].{path}"] = value
+        return paths
+    return {}
+
+
 @dataclass(frozen=True)
 class League(ProviderObject):
     """A league as every provider describes it."""
+
+    _UNTRUSTED: ClassVar[frozenset[str]] = frozenset({"name"})
+    """The league name is commissioner-set free text (R1a)."""
 
     provider: str
     provider_id: str
@@ -187,6 +254,10 @@ class Team(ProviderObject):
     """A team and its record."""
 
     _SEQUENCES: ClassVar[frozenset[str]] = frozenset({"owner_names"})
+    _UNTRUSTED: ClassVar[frozenset[str]] = frozenset({"name", "owner_names"})
+    """Team name and owner display names are both member-set free text
+    (R1a): ESPN lets any team owner rename their team and their own display
+    name, and either can carry attacker-influenceable content."""
 
     provider: str
     provider_id: str
