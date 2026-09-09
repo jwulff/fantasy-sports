@@ -5,7 +5,12 @@
 **Amended:** 2026-09-05 — `CONFIG_INVALID` added to the taxonomy
 (jwulff/fantasy-sports#35, decided on #6); the envelope's full key set, the
 `remediation` key, and the exit-status table fixed by the output layer
-(jwulff/fantasy-sports#6).
+(jwulff/fantasy-sports#6). **Amended:** 2026-09-08 by
+[ADR-0009](0009-config-invalid-covers-a-bad-argument-too.md) —
+`CONFIG_INVALID` also covers an argument only the provider can validate (no
+eighth code); its `agent_action` no longer names a config file specifically,
+and it gains a `details.kind` (`"config"` or `"argument"`) discriminator
+(jwulff/fantasy-sports#48).
 
 ## Context
 
