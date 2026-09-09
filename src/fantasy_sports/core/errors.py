@@ -53,6 +53,7 @@ __all__ = [
     "ErrorCode",
     "FantasySportsError",
     "LeagueNotFoundError",
+    "NotAvailableError",
     "ProviderUnavailableError",
     "RateLimitedError",
     "SchemaDriftError",
@@ -67,6 +68,7 @@ class ErrorCode(StrEnum):
     AUTH_EXPIRED = "AUTH_EXPIRED"
     LEAGUE_NOT_FOUND = "LEAGUE_NOT_FOUND"
     CONFIG_INVALID = "CONFIG_INVALID"
+    NOT_AVAILABLE = "NOT_AVAILABLE"
     PROVIDER_UNAVAILABLE = "PROVIDER_UNAVAILABLE"
     RATE_LIMITED = "RATE_LIMITED"
     SCHEMA_DRIFT = "SCHEMA_DRIFT"
@@ -201,6 +203,28 @@ class ConfigInvalidError(FantasySportsError):
         self._record_detail("kind", kind)
 
 
+class NotAvailableError(FantasySportsError):
+    """The provider positively refuses this request; it was never sent.
+
+    This is the opposite case from :class:`ProviderUnavailableError`: not "we
+    don't know what happened", but "we know exactly what happened, and it will
+    never succeed as asked." ``espn-api`` refuses some reads outright, on the
+    *year*, before any HTTP request is made — box scores, free agents, and the
+    activity feed all predate 2019 for some leagues, and ESPN will not start
+    serving them. Landing that on ``PROVIDER_UNAVAILABLE`` would hand an agent
+    ``retryable: true`` and a bounded-backoff instruction for something that
+    can never come back, which is the opposite of what R12 guards against: R12
+    says an *unclassifiable* failure must not be guessed into a specific code,
+    but this is a **positively classifiable** one, and guessing it onto
+    availability is just as wrong in the other direction (decided on
+    jwulff/fantasy-sports#45; ADR-0004 amended to match).
+    """
+
+    code = ErrorCode.NOT_AVAILABLE
+    retryable = False
+    agent_action = "Do not retry as sent; check `remediation` for a supported alternative."
+
+
 class ProviderUnavailableError(FantasySportsError):
     """The provider is down, timed out, or failed in a way we cannot classify.
 
@@ -278,6 +302,7 @@ ERROR_TYPES: tuple[type[FantasySportsError], ...] = (
     AuthExpiredError,
     LeagueNotFoundError,
     ConfigInvalidError,
+    NotAvailableError,
     ProviderUnavailableError,
     RateLimitedError,
     SchemaDriftError,

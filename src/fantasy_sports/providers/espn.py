@@ -103,6 +103,7 @@ from fantasy_sports.core.errors import (
     AuthMissingError,
     FantasySportsError,
     LeagueNotFoundError,
+    NotAvailableError,
     ProviderUnavailableError,
     RateLimitedError,
     SchemaDriftError,
@@ -1004,9 +1005,13 @@ class EspnProvider:
         separate method rather than a flag.
 
         The library refuses box scores before 2019 outright. That refusal
-        surfaces as ``PROVIDER_UNAVAILABLE`` naming the season, not as an empty
+        surfaces as ``NOT_AVAILABLE`` naming the season, not as an empty
         list: "no box score exists for this season" and "nobody scored" are
         different answers and a consumer cannot tell them apart from ``[]``.
+        ``NOT_AVAILABLE`` rather than ``PROVIDER_UNAVAILABLE`` because this is a
+        refusal we can positively classify, not one we cannot
+        (jwulff/fantasy-sports#45) — ``retryable`` must be ``False``, since ESPN
+        will never start serving 2018 box scores.
         """
         with self._read(league_id, season, "fetch_box_scores") as league:
             scoring_period = _as_int(week)
@@ -1019,8 +1024,8 @@ class EspnProvider:
             try:
                 found = league.box_scores(matchup_period)
             except Exception as exc:  # noqa: BLE001 - library raises bare Exception
-                if "box score" in str(exc).lower():
-                    raise ProviderUnavailableError(
+                if _is_library_refusal(exc):
+                    raise NotAvailableError(
                         f"ESPN does not serve box scores for the {season} season.",
                         remediation=(
                             "Box scores exist from 2019 onward. Use `matchups` for an "
@@ -1104,6 +1109,13 @@ class EspnProvider:
         its own default player set, which looks like free agents and is not
         filtered the way you asked. An unknown position is therefore refused
         here rather than sent.
+
+        The library refuses free agents before 2019 outright, the same way it
+        refuses box scores. That refusal surfaces as ``NOT_AVAILABLE`` naming
+        the season rather than ``PROVIDER_UNAVAILABLE``'s bounded-retry
+        instruction — this is a refusal we can positively classify, not one we
+        cannot, and ESPN will never start serving free agents for a 2018 league
+        (jwulff/fantasy-sports#45).
         """
         slot = None if position is None else _position_key(position)
         if position is not None and slot is None:
@@ -1112,9 +1124,21 @@ class EspnProvider:
             )
         with self._read(league_id, season, "fetch_free_agents") as league:
             scoring_period = _as_int(week) or _as_int(league.current_week)
-            players = league.free_agents(
-                week=scoring_period, size=self._free_agent_limit, position=slot
-            )
+            try:
+                players = league.free_agents(
+                    week=scoring_period, size=self._free_agent_limit, position=slot
+                )
+            except Exception as exc:  # noqa: BLE001 - library raises bare Exception
+                if _is_library_refusal(exc):
+                    raise NotAvailableError(
+                        f"ESPN does not serve free agents for the {season} season.",
+                        remediation=(
+                            "Free agents exist from 2019 onward. Use `transactions` for an "
+                            "earlier season; it shows roster moves that already happened."
+                        ),
+                        details={"season": str(season), "week": str(scoring_period)},
+                    ) from exc
+                raise
             transport = self._transport(league_id, season)
             entries = _free_agent_entries(transport.responses)
             kickoffs = _kickoff_map(transport.responses)
@@ -1330,6 +1354,31 @@ def _revealed(credentials: Mapping[str, Any] | None) -> dict[str, str]:
 # --------------------------------------------------------------------------- #
 # Failure mapping
 # --------------------------------------------------------------------------- #
+
+_LIBRARY_REFUSALS: Final[tuple[str, ...]] = (
+    "cant use box score before",
+    "cant use free agents before",
+    "cant use recent activity before",
+)
+"""The three refusals ``espn-api`` raises as a bare ``Exception``, on the year,
+before any HTTP request is made — see
+``docs/memory/espn-api-is-a-shape-reader-not-a-client.md``. Matched against this
+known set rather than a loose substring, so an unrelated library message is not
+misclassified as a permanent refusal."""
+
+
+def _is_library_refusal(exc: BaseException) -> bool:
+    """True for a known pre-2019 refusal.
+
+    ``espn-api`` keeps no structured attribute for these — the exception is the
+    base ``Exception`` class with a sentence in it — so message-text matching
+    is what the adapter has to work with. This narrows the catch-all in
+    :func:`_mapped`: a positively classifiable refusal (jwulff/fantasy-sports#45)
+    is caught by the caller *before* it reaches the catch-all, so it never
+    inherits ``PROVIDER_UNAVAILABLE``'s ``retryable: true``.
+    """
+    text = str(exc).lower()
+    return any(needle in text for needle in _LIBRARY_REFUSALS)
 
 
 @contextmanager

@@ -21,6 +21,7 @@ from fantasy_sports.core.errors import (
     ErrorCode,
     FantasySportsError,
     LeagueNotFoundError,
+    NotAvailableError,
     ProviderUnavailableError,
     RateLimitedError,
     SchemaDriftError,
@@ -34,6 +35,7 @@ DOCUMENTED_CODES = {
     "AUTH_EXPIRED",
     "LEAGUE_NOT_FOUND",
     "CONFIG_INVALID",
+    "NOT_AVAILABLE",
     "PROVIDER_UNAVAILABLE",
     "RATE_LIMITED",
     "SCHEMA_DRIFT",
@@ -89,8 +91,29 @@ def test_credential_failures_are_not_retryable_and_availability_is():
     assert LeagueNotFoundError("nope").retryable is False
     assert ConfigInvalidError("broken toml").retryable is False
     assert SchemaDriftError("shape changed").retryable is False
+    assert NotAvailableError("espn refuses this request").retryable is False
     assert ProviderUnavailableError("espn 503").retryable is True
     assert RateLimitedError("slow down").retryable is True
+
+
+def test_a_positive_refusal_is_not_an_unclassifiable_one():
+    """The reason `NOT_AVAILABLE` was added (decision on #45).
+
+    `PROVIDER_UNAVAILABLE` is the honest landing place for a failure we cannot
+    classify, per R12 — bounded retry is safe when we are wrong. A refusal the
+    adapter can positively identify, like ESPN's pre-2019 box-score refusal, is
+    the opposite case: retrying it is never safe, because it will never
+    succeed. The two must stay distinguishable in the payload.
+    """
+    unclassifiable = ProviderUnavailableError("espn 503")
+    refused = NotAvailableError("ESPN does not serve box scores for the 2018 season.")
+
+    assert unclassifiable.code is ErrorCode.PROVIDER_UNAVAILABLE
+    assert refused.code is ErrorCode.NOT_AVAILABLE
+    assert refused.code is not ErrorCode.PROVIDER_UNAVAILABLE
+    assert unclassifiable.retryable is True
+    assert refused.retryable is False
+    assert refused.to_dict()["agent_action"] != unclassifiable.to_dict()["agent_action"]
 
 
 def test_a_broken_config_is_not_a_missing_league():
