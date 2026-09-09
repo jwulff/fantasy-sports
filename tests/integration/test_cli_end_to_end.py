@@ -47,6 +47,7 @@ ENVELOPE_KEYS = [
     "data_age_seconds",
     "sources",
     "untrusted",
+    "raw_omitted",
     "data",
     "error",
 ]
@@ -101,6 +102,21 @@ def _invoke(cli: Any, args: list[str]) -> Any:
 def _searchable(output: str) -> str:
     """Help or usage output with colour removed and wrapping collapsed."""
     return re.sub(r"\s+", "", _ANSI.sub("", output))
+
+
+def _raw_key_paths(value: Any, path: str = "$") -> list[str]:
+    """Every JSON path under ``value`` whose key is literally ``raw``."""
+    found: list[str] = []
+    if isinstance(value, dict):
+        for key, item in value.items():
+            here = f"{path}.{key}"
+            if key == "raw":
+                found.append(here)
+            found.extend(_raw_key_paths(item, here))
+    elif isinstance(value, list):
+        for index, item in enumerate(value):
+            found.extend(_raw_key_paths(item, f"{path}[{index}]"))
+    return found
 
 
 # --------------------------------------------------------------------------- #
@@ -195,6 +211,110 @@ def test_a_repeated_view_reaches_the_provider_as_several_requests(cli: Any, espn
         "mDraftDetail",
         "mMatchupScore",
     ]
+
+
+# --------------------------------------------------------------------------- #
+# `--no-raw` (jwulff/fantasy-sports#52)
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [["--no-raw", "roster", "--team", "1"], ["roster", "--team", "1", "--no-raw"]],
+    ids=["before", "after"],
+)
+def test_no_raw_is_accepted_before_or_after_the_command(
+    cli: Any, espn: RecordedEspn, argv: list[str]
+):
+    result = _invoke(cli, argv)
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    assert payload["raw_omitted"] is True
+    assert _raw_key_paths(payload["data"]) == []
+
+
+def test_no_raw_strips_a_roster_but_keeps_the_fields_that_matter(cli: Any, espn: RecordedEspn):
+    """jwulff/fantasy-sports#52's acceptance criterion, field by field."""
+    result = _invoke(cli, ["roster", "--team", "1", "--no-raw"])
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    assert payload["raw_omitted"] is True
+    assert _raw_key_paths(payload["data"]) == []
+
+    slot = payload["data"][0]
+    assert slot["slot"]
+    player = slot["player"]
+    assert player["provider_id"]
+    assert player["name"]
+    assert player["position"]
+    assert player["pro_team"]
+    assert player["projected_points"] is not None
+
+
+def test_no_raw_makes_a_roster_read_much_smaller(cli: Any, espn: RecordedEspn):
+    """The issue's size claim, measured against the synthetic fixture.
+
+    The issue's own numbers are two orders of magnitude on a real 15-player
+    ESPN roster (~530 KB, normalized fields under 1%). This fixture has three
+    players and a fixed envelope wrapper (schema/sources/etc.) that `--no-raw`
+    does not touch, so that wrapper is a much larger share of a small payload
+    — the bar here is set to what this fixture can honestly demonstrate, well
+    below the issue's real-world ratio, not at it.
+    """
+    full = _invoke(cli, ["roster", "--team", "1"])
+    stripped = _invoke(cli, ["roster", "--team", "1", "--no-raw"])
+    assert full.exit_code == 0
+    assert stripped.exit_code == 0
+    assert len(stripped.stdout) * 5 < len(full.stdout), (len(stripped.stdout), len(full.stdout))
+
+
+def test_no_raw_strips_a_box_scores_response_including_nested_lineups(cli: Any, espn: RecordedEspn):
+    """A box score's own `raw` is separate from each lineup entry's `raw`."""
+    result = _invoke(cli, ["box-scores", "--week", "1", "--no-raw"])
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    assert payload["raw_omitted"] is True
+    assert _raw_key_paths(payload["data"]) == []
+    assert payload["data"][0]["team_a_lineup"][0]["player_name"]
+
+
+def test_no_raw_leaves_the_visible_table_rows_unaffected(cli: Any, espn: RecordedEspn):
+    """The table already strips `raw` unconditionally (ADR-0004); the rows a
+    human reads do not change either way.
+
+    The one real difference is the omission notice: without ``--no-raw`` the
+    table drops `raw` on its own account and says so; with it, `raw` is
+    already gone by the time the table renders, so there is nothing left for
+    the table to report dropping. That is correct, not a bug — asserted here
+    so it cannot regress silently.
+
+    Both calls pass ``--no-cache``: a second live invocation in this process
+    would otherwise be a cache hit for some of `teams`' sources and not
+    others, which changes the ``sources:`` footer for reasons that have
+    nothing to do with ``--no-raw``.
+    """
+    without_flag = _invoke(cli, ["teams", "--output", "table", "--no-cache"])
+    with_flag = _invoke(cli, ["teams", "--output", "table", "--no-cache", "--no-raw"])
+    assert without_flag.exit_code == 0
+    assert with_flag.exit_code == 0
+    assert "`raw` omitted" in without_flag.stdout
+    assert "`raw` omitted" not in with_flag.stdout
+
+    def _rows(output: str) -> list[str]:
+        return [line for line in output.splitlines() if "Team" in line]
+
+    assert _rows(without_flag.stdout) == _rows(with_flag.stdout)
+    assert _rows(without_flag.stdout), "the fixture must actually produce rows to compare"
+
+
+def test_raw_command_ignores_no_raw(cli: Any, espn: RecordedEspn):
+    """`raw` is passthrough by definition (ARCHITECTURE §5); the flag is a no-op on it."""
+    without_flag = _invoke(cli, ["raw", "--view", "mDraftDetail"])
+    with_flag = _invoke(cli, ["raw", "--view", "mDraftDetail", "--no-raw"])
+    assert without_flag.exit_code == 0
+    assert with_flag.exit_code == 0
+    assert json.loads(with_flag.stdout)["data"] == json.loads(without_flag.stdout)["data"]
+    assert json.loads(with_flag.stdout)["raw_omitted"] is False
 
 
 # --------------------------------------------------------------------------- #

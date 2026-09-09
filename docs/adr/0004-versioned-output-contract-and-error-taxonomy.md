@@ -12,7 +12,9 @@ eighth code); its `agent_action` no longer names a config file specifically,
 and it gains a `details.kind` (`"config"` or `"argument"`) discriminator
 (jwulff/fantasy-sports#48). **Amended:** 2026-09-08 — clarified what
 `fetched_at` means on a cache hit, after it shipped decorative
-(jwulff/fantasy-sports#51).
+(jwulff/fantasy-sports#51). **Amended:** 2026-09-09 — `raw_omitted` added to
+the envelope and `--no-raw` added as a global option
+(jwulff/fantasy-sports#52).
 
 ## Context
 
@@ -98,6 +100,7 @@ that will get it wrong once.
     {"name": "mTeam", "fetched_at": "2026-08-26T17:56:11Z", "age_seconds": 480, "cached": true}
   ],
   "untrusted": {},
+  "raw_omitted": false,
   "data": [],
   "error": null
 }
@@ -202,6 +205,51 @@ it. Nothing about the envelope's own arithmetic changed —
 `fantasy_sports.output.envelope.Envelope.to_dict` was already computing
 `age_seconds` correctly from whatever `fetched_at` it was handed; the bug was
 that every `fetched_at` reaching it said "now."
+
+### Amendment, 2026-09-09: `--no-raw` and `raw_omitted`
+
+Every normalized object carries `raw` (this ADR's own decision, and `CLAUDE.md`
+rule 3), and for a roster that means a complete ESPN player record per slot —
+`seasonOutlook` prose, ranking arrays, and five `stats` splits with roughly
+fifty keys each. One real 15-slot roster runs ~530 KB, and the normalized
+fields the tool actually promises are well under 1% of it
+(jwulff/fantasy-sports#52). That is fine for a caller reading one response and
+ruinous for `jwulff/league-gazette`'s `snapshot` command, which commits the
+envelope byte for byte as its archive: a season of weekly snapshots is roughly
+110 MB of git history for a league whose actual weekly facts are a few hundred
+rows.
+
+`--no-raw` is a global option, on both sides of the command name like
+`--output`, that strips the `raw` key from every normalized object in `data`,
+recursively. It is deliberately **not** a handler parameter: it does not change
+what a command computes, only what the envelope built from that computation
+keeps, so the dispatch layer applies it once, to the envelope a handler already
+returned, the same way `--output` picks a renderer without either being visible
+to `commands/*.py`. That also means it needs no case in
+`ARCHITECTURE.md`'s handler-parameter conventions, and `raw` stays fully
+reachable to anything that calls a handler directly.
+
+**`raw_omitted` is a new envelope key, added below `untrusted` and above
+`data`, always present.** Additive rather than a schema bump, following this
+ADR's own precedent for `untrusted`: `raw_omitted: false` on every envelope
+that predates this amendment is exactly the value it would have reported
+anyway. It answers one question — was suppression *applied* here — not
+whether `raw` is present: a passthrough `raw --view` payload has no `raw` key
+under any circumstance and still reports `raw_omitted: false`, because nothing
+was suppressed. A stored payload needs that distinction to tell "this provider
+response never had it" from "this was stripped before it was written," which
+is exactly the ambiguity an archival consumer cannot resolve by inspection
+alone.
+
+**`raw --view` ignores the flag.** Its whole reason to exist is an unmodified
+provider payload (this ADR's own decision); silently trimming part of it on a
+flag that every other command interprets as "smaller, still the truth" would
+make one command's `--no-raw` semantics differ from every other's without
+saying so on the payload. It is a no-op rather than a usage error because a
+global option landing on a command it does not apply to already has a
+precedent that is not an error — `--league` on `auth status` — and because
+`--no-raw` is frequently set once, globally, by a caller that also wants
+`raw` output occasionally.
 
 ## Consequences
 

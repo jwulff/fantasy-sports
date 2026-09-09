@@ -17,6 +17,15 @@ Reserving the container here rather than adding it there is the difference
 between #17 being a provider change and #17 being a schema-version bump on the
 one contract every consumer parses.
 
+**``raw_omitted`` says whether the passthrough was suppressed, not whether it is
+absent.** ``--no-raw`` (jwulff/fantasy-sports#52) strips ``raw`` from every
+normalized object before the envelope is rendered, which is indistinguishable
+from a provider that never had it unless the envelope itself says which
+happened. :meth:`Envelope.without_raw` is what the CLI/MCP dispatch layer calls
+after a handler returns — never the handler itself, so ``raw`` stays fully
+reachable to any code that calls a handler directly — and it is the only way
+``raw_omitted`` becomes ``true``.
+
 **Timestamps are UTC or they are refused.** ``espn-api`` builds its datetimes
 with ``datetime.fromtimestamp()`` and no ``tz=``, so they are naive and
 host-local: the same league renders a different kickoff time on a laptop in
@@ -31,7 +40,7 @@ Nothing here imports anything beyond the standard library and ``core/``.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from typing import Any
 
@@ -150,6 +159,23 @@ def _plain(value: Any) -> Any:
     )
 
 
+def _strip_raw(value: Any) -> Any:
+    """``value`` with every ``raw`` key gone, at any depth.
+
+    Operates on already-plain data — call :func:`_plain` first. Removes a
+    ``Mapping`` key literally named ``raw`` and nothing else: a normalized
+    object's ``raw`` field is always spelled that way (``core/models.py``), so
+    this needs no per-model knowledge, and it is exactly why the ``raw``
+    command's own payload (keyed ``payload``, never ``raw``) is untouched by
+    construction rather than by a special case.
+    """
+    if isinstance(value, Mapping):
+        return {str(key): _strip_raw(item) for key, item in value.items() if str(key) != "raw"}
+    if isinstance(value, list | tuple):
+        return [_strip_raw(item) for item in value]
+    return value
+
+
 @dataclass(frozen=True)
 class DataSource:
     """One upstream fetch that contributed to a payload (origin R4).
@@ -193,6 +219,16 @@ class Envelope:
     generated_at: datetime = field(default_factory=utc_now)
     untrusted: Mapping[str, str] = field(default_factory=dict)
     """Path -> attacker-influenceable string. Empty until #17 populates it."""
+    raw_omitted: bool = False
+    """Whether ``raw`` was stripped from ``data`` by :meth:`without_raw`.
+
+    ``false`` means "``raw`` is exactly what the provider adapter built", not
+    "``raw`` is present" — a passthrough ``raw`` command legitimately has no
+    ``raw`` key anywhere and still reports ``false``. That is deliberate: this
+    flag answers one question, "was suppression applied here", and a stored
+    payload needs that answer to tell "suppressed" from "never had it"
+    (jwulff/fantasy-sports#52).
+    """
 
     @classmethod
     def success(
@@ -250,6 +286,19 @@ class Envelope:
     def ok(self) -> bool:
         return self.error is None
 
+    def without_raw(self) -> Envelope:
+        """A copy with ``raw`` gone from ``data`` at every depth, ``raw_omitted`` set.
+
+        Called by the CLI/MCP dispatch layer for ``--no-raw``, after a handler
+        has already returned — never by a handler itself, so ``raw`` stays
+        fully reachable to anything that calls a handler directly. ``data`` is
+        plain-ified first (:func:`_plain`), because a normalized model is a
+        frozen dataclass and cannot have a field deleted from it; the result is
+        exactly what :meth:`to_dict` would otherwise have built for ``data``,
+        minus every ``raw`` key.
+        """
+        return replace(self, data=_strip_raw(_plain(self.data)), raw_omitted=True)
+
     def to_dict(self) -> dict[str, Any]:
         """The exact JSON object a consumer parses. Key order is part of the contract."""
         now = self.generated_at
@@ -265,6 +314,7 @@ class Envelope:
             "data_age_seconds": _age_seconds(oldest.fetched_at, now) if oldest else None,
             "sources": sources,
             "untrusted": {str(key): str(value) for key, value in self.untrusted.items()},
+            "raw_omitted": self.raw_omitted,
             "data": _plain(self.data),
             "error": self.error.to_dict() if self.error is not None else None,
         }
