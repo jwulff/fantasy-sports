@@ -16,6 +16,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from fantasy_sports.commands.context import open_read, success
+from fantasy_sports.core.models import collect_untrusted
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from fantasy_sports.output.envelope import Envelope
@@ -33,11 +34,13 @@ def info(
     """The league itself: name, season, sport, team count, week, roster slots.
 
     ``data`` is a mapping. ``roster_slots`` is what makes a legal target lineup
-    constructible from normalized output alone (R3a).
+    constructible from normalized output alone (R3a). ``name`` is commissioner-
+    set free text, so it is also labeled in the envelope's ``untrusted`` map
+    (R1a).
     """
     ctx = open_read(league, season, fresh=fresh, no_cache=no_cache)
     found = ctx.provider.fetch_league(*ctx.target)
-    return success(ctx, found.to_dict(), command="league info")
+    return success(ctx, found.to_dict(), command="league info", untrusted=collect_untrusted(found))
 
 
 def teams(
@@ -50,11 +53,18 @@ def teams(
     """Every team, in the provider's own order — which is by team id, not rank.
 
     ``data`` is a list of team mappings. ``owner_names`` is plural on every
-    provider: a co-managed team has more than one.
+    provider: a co-managed team has more than one. Team names and owner
+    display names are member-set free text, so both are also labeled in the
+    envelope's ``untrusted`` map (R1a).
     """
     ctx = open_read(league, season, fresh=fresh, no_cache=no_cache)
     found = ctx.provider.fetch_teams(*ctx.target)
-    return success(ctx, [team.to_dict() for team in found], command="teams")
+    return success(
+        ctx,
+        [team.to_dict() for team in found],
+        command="teams",
+        untrusted=collect_untrusted(found),
+    )
 
 
 def standings(
@@ -67,8 +77,15 @@ def standings(
     """Teams in rank order, each carrying its 1-based ``standing``.
 
     ``data`` is a list of team mappings, first place first. The order is the
-    provider's own, tiebreakers included; do not re-sort it.
+    provider's own, tiebreakers included; do not re-sort it. Team names and
+    owner display names are labeled in the envelope's ``untrusted`` map, same
+    as ``teams`` (R1a).
     """
     ctx = open_read(league, season, fresh=fresh, no_cache=no_cache)
     found = ctx.provider.fetch_standings(*ctx.target)
-    return success(ctx, [team.to_dict() for team in found], command="standings")
+    return success(
+        ctx,
+        [team.to_dict() for team in found],
+        command="standings",
+        untrusted=collect_untrusted(found),
+    )

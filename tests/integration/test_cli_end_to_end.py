@@ -138,7 +138,10 @@ def test_each_command_emits_the_exact_json_envelope(
     assert payload["league_id"] == LEAGUE_ID
     assert payload["season"] == SEASON
     assert payload["error"] is None
-    assert payload["untrusted"] == {}
+    # Contents (which commands label which paths) are a unit-test concern --
+    # tests/unit/test_commands.py::test_teams_labels_each_teams_name_and_owners_as_untrusted
+    # and friends -- this file only proves the key survives the CLI projection.
+    assert isinstance(payload["untrusted"], dict)
     assert payload["data"] is not None
 
 
