@@ -21,6 +21,7 @@ from fantasy_sports.core.errors import (
     ErrorCode,
     FantasySportsError,
     LeagueNotFoundError,
+    NotAvailableError,
     ProviderUnavailableError,
     RateLimitedError,
     SchemaDriftError,
@@ -34,6 +35,7 @@ DOCUMENTED_CODES = {
     "AUTH_EXPIRED",
     "LEAGUE_NOT_FOUND",
     "CONFIG_INVALID",
+    "NOT_AVAILABLE",
     "PROVIDER_UNAVAILABLE",
     "RATE_LIMITED",
     "SCHEMA_DRIFT",
@@ -89,8 +91,29 @@ def test_credential_failures_are_not_retryable_and_availability_is():
     assert LeagueNotFoundError("nope").retryable is False
     assert ConfigInvalidError("broken toml").retryable is False
     assert SchemaDriftError("shape changed").retryable is False
+    assert NotAvailableError("espn refuses this request").retryable is False
     assert ProviderUnavailableError("espn 503").retryable is True
     assert RateLimitedError("slow down").retryable is True
+
+
+def test_a_positive_refusal_is_not_an_unclassifiable_one():
+    """The reason `NOT_AVAILABLE` was added (decision on #45).
+
+    `PROVIDER_UNAVAILABLE` is the honest landing place for a failure we cannot
+    classify, per R12 — bounded retry is safe when we are wrong. A refusal the
+    adapter can positively identify, like ESPN's pre-2019 box-score refusal, is
+    the opposite case: retrying it is never safe, because it will never
+    succeed. The two must stay distinguishable in the payload.
+    """
+    unclassifiable = ProviderUnavailableError("espn 503")
+    refused = NotAvailableError("ESPN does not serve box scores for the 2018 season.")
+
+    assert unclassifiable.code is ErrorCode.PROVIDER_UNAVAILABLE
+    assert refused.code is ErrorCode.NOT_AVAILABLE
+    assert refused.code is not ErrorCode.PROVIDER_UNAVAILABLE
+    assert unclassifiable.retryable is True
+    assert refused.retryable is False
+    assert refused.to_dict()["agent_action"] != unclassifiable.to_dict()["agent_action"]
 
 
 def test_a_broken_config_is_not_a_missing_league():
@@ -110,6 +133,34 @@ def test_a_broken_config_is_not_a_missing_league():
     # Not retryable, and distinguishable from both availability causes.
     assert broken.retryable is False
     assert broken.code not in {ErrorCode.PROVIDER_UNAVAILABLE, ErrorCode.RATE_LIMITED}
+
+
+def test_config_invalid_defaults_to_kind_config_and_records_it_in_details():
+    """jwulff/fantasy-sports#48 (ADR-0004 amended by ADR-0009).
+
+    `CONFIG_INVALID` covers two causes now — a config file that will not
+    parse, and a CLI argument only the provider can validate — rather than an
+    eighth taxonomy code for the second. `kind` is the discriminator, and it
+    defaults to `"config"` because every pre-existing raise site (a broken
+    `config.toml`, an unknown provider name, a malformed credentials file) is
+    that cause and none of them pass `kind` explicitly.
+    """
+    default = ConfigInvalidError("config.toml is not valid TOML")
+    assert default.kind == "config"
+    assert default.to_dict()["details"] == {"kind": "config"}
+
+    argument = ConfigInvalidError("bad --pos", kind="argument")
+    assert argument.kind == "argument"
+    assert argument.to_dict()["details"] == {"kind": "argument"}
+
+    # The class-level instruction no longer names a config file specifically —
+    # it has to be honest for both causes now.
+    assert "config file" not in default.agent_action.lower()
+    assert default.agent_action == argument.agent_action
+    # Exit status and retry semantics are identical either way; `kind` is
+    # metadata for a consumer that wants it, not a second taxonomy surface.
+    assert default.retryable is argument.retryable is False
+    assert default.code is argument.code is ErrorCode.CONFIG_INVALID
 
 
 # --- scrubbing: the guarantee that travelled with deleting `AuthError` ------

@@ -38,7 +38,9 @@ from conftest import build_vcr
 from fantasy_sports.core.errors import (
     AuthExpiredError,
     AuthMissingError,
+    ErrorCode,
     LeagueNotFoundError,
+    NotAvailableError,
     ProviderUnavailableError,
     RateLimitedError,
     SchemaDriftError,
@@ -552,6 +554,37 @@ def test_a_position_espn_would_silently_ignore_is_refused(synthetic: EspnProvide
     with pytest.raises(ValueError, match="not an ESPN position"):
         synthetic.fetch_free_agents(*SYNTHETIC, 2, position="PUNTER")
     assert synthetic.fetch_free_agents(*SYNTHETIC, 2, position="wr")
+
+
+def test_a_season_without_free_agents_is_refused_by_name_not_returned_empty(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """The free-agents twin of the box-scores refusal (jwulff/fantasy-sports#45).
+
+    ``espn-api`` refuses ``free_agents()`` before 2019 the same way it refuses
+    ``box_scores()`` — a bare ``Exception`` naming the season, raised before
+    ESPN is ever asked. It must land on ``NOT_AVAILABLE`` with
+    ``retryable=False``, not on ``PROVIDER_UNAVAILABLE``'s bounded-retry
+    instruction, which would tell an agent to keep asking ESPN for something it
+    will never serve.
+    """
+    from fantasy_sports.providers import espn as adapter
+
+    class _Refuses:
+        def free_agents(self, **kwargs: Any):
+            raise Exception("Cant use free agents before 2019")
+
+    @contextmanager
+    def _ctx(value: Any) -> Iterator[Any]:
+        yield value
+
+    monkeypatch.setattr(adapter.EspnProvider, "_read", lambda self, *a, **k: _ctx(_Refuses()))
+    with pytest.raises(NotAvailableError) as err:
+        adapter.EspnProvider().fetch_free_agents("99", 2018, 1)
+    assert err.value.code == ErrorCode.NOT_AVAILABLE
+    assert err.value.retryable is False
+    assert "2018" in err.value.details["season"]
+    assert "2019" in err.value.remediation
 
 
 def test_a_position_filtered_read_gets_its_own_recording(synthetic: EspnProvider):
@@ -1076,6 +1109,160 @@ def test_a_cache_hit_and_a_cache_miss_return_the_same_bytes(tmp_path):
         cold = EspnProvider(cache=store).fetch_teams(*SYNTHETIC)
         warm = EspnProvider(cache=store).fetch_teams(*SYNTHETIC)
     assert [team.to_dict() for team in cold] == [team.to_dict() for team in warm]
+
+
+# --------------------------------------------------------------------------- #
+# Freshness (jwulff/fantasy-sports#51)
+# --------------------------------------------------------------------------- #
+#
+# Verified live against the `supper-club` league on 2026-09-05: two reads two
+# and a half minutes apart from the same cache entry both reported
+# `age_seconds: 0`, because `fetched_at` was stamped with the *read's* clock
+# rather than the *write's*. These pin the fix at the one seam that mattered —
+# `_Transport._body` deciding what a hit's `fetched_at` is — with a clock
+# neither side can fudge.
+
+
+class _FrozenClock:
+    """One epoch, read by two clocks that disagree on shape.
+
+    :class:`~fantasy_sports.cache.store.CacheStore` timestamps a *write* with
+    an epoch float; :class:`EspnProvider` timestamps a *live fetch* with a
+    timezone-aware ``datetime``. A test proving the two agree on one entry's
+    age has to drive both from the same number, or a passing test would only
+    prove the two clocks happened to be close.
+    """
+
+    def __init__(self, epoch: float = 1_700_000_000.0) -> None:
+        self.epoch = epoch
+
+    def store_now(self) -> float:
+        return self.epoch
+
+    def provider_now(self) -> datetime:
+        return datetime.fromtimestamp(self.epoch, tz=UTC)
+
+    def advance(self, seconds: float) -> None:
+        self.epoch += seconds
+
+
+def test_a_cache_hit_reports_the_true_age_not_zero(tmp_path):
+    """AC1/AC2: a hit's `fetched_at` is the write time; age is `now - fetched_at`."""
+    from fantasy_sports.cache.store import CacheStore
+
+    clock = _FrozenClock()
+    store = CacheStore(tmp_path / "cache.sqlite3", now=clock.store_now)
+
+    with _cassette("espn/synthetic_2026.yaml"):
+        EspnProvider(cache=store, now=clock.provider_now).fetch_teams(*SYNTHETIC)
+        written_at = clock.provider_now()
+
+        clock.advance(150)
+        hit = EspnProvider(cache=store, now=clock.provider_now)
+        hit.fetch_teams(*SYNTHETIC)
+
+    assert hit.last_fetch is not None
+    assert all(source.cached for source in hit.last_fetch.sources)
+    assert all(source.fetched_at == written_at for source in hit.last_fetch.sources)
+
+    payload = Envelope.success(
+        sources=hit.last_fetch.sources, generated_at=clock.provider_now()
+    ).to_dict()
+    assert all(source["age_seconds"] == 150 for source in payload["sources"])
+    assert payload["data_age_seconds"] == 150
+
+
+def test_repeated_cache_hits_report_a_nonzero_and_growing_age(tmp_path):
+    """AC4: a second call inside the TTL must report a nonzero, growing age."""
+    from fantasy_sports.cache.store import CacheStore
+
+    clock = _FrozenClock()
+    store = CacheStore(tmp_path / "cache.sqlite3", now=clock.store_now)
+
+    with _cassette("espn/synthetic_2026.yaml"):
+        EspnProvider(cache=store, now=clock.provider_now).fetch_teams(*SYNTHETIC)
+
+        clock.advance(150)
+        first_hit = EspnProvider(cache=store, now=clock.provider_now)
+        first_hit.fetch_teams(*SYNTHETIC)
+        first_payload = Envelope.success(
+            sources=first_hit.last_fetch.sources, generated_at=clock.provider_now()
+        ).to_dict()
+
+        clock.advance(90)
+        second_hit = EspnProvider(cache=store, now=clock.provider_now)
+        second_hit.fetch_teams(*SYNTHETIC)
+        second_payload = Envelope.success(
+            sources=second_hit.last_fetch.sources, generated_at=clock.provider_now()
+        ).to_dict()
+
+    assert all(source.cached for source in second_hit.last_fetch.sources)
+    first_ages = {s["name"]: s["age_seconds"] for s in first_payload["sources"]}
+    second_ages = {s["name"]: s["age_seconds"] for s in second_payload["sources"]}
+    assert all(age == 150 for age in first_ages.values())
+    assert all(age == 240 for age in second_ages.values())
+    for name, first_age in first_ages.items():
+        assert second_ages[name] > first_age, "age must grow while the entry sits in cache"
+    assert second_payload["data_age_seconds"] == 240
+
+
+def test_fresh_and_no_cache_both_report_cached_false_and_zero_age(tmp_path):
+    """AC5: `--fresh` and `--no-cache` are never mistaken for a hit."""
+    from fantasy_sports.cache.store import CacheMode, CacheStore
+
+    clock = _FrozenClock()
+    store = CacheStore(tmp_path / "cache.sqlite3", now=clock.store_now)
+
+    with _cassette("espn/synthetic_2026.yaml"):
+        EspnProvider(cache=store, now=clock.provider_now).fetch_teams(*SYNTHETIC)
+        clock.advance(400)
+
+        refreshed = EspnProvider(cache=store, cache_mode=CacheMode.FRESH, now=clock.provider_now)
+        refreshed.fetch_teams(*SYNTHETIC)
+
+        bypassed = EspnProvider(cache=store, cache_mode=CacheMode.BYPASS, now=clock.provider_now)
+        bypassed.fetch_teams(*SYNTHETIC)
+
+    for provider in (refreshed, bypassed):
+        assert provider.last_fetch is not None
+        assert all(not source.cached for source in provider.last_fetch.sources)
+        payload = Envelope.success(
+            sources=provider.last_fetch.sources, generated_at=clock.provider_now()
+        ).to_dict()
+        assert all(source["age_seconds"] == 0 for source in payload["sources"])
+        assert payload["data_age_seconds"] == 0
+
+
+def test_a_multi_source_read_reports_the_oldest_contributing_fetch(tmp_path):
+    """AC3: `data_as_of`/`data_age_seconds` are the oldest source's, not the newest.
+
+    One provider, one read: the four bootstrap views come back from cache at
+    age 200, and asking the same instance for a scoring period it has never
+    fetched forces a genuinely live sub-request at age 0 in the same envelope.
+    """
+    from fantasy_sports.cache.store import CacheStore
+
+    clock = _FrozenClock()
+    store = CacheStore(tmp_path / "cache.sqlite3", now=clock.store_now)
+
+    with _cassette("espn/synthetic_2026.yaml"):
+        EspnProvider(cache=store, now=clock.provider_now).fetch_teams(*SYNTHETIC)
+
+        clock.advance(200)
+        mixed = EspnProvider(cache=store, now=clock.provider_now)
+        mixed.fetch_teams(*SYNTHETIC)
+        mixed.fetch_matchups(*SYNTHETIC, week=14)
+
+        payload = Envelope.success(
+            sources=mixed.last_fetch.sources, generated_at=clock.provider_now()
+        ).to_dict()
+
+    ages = {source["name"]: source["age_seconds"] for source in payload["sources"]}
+    assert any(age == 200 for age in ages.values()), "the cache hits"
+    assert any(age == 0 for age in ages.values()), "the fresh sub-request"
+    assert payload["data_age_seconds"] == 200, "the oldest contributing fetch, not the newest"
+    oldest = min(payload["sources"], key=lambda source: source["fetched_at"])
+    assert payload["data_as_of"] == oldest["fetched_at"]
 
 
 def test_the_free_agent_filter_header_is_part_of_the_cache_key(tmp_path):

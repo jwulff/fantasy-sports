@@ -114,6 +114,7 @@ from fantasy_sports.core.errors import (
     AuthMissingError,
     FantasySportsError,
     LeagueNotFoundError,
+    NotAvailableError,
     ProviderUnavailableError,
     RateLimitedError,
     SchemaDriftError,
@@ -131,7 +132,12 @@ from fantasy_sports.core.models import (
     Transaction,
 )
 from fantasy_sports.core.redaction import remember_secret, scrub_credential_patterns
-from fantasy_sports.output.envelope import DataSource, from_epoch_millis, utc_now
+from fantasy_sports.output.envelope import (
+    DataSource,
+    from_epoch_millis,
+    from_epoch_seconds,
+    utc_now,
+)
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from fantasy_sports.cache.store import CacheMode, CacheStore
@@ -527,7 +533,9 @@ class _Transport:
         league_scoped: bool,
     ) -> Any:
         view = _view_of(params)
-        body, cached, stored = self._body(url, params, headers, extend=extend, view=view)
+        body, cached, stored, fetched_at = self._body(
+            url, params, headers, extend=extend, view=view
+        )
         try:
             payload = json.loads(body)
         except (ValueError, TypeError) as exc:
@@ -549,7 +557,12 @@ class _Transport:
         self.responses[_record_key(view, params)] = RawResponse(
             view=view,
             payload=payload,
-            fetched_at=self._now(),
+            # A cache hit is timestamped when the entry was *written*, never
+            # when it was *read* — otherwise every hit reports itself as
+            # brand new (jwulff/fantasy-sports#51). ``_body`` only returns a
+            # ``fetched_at`` for a hit; every other path (live, ``--fresh``,
+            # ``--no-cache``) is genuinely "now".
+            fetched_at=fetched_at if fetched_at is not None else self._now(),
             cached=cached,
         )
         return payload
@@ -597,16 +610,19 @@ class _Transport:
         *,
         extend: str,
         view: str,
-    ) -> tuple[str, bool, bool]:
+    ) -> tuple[str, bool, bool, datetime | None]:
         """The response body, from the cache where one is configured.
 
         The third element is whether *this call* wrote the entry -- distinct
         from a cache hit, and what :meth:`_note_season_status` needs to decide
-        whether there is anything of its own left to correct.
+        whether there is anything of its own left to correct. The fourth is
+        the entry's true fetch time on a cache hit, and ``None`` on anything
+        else -- a live fetch, a ``--fresh`` refresh, or a ``--no-cache`` bypass
+        all happen "now", which the caller already knows without our help.
         """
         if self._store is None:
             body = _as_text(self._live(url, params, headers, extend=extend, view=view))
-            return body, False, False
+            return body, False, False, None
 
         from fantasy_sports.cache.store import CachingFetcher
 
@@ -623,7 +639,12 @@ class _Transport:
             context=self._context(view, params),
             extra=_filter_dimension(headers),
         )
-        return result.body, result.cached, result.stored
+        fetched_at = (
+            from_epoch_seconds(result.fetched_at)
+            if result.cached and result.fetched_at is not None
+            else None
+        )
+        return result.body, result.cached, result.stored, fetched_at
 
     def _context(self, view: str, params: Mapping[str, Any] | None) -> RequestContext:
         """What the cache needs to know about this request.
@@ -1117,9 +1138,13 @@ class EspnProvider:
         separate method rather than a flag.
 
         The library refuses box scores before 2019 outright. That refusal
-        surfaces as ``PROVIDER_UNAVAILABLE`` naming the season, not as an empty
+        surfaces as ``NOT_AVAILABLE`` naming the season, not as an empty
         list: "no box score exists for this season" and "nobody scored" are
         different answers and a consumer cannot tell them apart from ``[]``.
+        ``NOT_AVAILABLE`` rather than ``PROVIDER_UNAVAILABLE`` because this is a
+        refusal we can positively classify, not one we cannot
+        (jwulff/fantasy-sports#45) — ``retryable`` must be ``False``, since ESPN
+        will never start serving 2018 box scores.
         """
         with self._read(league_id, season, "fetch_box_scores") as league:
             scoring_period = _as_int(week)
@@ -1132,8 +1157,8 @@ class EspnProvider:
             try:
                 found = league.box_scores(matchup_period)
             except Exception as exc:  # noqa: BLE001 - library raises bare Exception
-                if "box score" in str(exc).lower():
-                    raise ProviderUnavailableError(
+                if _is_library_refusal(exc):
+                    raise NotAvailableError(
                         f"ESPN does not serve box scores for the {season} season.",
                         remediation=(
                             "Box scores exist from 2019 onward. Use `matchups` for an "
@@ -1217,6 +1242,13 @@ class EspnProvider:
         its own default player set, which looks like free agents and is not
         filtered the way you asked. An unknown position is therefore refused
         here rather than sent.
+
+        The library refuses free agents before 2019 outright, the same way it
+        refuses box scores. That refusal surfaces as ``NOT_AVAILABLE`` naming
+        the season rather than ``PROVIDER_UNAVAILABLE``'s bounded-retry
+        instruction — this is a refusal we can positively classify, not one we
+        cannot, and ESPN will never start serving free agents for a 2018 league
+        (jwulff/fantasy-sports#45).
         """
         slot = None if position is None else _position_key(position)
         if position is not None and slot is None:
@@ -1225,9 +1257,21 @@ class EspnProvider:
             )
         with self._read(league_id, season, "fetch_free_agents") as league:
             scoring_period = _as_int(week) or _as_int(league.current_week)
-            players = league.free_agents(
-                week=scoring_period, size=self._free_agent_limit, position=slot
-            )
+            try:
+                players = league.free_agents(
+                    week=scoring_period, size=self._free_agent_limit, position=slot
+                )
+            except Exception as exc:  # noqa: BLE001 - library raises bare Exception
+                if _is_library_refusal(exc):
+                    raise NotAvailableError(
+                        f"ESPN does not serve free agents for the {season} season.",
+                        remediation=(
+                            "Free agents exist from 2019 onward. Use `transactions` for an "
+                            "earlier season; it shows roster moves that already happened."
+                        ),
+                        details={"season": str(season), "week": str(scoring_period)},
+                    ) from exc
+                raise
             transport = self._transport(league_id, season)
             entries = _free_agent_entries(transport.responses)
             kickoffs = _kickoff_map(transport.responses)
@@ -1443,6 +1487,31 @@ def _revealed(credentials: Mapping[str, Any] | None) -> dict[str, str]:
 # --------------------------------------------------------------------------- #
 # Failure mapping
 # --------------------------------------------------------------------------- #
+
+_LIBRARY_REFUSALS: Final[tuple[str, ...]] = (
+    "cant use box score before",
+    "cant use free agents before",
+    "cant use recent activity before",
+)
+"""The three refusals ``espn-api`` raises as a bare ``Exception``, on the year,
+before any HTTP request is made — see
+``docs/memory/espn-api-is-a-shape-reader-not-a-client.md``. Matched against this
+known set rather than a loose substring, so an unrelated library message is not
+misclassified as a permanent refusal."""
+
+
+def _is_library_refusal(exc: BaseException) -> bool:
+    """True for a known pre-2019 refusal.
+
+    ``espn-api`` keeps no structured attribute for these — the exception is the
+    base ``Exception`` class with a sentence in it — so message-text matching
+    is what the adapter has to work with. This narrows the catch-all in
+    :func:`_mapped`: a positively classifiable refusal (jwulff/fantasy-sports#45)
+    is caught by the caller *before* it reaches the catch-all, so it never
+    inherits ``PROVIDER_UNAVAILABLE``'s ``retryable: true``.
+    """
+    text = str(exc).lower()
+    return any(needle in text for needle in _LIBRARY_REFUSALS)
 
 
 @contextmanager

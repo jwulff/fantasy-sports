@@ -8,6 +8,7 @@ import pytest
 
 from fantasy_sports.commands import (
     COMMON_PARAMS,
+    NO_RAW_PARAM,
     OUTPUT_PARAM,
     REGISTRY,
     CommandSpec,
@@ -89,11 +90,17 @@ def test_common_options_reach_every_league_reading_command():
         common = {param.name for param in COMMON_PARAMS}
         assert (common <= names) is spec.takes_league, spec.invocation
         assert "output" not in names, f"{spec.invocation}: rendering is not a handler concern"
+        assert "no_raw" not in names, f"{spec.invocation}: raw-stripping is not a handler concern"
 
 
 def test_the_cli_adds_output_to_every_command():
     for spec in REGISTRY.values():
-        assert spec.cli_params[-1] is OUTPUT_PARAM
+        assert spec.cli_params[-2] is OUTPUT_PARAM
+
+
+def test_the_cli_adds_no_raw_to_every_command():
+    for spec in REGISTRY.values():
+        assert spec.cli_params[-1] is NO_RAW_PARAM
 
 
 def test_a_flag_defaults_to_its_dashed_name():

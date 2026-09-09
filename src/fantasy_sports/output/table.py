@@ -32,15 +32,31 @@ __all__ = ["render"]
 WIDTH = 100
 
 
-def _cell(value: Any) -> str:
-    """One table cell, as text. Nested structures render as compact JSON."""
+def _cell(value: Any) -> Any:
+    """One table cell. Nested structures render as compact JSON.
+
+    A ``str`` or a JSON-dumped structure becomes a ``rich.text.Text`` rather
+    than a bare ``str``: ``Table.add_row`` parses a bare string as ``rich``'s
+    own ``[markup]`` syntax, and ESPN free text a league member set is enough
+    to trigger it — ``Team [bold red]HACKED[/bold red]`` silently strips the
+    tags and injects styling, and ``Team [/bold]`` raises ``MarkupError`` and
+    crashes the render outright (jwulff/fantasy-sports#17). ``Text`` bypasses
+    markup parsing entirely, so whatever the provider sent renders as literal
+    characters no matter what they spell — the fix applies to every cell, not
+    only the fields the envelope labels ``untrusted``, because any field can
+    carry provider-controlled text and a render must never crash on it.
+    """
     if value is None:
         return ""
     if isinstance(value, bool):
         return "true" if value else "false"
-    if isinstance(value, str | int | float):
+    if isinstance(value, int | float):
         return str(value)
-    return json.dumps(value, ensure_ascii=False)
+    from rich.text import Text
+
+    if isinstance(value, str):
+        return Text(value)
+    return Text(json.dumps(value, ensure_ascii=False))
 
 
 def _header_line(payload: Mapping[str, Any]) -> str:
