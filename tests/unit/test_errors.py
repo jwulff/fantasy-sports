@@ -112,6 +112,34 @@ def test_a_broken_config_is_not_a_missing_league():
     assert broken.code not in {ErrorCode.PROVIDER_UNAVAILABLE, ErrorCode.RATE_LIMITED}
 
 
+def test_config_invalid_defaults_to_kind_config_and_records_it_in_details():
+    """jwulff/fantasy-sports#48 (ADR-0004 amended by ADR-0009).
+
+    `CONFIG_INVALID` covers two causes now — a config file that will not
+    parse, and a CLI argument only the provider can validate — rather than an
+    eighth taxonomy code for the second. `kind` is the discriminator, and it
+    defaults to `"config"` because every pre-existing raise site (a broken
+    `config.toml`, an unknown provider name, a malformed credentials file) is
+    that cause and none of them pass `kind` explicitly.
+    """
+    default = ConfigInvalidError("config.toml is not valid TOML")
+    assert default.kind == "config"
+    assert default.to_dict()["details"] == {"kind": "config"}
+
+    argument = ConfigInvalidError("bad --pos", kind="argument")
+    assert argument.kind == "argument"
+    assert argument.to_dict()["details"] == {"kind": "argument"}
+
+    # The class-level instruction no longer names a config file specifically —
+    # it has to be honest for both causes now.
+    assert "config file" not in default.agent_action.lower()
+    assert default.agent_action == argument.agent_action
+    # Exit status and retry semantics are identical either way; `kind` is
+    # metadata for a consumer that wants it, not a second taxonomy surface.
+    assert default.retryable is argument.retryable is False
+    assert default.code is argument.code is ErrorCode.CONFIG_INVALID
+
+
 # --- scrubbing: the guarantee that travelled with deleting `AuthError` ------
 
 

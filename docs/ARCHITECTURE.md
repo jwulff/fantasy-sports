@@ -205,7 +205,7 @@ down" (retry later) without parsing English:
 | `AUTH_MISSING` | No credentials configured | Ask human to run `auth login` |
 | `AUTH_EXPIRED` | ESPN cookies rejected | Ask human to re-extract cookies |
 | `LEAGUE_NOT_FOUND` | Bad league ID or no access | Ask human |
-| `CONFIG_INVALID` | `config.toml` will not parse | Ask human to fix the file |
+| `CONFIG_INVALID` | `config.toml` will not parse, or a command argument only the provider can validate came back invalid | Ask human to fix the input named in the message |
 | `PROVIDER_UNAVAILABLE` | ESPN 5xx / timeout | Retry with backoff |
 | `RATE_LIMITED` | Throttled | Retry after `retry_after` |
 | `SCHEMA_DRIFT` | Response shape unrecognized | Stop; file an issue |
@@ -222,6 +222,15 @@ Each code carries its own **exit status** so a cron job can branch without
 parsing anything: `AUTH_MISSING` 3, `AUTH_EXPIRED` 4, `LEAGUE_NOT_FOUND` 5,
 `CONFIG_INVALID` 6, `PROVIDER_UNAVAILABLE` 7, `RATE_LIMITED` 8, `SCHEMA_DRIFT` 9;
 `0` success, `1` an unclassified crash, `2` a usage error.
+
+**`CONFIG_INVALID` covers two causes, not one (ADR-0004 amended by ADR-0009).**
+A `config.toml` that will not parse and a CLI argument ESPN itself rejects — a
+`--pos` it does not recognise, a `--filter` that is not JSON, a `raw` with no
+`--view` — get the identical code, exit status, and `retryable: false`, because
+they tell an agent the identical thing: stop, ask a human, retrying unchanged
+cannot work. There is no eighth code for the second cause; `details.kind`
+(`"config"` or `"argument"`) is the discriminator for a consumer that wants to
+tell them apart without a second exit status to branch on.
 
 **stdout stays byte-empty on failure**, and a failure is always JSON whatever
 `--output` asked for. A consumer piping stdout into a parser must never receive

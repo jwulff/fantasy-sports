@@ -1,0 +1,126 @@
+name: Release
+
+# Two ways in:
+#   1. Push of a `vX.Y.Z` tag -> build, verify, publish to the real PyPI.
+#   2. Manual `workflow_dispatch` -> build, verify, publish to TestPyPI.
+#      This is the dry-run path: it exercises the exact same build/test/
+#      publish pipeline against TestPyPI so the first time the tag-triggered
+#      job talks to a package index is not the first time it has ever run.
+#
+# No PyPI API token exists anywhere in this repo. Both publish jobs
+# authenticate purely via OIDC trusted publishing (`id-token: write`) — see
+# docs/RELEASING.md for the one-time PyPI-side setup this depends on.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: test (py${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - run: uv sync
+      - name: Lint
+        run: uv run ruff check .
+      - name: Format
+        run: uv run ruff format --check .
+      - name: Unit tests, offline, coverage enforced
+        run: uv run pytest -m "not live" --cov --cov-report=term-missing
+
+  budgets:
+    name: ADR-0008 budgets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - run: uv sync
+      - name: Dependency count and wheel size
+        run: uv run python scripts/check_budgets.py
+      - name: Cold start
+        run: uv run python scripts/check_startup.py
+
+  build:
+    name: Build and smoke-test the distribution
+    needs: [test, budgets]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Build sdist and wheel
+        run: uv build
+      - name: Wheel installs and both console scripts run
+        # Installs the built wheel into an isolated tool env (no dev deps,
+        # no editable install, no local src/ on the path) and runs each
+        # [project.scripts] entry point exactly as a fresh `uv tool install`
+        # user would invoke it. This is the acceptance criterion from #13:
+        # `uv tool install fantasy-sports` must work from a clean machine.
+        run: |
+          set -eu
+          wheel=$(ls dist/*.whl)
+          version=$(uvx --from "$wheel" fantasy-sports --version)
+          echo "fantasy-sports --version -> $version"
+          uvx --from "$wheel" fantasy --version
+          uvx --from "$wheel" fantasy-sports --help >/dev/null
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  publish-testpypi:
+    name: Publish to TestPyPI (dry run)
+    if: github.event_name == 'workflow_dispatch'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/fantasy-sports
+    permissions:
+      id-token: write # the entire trusted-publishing auth story; no secret needed
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
+
+  publish-pypi:
+    name: Publish to PyPI
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/fantasy-sports
+    permissions:
+      id-token: write # the entire trusted-publishing auth story; no secret needed
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          attestations: true
