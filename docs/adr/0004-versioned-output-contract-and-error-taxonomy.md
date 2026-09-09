@@ -10,7 +10,9 @@
 `CONFIG_INVALID` also covers an argument only the provider can validate (no
 eighth code); its `agent_action` no longer names a config file specifically,
 and it gains a `details.kind` (`"config"` or `"argument"`) discriminator
-(jwulff/fantasy-sports#48).
+(jwulff/fantasy-sports#48). **Amended:** 2026-09-08 — clarified what
+`fetched_at` means on a cache hit, after it shipped decorative
+(jwulff/fantasy-sports#51).
 
 ## Context
 
@@ -163,6 +165,43 @@ an API change, exactly like renaming a code.
 never receive half a payload followed by an error — and **a failure is always
 JSON**, whatever `--output` asked for, because a table-formatted error is prose
 again.
+
+### Amendment, 2026-09-08: what `fetched_at` means on a cache hit
+
+The original decision never said, and the freshness contract shipped inert
+because of it: every `sources[].fetched_at` was stamped with the *current*
+call's clock, cached or not, so `age_seconds` was always `0` and `cached: true`
+was the only honest field in the envelope
+(jwulff/fantasy-sports#51). A downstream consumer,
+`jwulff/league-gazette`'s `gazette snapshot`, refuses to build an issue from
+data older than an hour — a gate that cannot do its job against a field that
+never moves.
+
+**`fetched_at` is when the bytes left the provider, not when this process read
+them.** For a live request that is the same instant either way, so the
+ambiguity was invisible until a second read hit the cache. Made explicit here:
+
+- A cache **miss** — live, `--fresh`, or `--no-cache` — reports `fetched_at` as
+  now and `age_seconds` as `0`. The bytes and the read are the same moment by
+  construction.
+- A cache **hit** reports `fetched_at` as the moment the entry was *written*,
+  carried on the cache store's own clock
+  (`fantasy_sports.cache.store.CacheStore._now`, not the reader's). `age_seconds`
+  is `now - fetched_at` and grows on every subsequent hit until the entry
+  expires or is refreshed.
+- `data_as_of` / `data_age_seconds` are unchanged by this amendment — they were
+  already specified as the oldest contributing `fetched_at`
+  (origin R4) — but they were exercising a value that never varied. They now
+  do.
+
+The fix lives at the one seam that decides it:
+`fantasy_sports.cache.store.FetchResult.fetched_at` carries the entry's
+`stored_at` on a hit and `None` on anything else, and
+`fantasy_sports.providers.espn._Transport._body` is the only place that reads
+it. Nothing about the envelope's own arithmetic changed —
+`fantasy_sports.output.envelope.Envelope.to_dict` was already computing
+`age_seconds` correctly from whatever `fetched_at` it was handed; the bug was
+that every `fetched_at` reaching it said "now."
 
 ## Consequences
 
