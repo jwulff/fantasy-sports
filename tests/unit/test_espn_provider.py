@@ -1118,6 +1118,7 @@ from fantasy_sports.providers.espn import (  # noqa: E402 - grouped with its sec
     _roster_slots,
     _schedule_entries,
     _scoring_periods,
+    _season_finished,
     _team_id_of,
     _teams_by_id,
     _unpack_action,
@@ -1382,3 +1383,91 @@ def test_a_taxonomy_error_from_a_transaction_surface_is_not_swallowed():
         provider._espn_transactions(_Throttled(), 2)
     with pytest.raises(RateLimitedError):
         provider._activity(_Throttled())
+
+
+# --------------------------------------------------------------------------- #
+# `current_season` -- caching a finished season forever (#44)
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize(
+    ("latest", "final", "expected"),
+    [
+        (2, 14, False),  # mid-season: plenty of scoring periods still to play
+        (17, 17, True),  # the boundary: the last scoring period is also the latest one
+        (18, 17, True),  # the real canary payload: latest overshoots final
+    ],
+)
+def test_season_finished_reads_espns_own_status_block(latest, final, expected):
+    payload = {"status": {"latestScoringPeriod": latest, "finalScoringPeriod": final}}
+    assert _season_finished(payload) is expected
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"status": {"latestScoringPeriod": 2}},  # finalScoringPeriod absent
+        {"status": {}},
+        {"no_status_key": True},
+        ["not", "a", "mapping"],
+        "players_wl answers with a list, not even a dict",
+    ],
+)
+def test_season_finished_is_none_without_both_fields(payload):
+    """``None`` means "no signal here", never "season not finished".
+
+    Most views -- ``players_wl``, ``proTeamSchedules_wl``, ``mDraftDetail``,
+    ``mTransactions2`` -- carry no ``status`` block at all, and the adapter
+    must not mistake their silence for "the season is still in progress."
+    """
+    assert _season_finished(payload) is None
+
+
+def test_a_historical_season_bootstrap_caches_forever(tmp_path):
+    """The acceptance criterion: reading twice against a clock that has jumped
+    well past every ordinary TTL still serves the bootstrap from the store.
+
+    ``canary_2018`` is a completed season -- ESPN's own ``status`` block says
+    ``latestScoringPeriod`` (18) has passed ``finalScoringPeriod`` (17). The
+    bootstrap is the largest payload ESPN serves and the one #44 is about
+    (jwulff/fantasy-sports#44): before this fix, ``current_season`` was never
+    supplied, so this request re-fetched every five minutes forever.
+    """
+    import time
+
+    from fantasy_sports.cache.store import CacheStore
+
+    clock = [time.time()]
+    store = CacheStore(tmp_path / "cache.sqlite3", now=lambda: clock[0])
+    with _cassette("espn/canary_2018.yaml"):
+        EspnProvider(cache=store).fetch_league(*CANARY)
+
+    clock[0] += 400 * 24 * 60 * 60  # well past every entry in TTL_SECONDS (max 24h)
+
+    with _cassette("espn/canary_2018.yaml"):
+        warm = EspnProvider(cache=store)
+        warm.fetch_league(*CANARY)
+    assert all(response.cached for response in warm.last_fetch.responses.values())
+
+
+def test_a_current_season_bootstrap_keeps_ordinary_ttls(tmp_path):
+    """The other half of the acceptance criteria: a current-season read is
+    unaffected. It must still expire and re-fetch -- a bug that makes every
+    season "historical" would pass the test above and silently serve stale
+    live-season data forever.
+    """
+    import time
+
+    from fantasy_sports.cache.store import CacheStore
+
+    clock = [time.time()]
+    store = CacheStore(tmp_path / "cache.sqlite3", now=lambda: clock[0])
+    with _cassette("espn/synthetic_2026.yaml"):
+        EspnProvider(cache=store).fetch_league(*SYNTHETIC)
+
+    clock[0] += 400 * 24 * 60 * 60
+
+    with _cassette("espn/synthetic_2026.yaml"):
+        warm = EspnProvider(cache=store)
+        warm.fetch_league(*SYNTHETIC)
+    assert all(not response.cached for response in warm.last_fetch.responses.values())
