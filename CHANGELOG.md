@@ -40,6 +40,17 @@ football API, distributed via `uv tool install fantasy-sports`.
   `docs/adr/0008-performance-and-quality-budgets.md`.
 - **Trusted publishing to PyPI** via GitHub Actions OIDC — no long-lived API
   token stored anywhere in this repo (#13).
+- **`pro_team` on every lineup entry** of `box-scores`, so a consumer can
+  place a player in a game without deriving his club from the opponent (#72).
+
+### Fixed
+
+- **`box-scores` lost every `pro_opponent`** for a league whose
+  `mPositionalRatings` view ESPN served without its `positionAgainstOpponent`
+  key — two of three leagues on opening night 2026. `espn-api` gates the
+  opponent on the ratings; the adapter now reads it from
+  `proTeamSchedules_wl` directly, and the library's `"None"` sentinel no
+  longer reaches the output as a club (#72).
 
 ### Out of scope for v0.1
 

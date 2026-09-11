@@ -81,15 +81,23 @@ def query_key(url: str, extra: list[tuple[str, str]] | None = None) -> tuple[Any
 
 
 class RecordedEspn:
-    """Serves a committed cassette, and answers a quiet scoring period honestly."""
+    """Serves a committed cassette, and answers a quiet scoring period honestly.
 
-    def __init__(self, name: str = CASSETTE) -> None:
+    ``overrides`` substitutes one view's payload for every request of it,
+    whatever the scoring period. A *payload* variation on an otherwise healthy
+    league -- a view ESPN shipped without a key it usually carries -- belongs
+    next to the assertion that needs it, not in a second cassette to keep in
+    step with the first.
+    """
+
+    def __init__(self, name: str = CASSETTE, overrides: Mapping[str, Any] | None = None) -> None:
         import yaml
         from conftest import CASSETTE_LIBRARY_DIR
 
         document = yaml.safe_load(Path(CASSETTE_LIBRARY_DIR / name).read_text())
         self.bodies: dict[tuple[Any, ...], str] = {}
         self.by_view: dict[str, str] = {}
+        self.overrides = dict(overrides or {})
         for interaction in document["interactions"]:
             uri = interaction["request"]["uri"]
             body = interaction["response"]["body"]["string"]
@@ -107,6 +115,8 @@ class RecordedEspn:
         flat = dict(pairs)
         self.calls.append({"url": url, "params": flat, "headers": dict(headers or {})})
 
+        if flat.get("view") in self.overrides:
+            return FakeResponse(self.overrides[flat["view"]])
         body = self.bodies.get(query_key(url, pairs))
         if body is None and len([v for k, v in pairs if k == "view"]) == 1:
             # `raw` asks for one view with no scoring period; the fixture
@@ -131,11 +141,13 @@ class RecordedEspn:
         return found
 
 
-def install_espn(monkeypatch: Any, name: str = CASSETTE) -> RecordedEspn:
+def install_espn(
+    monkeypatch: Any, name: str = CASSETTE, overrides: Mapping[str, Any] | None = None
+) -> RecordedEspn:
     """Route the adapter's transport at the recorded fixture."""
     import requests
 
-    http = RecordedEspn(name)
+    http = RecordedEspn(name, overrides)
     monkeypatch.setattr(requests, "get", http)
     return http
 
