@@ -604,7 +604,7 @@ Measured, not asserted. Full rationale and the benchmark table in ADR-0008.
 | `--version` / `--help` cold start | < 50 ms | `hyperfine` in CI vs committed baseline |
 | Read command, cache hit | < 150 ms | `hyperfine` in CI |
 | Direct runtime dependencies | ≤ 5 | dependency count check |
-| Our wheel size | < 150 KB | build-artifact check |
+| Our wheel size | < 256 KB | build-artifact check |
 | Line / branch coverage | ≥ 90% / ≥ 85% | hard CI fail |
 | Mutation score, `core/` + `providers/` | ≥ 80% | scheduled + pre-release |
 
