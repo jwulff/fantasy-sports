@@ -52,11 +52,95 @@ uv sync
 uv run fantasy-sports --help
 ```
 
+## First run
+
+Five steps take a fresh install to a first successful command. Every read
+command needs both ESPN cookies, even for a public league: the CLI resolves
+the credential chain before it sends anything, so with no cookies configured
+it exits `AUTH_MISSING` without making a request.
+
+### 1. Find your league id
+
+Open your league at fantasy.espn.com. The id is the `leagueId=` query
+parameter on any page for that league, for example
+`https://fantasy.espn.com/football/league?leagueId=123456`.
+
+### 2. Copy the two cookies
+
+ESPN has no API keys; your browser's session cookies stand in for a login.
+While logged in at fantasy.espn.com, open DevTools and go to Application →
+Cookies (Chrome) or Storage → Cookies (Firefox), then select
+`https://fantasy.espn.com`. Copy the value of `espn_s2`, and the value of
+`SWID` including its curly braces (`{...}`).
+
+These are session credentials. Anyone holding them can act as you on ESPN,
+so treat them like a password: never paste them into an issue or a shell
+argument, and if you think they have leaked, log out of ESPN to invalidate
+them ([SECURITY.md](SECURITY.md#if-a-cookie-leaks)).
+
+### 3. Store them
+
+```bash
+fantasy-sports auth login
+```
+
+The command prompts for each cookie without echoing it and stores both in
+the macOS Keychain. Nothing is written until both values validate, and a
+SWID pasted without its braces is repaired rather than rejected. A host with
+no Keychain (cron, CI, headless Linux) can supply the cookies through the
+`FANTASY_SPORTS_ESPN_S2` and `FANTASY_SPORTS_SWID` environment variables or
+a `[credentials]` table in `config.toml`; the full resolution order is in
+[SECURITY.md](SECURITY.md#where-your-credentials-are-stored).
+
+### 4. Write the config file
+
+Create `~/.config/fantasy-sports/config.toml` (`$XDG_CONFIG_HOME` is
+honored on every platform, including macOS). Each `[leagues.<name>]` table
+is one league, and `<name>` is whatever you want to type after `--league`.
+This example configures two:
+
+```toml
+default = "my-league"
+
+[leagues.my-league]
+provider  = "espn"
+league_id = "123456"
+season    = 2026
+sport     = "football"
+
+[leagues.work-league]
+provider  = "espn"
+league_id = "654321"
+season    = 2026
+sport     = "football"
+```
+
+`provider`, `league_id`, and `season` are required; `sport` is optional and
+defaults to `"football"`. `league_id` may be a quoted string or a bare
+integer. `default` names the league used when `--league` is omitted, and is
+implied when only one league is configured. A misspelled key inside a
+`[leagues.<name>]` table fails as `CONFIG_INVALID` rather than being
+silently ignored.
+
+### 5. Check, then run
+
+```bash
+fantasy-sports doctor
+fantasy-sports league info --league my-league
+```
+
+`doctor` reports one `ok`/`warn`/`error` per check without touching ESPN:
+config parsed, both credentials present, cache reachable. `league info` is
+the first real request. If it fails with `LEAGUE_NOT_FOUND`, either the
+`--league` name is not in `config.toml` (the message lists what is), or
+ESPN refused the league, which it does identically for a wrong id, an
+expired cookie, and an account that is not a member, so re-check all three
+rather than re-extracting the cookies first (see [Errors](#errors)).
+
 ## Quick start
 
-Configure a league in `~/.config/fantasy-sports/config.toml` (see
-[Credentials](#credentials) below), then, using a neutral league name in
-place of your real one:
+With cookies stored and a league configured (see [First run](#first-run)
+above), and using a neutral league name in place of your real one:
 
 ```bash
 fantasy-sports league info --league my-league

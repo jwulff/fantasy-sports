@@ -14,8 +14,10 @@ section will name which lines still receive fixes.
 ## Where your credentials are stored
 
 ESPN's fantasy API is unofficial and cookie-authenticated: `espn_s2` and
-`SWID` from your browser's cookie jar stand in for a login. The CLI resolves
-them in this order, and stops at the first one it finds:
+`SWID` from your browser's cookie jar stand in for a login. How to find and
+copy them is in the README's [First run](README.md#first-run) section; this
+document covers what happens to them afterwards. The CLI resolves them in
+this order, and stops at the first one it finds:
 
 1. **Environment variables**: `FANTASY_SPORTS_ESPN_S2` / `FANTASY_SPORTS_SWID`
    (also accepts the bare `ESPN_S2` / `ESPN_SWID` / `SWID` names some other
