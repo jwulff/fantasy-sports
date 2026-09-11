@@ -1137,6 +1137,16 @@ class EspnProvider:
         which is why this costs more than :meth:`fetch_matchups` and is a
         separate method rather than a flag.
 
+        Each lineup entry's ``pro_opponent`` is read from the raw
+        ``proTeamSchedules_wl`` payload, not from ``espn-api``'s
+        ``BoxPlayer.pro_opponent``. The library only names an opponent when
+        the player's position appears under ``mPositionalRatings``, and ESPN
+        serves that view without its ``positionAgainstOpponent`` key for some
+        leagues until the ratings exist -- on opening night 2026 two of three
+        leagues lost every opponent that way (jwulff/fantasy-sports#72). The
+        schedule is a fact about the NFL week; the ratings are a fact about
+        how the matchup is rated, and the first must not wait on the second.
+
         The library refuses box scores before 2019 outright. That refusal
         surfaces as ``NOT_AVAILABLE`` naming the season, not as an empty
         list: "no box score exists for this season" and "nobody scored" are
@@ -1167,12 +1177,14 @@ class EspnProvider:
                         details={"season": str(season), "week": str(scoring_period)},
                     ) from exc
                 raise
+            opponents = _opponent_map(self._transport(league_id, season).responses)
             return [
                 _box_score(
                     item,
                     scoring_period=scoring_period,
                     matchup_period=matchup_period,
                     index=index,
+                    opponents=opponents,
                 )
                 for index, item in enumerate(found)
             ]
@@ -1831,13 +1843,41 @@ def _kickoff_map(responses: Mapping[str, RawResponse]) -> dict[tuple[int, int], 
     item 8 requires; the output layer refuses a naive datetime outright, so
     reaching for the library's value fails loudly rather than silently.
     """
-    response = _latest(responses, "proTeamSchedules_wl")
     kickoffs: dict[tuple[int, int], int] = {}
+    for team_id, week, game in _pro_games(responses):
+        when = _as_int(game.get("date"))
+        if when is not None:
+            kickoffs[(team_id, week)] = when
+    return kickoffs
+
+
+def _opponent_map(responses: Mapping[str, RawResponse]) -> dict[tuple[int, int], int]:
+    """``(proTeamId, scoringPeriod)`` to the opposing ``proTeamId``.
+
+    From the same ``proTeamSchedules_wl`` payload as :func:`_kickoff_map`, and
+    for the same reason: it is the one source that answers without a condition
+    attached. A team absent for a period is on a bye.
+    """
+    opponents: dict[tuple[int, int], int] = {}
+    for team_id, week, game in _pro_games(responses):
+        home = _as_int(game.get("homeProTeamId"))
+        away = _as_int(game.get("awayProTeamId"))
+        other = away if team_id == home else home
+        if other is not None and other != team_id:
+            opponents[(team_id, week)] = other
+    return opponents
+
+
+def _pro_games(
+    responses: Mapping[str, RawResponse],
+) -> Iterator[tuple[int, int, Mapping[str, Any]]]:
+    """Each pro team's first game per scoring period, from ``proTeamSchedules_wl``."""
+    response = _latest(responses, "proTeamSchedules_wl")
     if response is None or not isinstance(response.payload, Mapping):
-        return kickoffs
+        return
     pro_teams = response.payload.get("settings", {}).get("proTeams", [])
     if not isinstance(pro_teams, list):
-        return kickoffs
+        return
     for pro_team in pro_teams:
         if not isinstance(pro_team, Mapping):
             continue
@@ -1850,10 +1890,8 @@ def _kickoff_map(responses: Mapping[str, RawResponse]) -> dict[tuple[int, int], 
             if week is None or not isinstance(entries, list) or not entries:
                 continue
             first = entries[0]
-            when = _as_int(first.get("date")) if isinstance(first, Mapping) else None
-            if when is not None:
-                kickoffs[(team_id, week)] = when
-    return kickoffs
+            if isinstance(first, Mapping):
+                yield team_id, week, first
 
 
 def _roster_entries(
@@ -2061,6 +2099,7 @@ def _box_score(
     scoring_period: int,
     matchup_period: int,
     index: int,
+    opponents: Mapping[tuple[int, int], int],
 ) -> BoxScore:
     home_id = _team_id_of(box.home_team)
     away_id = _team_id_of(box.away_team)
@@ -2070,10 +2109,10 @@ def _box_score(
         week=matchup_period,
         team_a_provider_id=str(home_id),
         team_a_score=float(getattr(box, "home_score", 0.0) or 0.0),
-        team_a_lineup=_lineup(getattr(box, "home_lineup", None)),
+        team_a_lineup=_lineup(getattr(box, "home_lineup", None), opponents, scoring_period),
         team_b_provider_id=str(away_id),
         team_b_score=float(getattr(box, "away_score", 0.0) or 0.0),
-        team_b_lineup=_lineup(getattr(box, "away_lineup", None)),
+        team_b_lineup=_lineup(getattr(box, "away_lineup", None), opponents, scoring_period),
         is_playoff=bool(getattr(box, "is_playoff", False)),
         scoring_period_id=scoring_period,
         matchup_period_id=matchup_period,
@@ -2081,24 +2120,60 @@ def _box_score(
     )
 
 
-def _lineup(players: Any) -> tuple[LineupEntry, ...]:
-    return tuple(_lineup_entry(player) for player in (players or []))
+def _lineup(
+    players: Any, opponents: Mapping[tuple[int, int], int], scoring_period: int
+) -> tuple[LineupEntry, ...]:
+    return tuple(_lineup_entry(player, opponents, scoring_period) for player in (players or []))
 
 
-def _lineup_entry(player: Any) -> LineupEntry:
+def _lineup_entry(
+    player: Any, opponents: Mapping[tuple[int, int], int], scoring_period: int
+) -> LineupEntry:
+    from espn_api.football.constant import PRO_TEAM_MAP
+
     slot = str(getattr(player, "slot_position", "") or "")
+    # `BoxPlayer.proTeam` is already the club for *this* scoring period: the
+    # library prefers the week's own stat row over the player's current team,
+    # which is what makes a mid-season trade read correctly.
+    pro_team = _library_str(getattr(player, "proTeam", None))
+    team_id = _pro_team_ids().get(pro_team) if pro_team else None
+    opponent = opponents.get((team_id, scoring_period)) if team_id is not None else None
+    pro_opponent = (
+        _library_str(PRO_TEAM_MAP.get(opponent))
+        if opponent is not None
+        else _library_str(getattr(player, "pro_opponent", None))
+    )
     return LineupEntry(
         provider=PROVIDER,
         provider_id=str(getattr(player, "playerId", "") or ""),
         slot=slot,
         player_name=str(getattr(player, "name", "") or ""),
         position=_optional_str(getattr(player, "position", None)),
-        pro_opponent=_optional_str(getattr(player, "pro_opponent", None)),
+        pro_team=pro_team,
+        pro_opponent=pro_opponent,
         projected_points=_optional_float(getattr(player, "projected_points", None)),
         actual_points=_optional_float(getattr(player, "points", None)),
         started=slot not in BENCH_SLOTS and bool(slot),
         raw={},
     )
+
+
+def _pro_team_ids() -> dict[str, int]:
+    """Abbreviation to ESPN pro team id: ``PRO_TEAM_MAP`` the other way round."""
+    from espn_api.football.constant import PRO_TEAM_MAP
+
+    return {abbrev: team_id for team_id, abbrev in PRO_TEAM_MAP.items() if team_id}
+
+
+def _library_str(value: Any) -> str | None:
+    """:func:`_optional_str`, minus ``espn-api``'s ``"None"`` sentinel.
+
+    ``PRO_TEAM_MAP[0]`` is the string ``"None"`` -- the free-agent "team" -- and
+    ``BoxPlayer.pro_opponent`` defaults to the same string, so it reaches the
+    output as a club abbreviation unless it is stopped here.
+    """
+    text = _optional_str(value)
+    return None if text == "None" else text
 
 
 def _optional_str(value: Any) -> str | None:

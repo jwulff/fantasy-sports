@@ -379,7 +379,12 @@ class LineupEntry(ProviderObject):
     player_name: str
     position: str | None = None
     """The player's own position, which is not the slot they filled."""
+    pro_team: str | None = None
+    """The player's own NFL club that week, as the provider abbreviates it.
+    Carried so a consumer can place the player in a game even when the
+    opponent is unknown; ``None`` for a free agent."""
     pro_opponent: str | None = None
+    """The club the player's team faces that week; ``None`` on a bye."""
     projected_points: float | None = None
     actual_points: float | None = None
     started: bool = False

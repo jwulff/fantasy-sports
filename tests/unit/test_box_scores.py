@@ -172,3 +172,77 @@ def test_a_real_name_beats_an_account_handle(member: dict, expected: str):
     """Half the display names in a real league name nobody. A paper that
     prints "ESPNFAN4690433888 lost to johnwulff" is not publishable."""
     assert _member_name(member) == expected
+
+
+# --------------------------------------------------------------------------- #
+# jwulff/fantasy-sports#72: the opponent must not depend on positional ratings
+# --------------------------------------------------------------------------- #
+
+#: Week-1 NFL games for the pro teams the fixture's lineups are on, in the
+#: shape of ``proTeamSchedules_wl``. ``18`` NO, ``29`` CAR, ``3`` CHI, ``1`` ATL,
+#: ``12`` KC, ``5`` CLE (``espn_api.football.constant.PRO_TEAM_MAP``).
+WEEK_ONE_GAMES = [(18, 29, 4101), (3, 1, 4102), (12, 5, 4103)]
+
+
+def _schedule_with_week_one() -> dict:
+    teams = [{"id": 0, "abbrev": "FA", "proGamesByScoringPeriod": {}}]
+    for away, home, game_id in WEEK_ONE_GAMES:
+        game = {"awayProTeamId": away, "homeProTeamId": home, "date": 1789318800000, "id": game_id}
+        for team in (away, home):
+            teams.append({"id": team, "proGamesByScoringPeriod": {str(WEEK): [game]}})
+    return {"settings": {"proTeams": teams}}
+
+
+#: What ESPN served ``view=mPositionalRatings`` for league 467763 on
+#: 2026-09-09, before any week-1 game had been played: league status and no
+#: ``positionAgainstOpponent`` key at all. ``espn-api`` only names an
+#: opponent when the player's position appears under that key, so every
+#: player came back with none. Trimmed to the keys that matter.
+RATINGS_NOT_YET_PUBLISHED = {
+    "draftDetail": {"drafted": True, "inProgress": False},
+    "gameId": 1,
+    "id": 99,
+    "scoringPeriodId": WEEK,
+    "seasonId": 2026,
+    "segmentId": 0,
+    "status": {"currentMatchupPeriod": 1, "isActive": True, "latestScoringPeriod": 1},
+}
+
+
+def _by_name(lineup: list[dict]) -> dict[str, dict]:
+    return {entry["player_name"]: entry for entry in lineup}
+
+
+def test_the_opponent_comes_from_the_schedule_not_the_positional_ratings(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Two of three leagues lost every ``pro_opponent`` on opening night (#72).
+
+    The schedule says who a team plays; the ratings say how good the matchup
+    is. ``espn-api`` gates the first on the second, and ESPN does not publish
+    the ratings for a league until it feels like it. The adapter reads the
+    opponent from ``proTeamSchedules_wl`` directly.
+    """
+    install_espn(
+        monkeypatch,
+        overrides={
+            "proTeamSchedules_wl": _schedule_with_week_one(),
+            "mPositionalRatings": RATINGS_NOT_YET_PUBLISHED,
+        },
+    )
+    lineup = _by_name(box_scores(week=WEEK).data[0]["team_a_lineup"])
+    assert lineup["Michael Thomas"]["pro_team"] == "NO"
+    assert lineup["Michael Thomas"]["pro_opponent"] == "CAR"
+    assert lineup["Christian McCaffrey"]["pro_team"] == "CAR"
+    assert lineup["Christian McCaffrey"]["pro_opponent"] == "NO"
+    assert lineup["Patrick Mahomes"]["pro_opponent"] == "CLE"
+
+
+def test_a_bye_week_is_no_opponent_but_still_a_team(monkeypatch: pytest.MonkeyPatch):
+    """When the value is genuinely unavailable the consumer can still place the
+    player by his own club; ``"None"`` is ``espn-api``'s sentinel, not a team."""
+    install_espn(monkeypatch, overrides={"mPositionalRatings": RATINGS_NOT_YET_PUBLISHED})
+    lineup = _by_name(box_scores(week=WEEK).data[0]["team_a_lineup"])
+    assert lineup["Michael Thomas"]["pro_team"] == "NO"
+    assert lineup["Michael Thomas"]["pro_opponent"] is None
+    assert all(entry["pro_opponent"] != "None" for entry in lineup.values())
