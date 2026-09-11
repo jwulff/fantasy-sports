@@ -22,6 +22,7 @@ Four properties are load-bearing enough to have paired or control tests:
 from __future__ import annotations
 
 import ast
+import csv as stdlib_csv
 import io
 import json as stdlib_json
 import os
@@ -622,6 +623,75 @@ def test_csv_renders_a_bare_scalar_payload_as_one_cell():
         Envelope.success(provider="espn", data=7, generated_at=GENERATED_AT)
     )
     assert rendered == "value\n7\n"
+
+
+# --------------------------------------------------------------------------- #
+# CSV formula injection (jwulff/fantasy-sports#67)
+# --------------------------------------------------------------------------- #
+
+
+def _csv_cells(data) -> list[str]:
+    """The data row of a one-row CSV, parsed back through the stdlib reader."""
+    rendered = csv_renderer.render(
+        Envelope.success(provider="espn", data=data, generated_at=GENERATED_AT)
+    )
+    _header, row = list(stdlib_csv.reader(io.StringIO(rendered)))
+    return row
+
+
+@pytest.mark.parametrize(
+    "name",
+    ['=HYPERLINK("http://x")', "+1+1", "-1-1", "@SUM(A1)", "\tcmd", "\rcmd"],
+    ids=["equals", "plus", "minus", "at", "tab", "carriage-return"],
+)
+def test_csv_prefixes_a_string_cell_that_starts_with_a_formula_trigger(name):
+    """A team name a spreadsheet would evaluate must come out as text."""
+    assert _csv_cells([{"name": name}]) == [f"'{name}"]
+
+
+def test_csv_guards_every_string_cell_not_only_the_untrusted_labelled_ones():
+    """The guard must not depend on the ``untrusted`` map being complete."""
+    cells = _csv_cells([{"name": "=a", "note": "=b", "slot": "=c"}])
+    assert cells == ["'=a", "'=b", "'=c"]
+
+
+def test_csv_guards_header_cells_by_the_same_rule():
+    rendered = csv_renderer.render(
+        Envelope.success(provider="espn", data={"=key": 1}, generated_at=GENERATED_AT)
+    )
+    assert rendered == "'=key\n1\n"
+
+
+def test_csv_leaves_a_clean_string_cell_alone():
+    assert _csv_cells([{"name": "Team Chaos"}]) == ["Team Chaos"]
+
+
+def test_csv_leaves_a_string_that_merely_contains_a_trigger_alone():
+    """Only the first character matters: ``a=b`` is inert to a spreadsheet."""
+    assert _csv_cells([{"name": "Win = Fun", "tag": "a+b", "x": "1-0", "y": "me@x"}]) == [
+        "Win = Fun",
+        "a+b",
+        "1-0",
+        "me@x",
+    ]
+
+
+def test_csv_leaves_a_negative_number_alone_because_it_is_not_a_string():
+    """``-3.5`` written as a float must read back as ``-3.5``, not ``'-3.5``."""
+    assert _csv_cells([{"margin": -3.5, "diff": -2}]) == ["-3.5", "-2"]
+
+
+def test_csv_guards_a_scalar_list_and_a_bare_scalar_payload_too():
+    assert (
+        csv_renderer.render(
+            Envelope.success(provider="espn", data=["=x", "QB"], generated_at=GENERATED_AT)
+        )
+        == "value\n'=x\nQB\n"
+    )
+    assert (
+        csv_renderer.render(Envelope.success(provider="espn", data="=x", generated_at=GENERATED_AT))
+        == "value\n'=x\n"
+    )
 
 
 def test_a_stream_whose_isatty_raises_is_treated_as_a_pipe():

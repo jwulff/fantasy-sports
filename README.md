@@ -124,6 +124,13 @@ one field from every part of the contract at once:
 - **`raw_omitted`.** Whether `--no-raw` stripped the `raw` passthrough key
   from every normalized object in this response; `false` means nothing was
   suppressed here, not that `raw` is necessarily present.
+- **CSV cells are formula-guarded.** `--output csv` carries only `data`, and
+  any string cell that begins with `=`, `+`, `-`, `@`, a tab or a carriage
+  return is prefixed with a single quote so a spreadsheet shows it as text
+  instead of evaluating it (a team can be named `=HYPERLINK(...)`). Numbers
+  are written as numbers and never get the quote. A consumer parsing the CSV
+  by machine should strip that leading `'`, or use JSON, which needs no
+  guard.
 
 ## Errors
 
