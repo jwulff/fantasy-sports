@@ -34,3 +34,6 @@ tests/cassettes/private/
 
 # macOS
 .DS_Store
+
+# John's local worktree-hub note; describes a layout that does not exist in a clone (#78).
+HUB_CLAUDE.md
