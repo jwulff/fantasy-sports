@@ -31,11 +31,12 @@ def clean_registry():
 
 
 #: The v0.1 command surface, exactly as ARCHITECTURE §12 lists it, plus
-#: `doctor` (jwulff/fantasy-sports#10, ADR-0005 §11.4). No write command
-#: exists yet.
+#: `doctor` (jwulff/fantasy-sports#10, ADR-0005 §11.4) and `auth logout`
+#: (jwulff/fantasy-sports#62). No league write command exists yet.
 V01_SURFACE = frozenset(
     {
         "auth login",
+        "auth logout",
         "auth status",
         "box-scores",
         "doctor",
@@ -57,7 +58,9 @@ def test_the_v01_surface_is_registered_and_nothing_else_is():
     `box-scores` is one, made deliberately for jwulff/fantasy-sports#29: the
     Gazette needs per-player lines and folding them into `matchups` would have
     changed that command's data shape, which is a runtime contract. `doctor`
-    is another, added for jwulff/fantasy-sports#10.
+    is another, added for jwulff/fantasy-sports#10. `auth logout` is the
+    third: `SECURITY.md` could not describe a leak remediation without it
+    (jwulff/fantasy-sports#62).
     """
     assert set(REGISTRY) == V01_SURFACE
 

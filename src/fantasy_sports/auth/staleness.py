@@ -53,6 +53,7 @@ __all__ = [
     "ThresholdSource",
     "auth_state_path",
     "build_auth_status",
+    "forget_stored",
     "load_auth_state",
     "record_stored",
     "record_success",
@@ -232,6 +233,38 @@ def record_stored(
 ) -> AuthState:
     """Record that these credentials were saved now. Called by ``auth login``."""
     return _touch(names, field="stored_at", now=now, path=path)
+
+
+def forget_stored(names: Iterable[str], *, path: Path | None = None) -> AuthState:
+    """Drop ``stored_at`` for these credentials. Called by ``auth logout``.
+
+    ``stored_at`` describes the value *this tool wrote to the Keychain*. Once
+    that entry is gone the timestamp describes nothing, and leaving it behind
+    would let a later Keychain entry written by some other tool inherit a
+    confident, wrong age. ``last_success_at`` survives: it is evidence about
+    the credential *name*, and it is the signal ``auth status`` leads with
+    when a value arrives from the environment with no knowable age.
+
+    Nothing is written when there is nothing to forget, so a logout on a
+    host that never ran ``auth login`` creates no state file and no directory.
+    """
+    state = load_auth_state(path)
+    entries = dict(state.entries)
+    changed = False
+    for name in names:
+        existing = entries.get(name)
+        if existing is None or existing.stored_at is None:
+            continue
+        changed = True
+        if existing.last_success_at is None:
+            del entries[name]
+        else:
+            entries[name] = CredentialEvents(last_success_at=existing.last_success_at)
+    if not changed:
+        return state
+    updated = AuthState(entries=entries)
+    save_auth_state(updated, path)
+    return updated
 
 
 def record_success(
