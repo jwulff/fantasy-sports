@@ -27,26 +27,29 @@ envelope described below, backed by an offline test suite and a daily
 drift canary. Writes (lineup changes, waiver claims, trades) have not
 started; they're tracked in the [v0.1 epic](https://github.com/jwulff/fantasy-sports/issues/1)
 and gated by [ADR-0006](docs/adr/0006-read-only-v01-gated-writes-later.md).
-The package is not yet on PyPI (`0.1.0.dev0`; see
-[Releasing](docs/RELEASING.md) for what's left).
+The package is not on PyPI (`0.1.0.dev0`); install from git as below.
 
 ## Install
 
-Nothing is published yet, so install from a clone:
+Install straight from GitHub with [uv](https://docs.astral.sh/uv/) (no Python
+prerequisite; `uv` provisions one):
+
+```bash
+uv tool install git+https://github.com/jwulff/fantasy-sports
+fantasy-sports --help
+```
+
+Upgrade later with `uv tool upgrade fantasy-sports`. A PyPI release is
+tracked in [#13](https://github.com/jwulff/fantasy-sports/issues/13) but
+not scheduled; the git install is the supported path for now.
+
+For hacking on the repo:
 
 ```bash
 git clone https://github.com/jwulff/fantasy-sports.git
 cd fantasy-sports
 uv sync
 uv run fantasy-sports --help
-```
-
-Once `v0.1.0` is on PyPI (see [Releasing](docs/RELEASING.md)), this will also
-work:
-
-```bash
-uv tool install fantasy-sports
-fantasy-sports --help
 ```
 
 ## Quick start
