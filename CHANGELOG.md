@@ -35,7 +35,7 @@ football API, distributed via `uv tool install fantasy-sports`.
   a client-side check so `doctor` can tell you whether a failure is your
   credentials, a known outage, or something new.
 - **Performance and quality budgets, enforced in CI** (ADR-0008): sub-50ms
-  cold start, five-dependency ceiling, sub-150KB wheel, 90%/85% line/branch
+  cold start, five-dependency ceiling, sub-256KB wheel, 90%/85% line/branch
   coverage, 80% mutation score on `core/` and `providers/` — see
   `docs/adr/0008-performance-and-quality-budgets.md`.
 - **Trusted publishing to PyPI** via GitHub Actions OIDC — no long-lived API

@@ -52,7 +52,14 @@ Benchmarks run in CI via `hyperfine`, compared against committed baselines.
 | Metric | Budget |
 |---|---|
 | Direct runtime dependencies | **≤ 5** |
-| Our own wheel size | **< 150 KB** |
+| Our own wheel size | **< 256 KB** |
+
+**Wheel budget raised from 150 KB on 2026-09-10** (#75). The original figure
+was set before any code existed. At 153 KB the wheel was a fifth
+`providers/espn.py`, most of that docstrings recording ESPN's quirks — the
+number had started measuring prose, not weight, and cold start is already
+enforced on its own above. Stripping the record of why the adapter does what
+it does to fit a guess would have been the wrong trade.
 
 **`platformdirs` is dropped.** We force XDG-style paths unconditionally (§7), so
 it buys nothing but an import. Roughly 30 lines of our own code replaces it.

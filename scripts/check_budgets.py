@@ -13,7 +13,7 @@ import tomllib
 from pathlib import Path
 
 MAX_DIRECT_DEPENDENCIES = 5
-MAX_WHEEL_BYTES = 150 * 1024
+MAX_WHEEL_BYTES = 256 * 1024  # raised from 150 KB on 2026-09-10, see ADR-0008
 
 ROOT = Path(__file__).resolve().parent.parent
 
