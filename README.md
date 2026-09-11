@@ -182,6 +182,9 @@ fantasy-sports auth login
 fantasy-sports auth status
 ```
 
+`fantasy-sports auth logout` removes them again from both the Keychain and the
+`config.toml` fallback, and reports any environment variable it cannot unset.
+
 The resolution chain checks an environment variable first (for `launchd`,
 cron, or CI, none of which have an unlockable keychain), then the Keychain,
 then a plaintext `~/.config/fantasy-sports/config.toml` fallback for hosts

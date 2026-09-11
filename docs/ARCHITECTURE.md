@@ -561,6 +561,7 @@ projects in §0 had.
 fantasy-sports doctor              # full health check, --json for agents
 fantasy-sports auth status
 fantasy-sports auth login          # guided cookie extraction
+fantasy-sports auth logout         # clear Keychain + config.toml; env is reported, not unset
 fantasy-sports league info
 fantasy-sports teams
 fantasy-sports standings

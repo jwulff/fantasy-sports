@@ -1,10 +1,11 @@
-"""``auth status`` and ``auth login`` — projections over ``auth/``.
+"""``auth status``, ``auth login``, and ``auth logout`` — projections over ``auth/``.
 
-Both are thin on purpose. The credential chain, the staleness heuristic, the
-SWID normalizer, and the Keychain write all landed with
-jwulff/fantasy-sports#5; nothing here re-implements any of it. What this module
-adds is the envelope around the result and the one rule those functions cannot
-enforce on their own: **no credential value ever reaches an output stream.**
+All three are thin on purpose. The credential chain, the staleness heuristic,
+the SWID normalizer, and the Keychain write all landed with
+jwulff/fantasy-sports#5, and the removal walk with jwulff/fantasy-sports#62;
+nothing here re-implements any of it. What this module adds is the envelope
+around the result and the one rule those functions cannot enforce on their
+own: **no credential value ever reaches an output stream.**
 
 Three consequences of that rule are visible below.
 
@@ -14,8 +15,8 @@ Three consequences of that rule are visible below.
   ``ps``, in shell history, and in any process listing a co-tenant can read;
   making that impossible is worth more than the convenience of scripting a
   cookie paste.
-* The envelope reports credential *names* — stored, repaired, unchanged — and
-  never a value, a length, or a prefix.
+* The envelope reports credential *names* — stored, repaired, removed, still
+  set — and never a value, a length, or a prefix.
 
 ``auth status`` never contacts ESPN. It reports what is configured, where it
 came from, and how old it is; it cannot report whether ESPN still accepts it,
@@ -36,7 +37,7 @@ from fantasy_sports.commands.context import require_shape
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from fantasy_sports.output.envelope import Envelope
 
-__all__ = ["login", "status"]
+__all__ = ["login", "logout", "status"]
 
 PROVIDER = "espn"
 """The only provider v0.1 ships. ``auth`` is not league-scoped, so there is no
@@ -100,6 +101,39 @@ def login() -> Envelope:
         "keychain_service": _service(),
     }
     require_shape(data, command="auth login")
+    return Envelope.success(provider=PROVIDER, data=data)
+
+
+def logout() -> Envelope:
+    """Remove the stored ESPN cookies from every link the chain reads.
+
+    The remediation ``SECURITY.md`` could not offer before this existed: a
+    leaked cookie that stays in the Keychain or in ``config.toml`` until
+    ``auth login`` happens to overwrite it has not been remediated. The
+    Keychain entries are deleted and the two keys are removed from the
+    ``[credentials]`` table; every other key in the file survives.
+
+    The environment is **reported, not changed** — a process cannot unset a
+    variable in its parent's shell, a launchd plist, or a CI secret store, and
+    claiming success while one is still set would be worse than doing nothing.
+
+    ``data`` is a mapping: ``removed`` and ``still_set`` name lists, one
+    ``credentials`` row per declared credential with the outcome of each link
+    (``removed`` / ``absent`` / ``still-set`` / ``unavailable``) and the env
+    vars found set, the Keychain service, the config path, and warnings for
+    every link that still holds the credential. It contains no values.
+
+    A link that cannot be reached — locked Keychain, no backend, an unreadable
+    config file — is reported ``unavailable`` rather than failing the command,
+    so the other links are still cleared. Nothing stored anywhere is a
+    success, not an error: the outcome the user wanted is the one they have.
+    """
+    from fantasy_sports.auth.chain import ESPN_CREDENTIALS
+    from fantasy_sports.auth.logout import clear_credentials
+    from fantasy_sports.output.envelope import Envelope
+
+    data = clear_credentials(ESPN_CREDENTIALS).to_payload()
+    require_shape(data, command="auth logout")
     return Envelope.success(provider=PROVIDER, data=data)
 
 

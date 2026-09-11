@@ -33,18 +33,29 @@ as the locked-Keychain fallthrough one link earlier in the chain.
 
 ``config.toml`` is a shared namespace, so this reads only its own table and
 ignores everything else (``docs/memory/config-toml-is-a-shared-namespace.md``).
+
+:func:`remove_credentials` is the write half, added for ``auth logout``
+(jwulff/fantasy-sports#62). It edits only the ``[credentials]`` table and
+carries every other table through untouched, because a leak remediation
+that also wiped the user's league profiles would be its own incident. It
+inverts the read's soft/hard split in one place: an *unreadable or
+unwritable* file is raised, not swallowed, because a removal that silently
+did nothing leaves the leaked value on disk while telling the user it is gone.
 """
 
 from __future__ import annotations
 
+import os
+import tempfile
 import tomllib
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from pathlib import Path
+from typing import Any
 
 from fantasy_sports.config import paths
 from fantasy_sports.core.errors import ConfigInvalidError
 
-__all__ = ["load_credentials"]
+__all__ = ["load_credentials", "remove_credentials"]
 
 TABLE = "credentials"
 """The top-level table credential values live in."""
@@ -65,30 +76,16 @@ def load_credentials(path: Path | None = None) -> Mapping[str, str]:
     """
     target = paths.config_file() if path is None else path
     try:
-        with target.open("rb") as handle:
-            document = tomllib.load(handle)
-    except FileNotFoundError:
-        return {}
+        document = _parse(target)
     except OSError:
-        # Environmental, not malformed. Same class as the locked-Keychain
-        # fallthrough one link earlier in the chain.
+        # Absent, or environmental (permissions, a bad mount) rather than
+        # malformed. Same class as the locked-Keychain fallthrough one link
+        # earlier in the chain.
         return {}
-    except tomllib.TOMLDecodeError as exc:
-        raise ConfigInvalidError(
-            f"{target} is not valid TOML, so credentials could not be read.",
-            remediation=f"Fix the TOML syntax in {target}. The parser reported: {exc}",
-            details={"path": str(target), "table": TABLE},
-        ) from exc
 
-    if TABLE not in document:
+    table = _table(document, target)
+    if table is None:
         return {}
-    table = document[TABLE]
-    if not isinstance(table, dict):
-        raise ConfigInvalidError(
-            f"[{TABLE}] in {target} is not a table.",
-            remediation=f'Write credentials as a TOML table, e.g. [{TABLE}] then espn_s2 = "...".',
-            details={"path": str(target), "table": TABLE, "found_type": type(table).__name__},
-        )
 
     credentials: dict[str, str] = {}
     for key, value in table.items():
@@ -100,3 +97,95 @@ def load_credentials(path: Path | None = None) -> Mapping[str, str]:
             )
         credentials[key] = value
     return credentials
+
+
+def remove_credentials(names: Iterable[str], path: Path | None = None) -> tuple[str, ...]:
+    """Delete ``names`` from ``[credentials]``; return the names actually removed.
+
+    Nothing is written unless at least one named key was present: a logout on
+    a host that never used the config fallback must not create the file, touch
+    its mtime, or rewrite it. When something *is* removed the whole document
+    is round-tripped through ``tomli-w``, which keeps every other table and key
+    but drops comments and hand formatting — TOML writers do not preserve
+    them, and a credential left behind is worse than a comment lost. An
+    emptied ``[credentials]`` table is dropped rather than left as a header.
+
+    The rewrite is atomic (temp file, then ``replace``) and keeps the original
+    file's mode, so a ``0600`` config stays ``0600``.
+
+    :raises ConfigInvalidError: if the file is present but damaged, exactly as
+        :func:`load_credentials` would — a file that cannot be parsed cannot
+        be edited safely.
+    :raises OSError: if the file exists but cannot be read or rewritten. The
+        caller (``auth logout``) reports that link as unavailable rather than
+        removed; swallowing it here would report a removal that did not happen.
+    """
+    target = paths.config_file() if path is None else path
+    wanted = set(names)
+    try:
+        document = _parse(target)
+    except FileNotFoundError:
+        return ()
+
+    table = _table(document, target)
+    if table is None:
+        return ()
+    removed = tuple(key for key in table if key in wanted)
+    if not removed:
+        return ()
+
+    for key in removed:
+        del table[key]
+    if not table:
+        del document[TABLE]
+    _write_atomically(target, document)
+    return removed
+
+
+def _parse(target: Path) -> dict[str, Any]:
+    """Parse the whole document. Raises ``OSError`` for absent or unreadable.
+
+    The two callers disagree about what an ``OSError`` means — soft for a
+    read, hard for a removal — so the classification is theirs, not this
+    helper's. Damage is ``ConfigInvalidError`` for both.
+    """
+    try:
+        with target.open("rb") as handle:
+            return tomllib.load(handle)
+    except tomllib.TOMLDecodeError as exc:
+        raise ConfigInvalidError(
+            f"{target} is not valid TOML, so credentials could not be read.",
+            remediation=f"Fix the TOML syntax in {target}. The parser reported: {exc}",
+            details={"path": str(target), "table": TABLE},
+        ) from exc
+
+
+def _table(document: dict[str, Any], target: Path) -> dict[str, Any] | None:
+    """The ``[credentials]`` table, ``None`` if absent, a raise if not a table."""
+    if TABLE not in document:
+        return None
+    table = document[TABLE]
+    if not isinstance(table, dict):
+        raise ConfigInvalidError(
+            f"[{TABLE}] in {target} is not a table.",
+            remediation=f'Write credentials as a TOML table, e.g. [{TABLE}] then espn_s2 = "...".',
+            details={"path": str(target), "table": TABLE, "found_type": type(table).__name__},
+        )
+    return table
+
+
+def _write_atomically(target: Path, document: dict[str, Any]) -> None:
+    """Serialize ``document`` over ``target`` without a window where it is partial."""
+    import tomli_w
+
+    mode = target.stat().st_mode & 0o777
+    handle, temp_name = tempfile.mkstemp(dir=target.parent, prefix=".config-", suffix=".tmp")
+    temp = Path(temp_name)
+    try:
+        with os.fdopen(handle, "w", encoding="utf-8") as stream:
+            stream.write(tomli_w.dumps(document))
+        temp.chmod(mode)
+        temp.replace(target)
+    except BaseException:  # pragma: no cover - defensive cleanup
+        temp.unlink(missing_ok=True)
+        raise

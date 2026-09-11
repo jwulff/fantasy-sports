@@ -58,6 +58,7 @@ __all__ = [
     "CredentialSpec",
     "ResolvedCredential",
     "Secret",
+    "delete_from_keychain",
     "forget_secrets",
     "normalize_credential",
     "normalize_opaque_cookie",
@@ -71,6 +72,7 @@ __all__ = [
     "resolve_credential",
     "resolve_credentials",
     "save_credentials",
+    "write_to_keychain",
 ]
 
 SERVICE = "fantasy-sports"
@@ -516,6 +518,31 @@ def write_to_keychain(name: str, value: str) -> None:
     import keyring
 
     keyring.set_password(SERVICE, name, value)
+
+
+def delete_from_keychain(name: str) -> bool:
+    """Remove one credential from the Keychain; ``True`` if an entry was there.
+
+    Reads before deleting, because the macOS backend raises the same
+    ``PasswordDeleteError`` for "no such entry" as for "could not delete", and
+    ``auth logout`` has to report those two differently: one is *absent*, the
+    other is *unavailable* and means the leaked value is still on the machine.
+    The read result is compared in place and never bound to a name, so no
+    frame ever holds the value for a traceback to repr
+    (``docs/memory/credential-leak-channels.md``).
+
+    Unlike :func:`read_from_keychain` this **raises** on a backend failure.
+    Fail-soft belongs to the caller that promises it — ``auth/logout.py``
+    classifies the failure and reports the link as unavailable — because a
+    ``False`` here would be indistinguishable from "nothing was stored", and
+    that is exactly the answer a leak remediation must not get wrong.
+    """
+    import keyring
+
+    if keyring.get_password(SERVICE, name) is None:
+        return False
+    keyring.delete_password(SERVICE, name)
+    return True
 
 
 def save_credentials(

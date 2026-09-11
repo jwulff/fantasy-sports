@@ -24,7 +24,7 @@ them in this order, and stops at the first one it finds:
 2. **The macOS Keychain**, service name `fantasy-sports`, one entry per
    credential. `fantasy-sports auth login` prompts for both cookies with
    `getpass` (nothing echoed, nothing left in shell history) and writes them
-   here.
+   here; `fantasy-sports auth logout` deletes them again.
 3. **`~/.config/fantasy-sports/config.toml`**, a `[credentials]` table. This
    is a plaintext fallback for hosts without a usable Keychain backend
    (headless Linux, some CI images). Prefer the Keychain wherever one exists;
@@ -104,12 +104,19 @@ exposed (committed to a public fork, pasted somewhere, printed by a bug):
 1. **Log out of ESPN** in your browser (or wherever you originally copied the
    cookies from). That invalidates the session the leaked values belonged to.
 2. **Log back in**, which mints a new `espn_s2` and `SWID`.
-3. Re-run `fantasy-sports auth login` to store the new values. There is
-   currently no `auth logout` command to clear a stale entry from the
-   Keychain or `config.toml` first; overwriting via `auth login` is
-   sufficient, since the old values are already invalid once you have logged
-   out.
-4. If the exposure went through a channel this project controls, such as a
+3. Run `fantasy-sports auth logout`. It deletes both Keychain entries and
+   removes `espn_s2` and `SWID` from the `[credentials]` table in
+   `config.toml`, leaving every other key in that file alone, and reports
+   per link whether it removed a value, found none, or could not reach the
+   link (a locked Keychain, an unreadable file). It never prints the values.
+   The environment is the one link it cannot clear: a process cannot unset
+   its parent's variables, so an exported `FANTASY_SPORTS_ESPN_S2` or
+   `FANTASY_SPORTS_SWID` (or one of the bare aliases) is reported as
+   `still-set`, by name, and you remove it from your shell profile, `launchd`
+   plist, or CI secrets yourself. Re-run `auth logout` after unlocking the
+   Keychain if it reported that link `unavailable`.
+4. Re-run `fantasy-sports auth login` to store the new values.
+5. If the exposure went through a channel this project controls, such as a
    committed cassette, a log line, or a cache entry, please report it
    privately (above) so the underlying scrub can be fixed, not just your own
    cookie rotated.

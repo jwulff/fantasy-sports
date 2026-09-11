@@ -10,6 +10,11 @@ football API, distributed via `uv tool install fantasy-sports`.
 
 ### Added
 
+- **`auth logout`** — removes `espn_s2` and `SWID` from the Keychain and from
+  `config.toml`'s `[credentials]` table (every other key survives), reports
+  each link as removed / absent / still-set / unavailable without ever
+  printing a value, and names any environment variable it cannot unset. This
+  is the leak remediation `SECURITY.md` could not describe before (#62).
 - **Command surface** — `doctor`, `auth status` / `auth login`, `standings`,
   `roster`, `matchups`, `box-scores`, `free-agents`, `transactions`, and a
   `raw` escape hatch for any ESPN view not yet normalized. Every command is a

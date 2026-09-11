@@ -18,7 +18,7 @@ the handler's source:
   the 50 ms cold start ``cli/fastpath.py`` exists to avoid.
 * **Whether it reads a league** (:attr:`CommandSpec.takes_league`). Every read
   command accepts ``--league``, ``--season``, ``--fresh``, and ``--no-cache``;
-  ``auth status`` and ``auth login`` accept none of them.
+  the ``auth`` commands accept none of them.
 * **The shape of its ``data``** (:class:`DataShape`). The envelope's ``data``
   is a list for a collection and a mapping for a single object. That was a
   convention nothing enforced until jwulff/fantasy-sports#9 wrote it down here
@@ -446,6 +446,20 @@ register(
         group="auth",
         summary="Store ESPN cookies in the Keychain. Prompts without echoing; never prints them.",
         handler="fantasy_sports.commands.auth:login",
+        shape=DataShape.OBJECT,
+        takes_league=False,
+    )
+)
+
+register(
+    CommandSpec(
+        name="logout",
+        group="auth",
+        summary=(
+            "Remove ESPN cookies from the Keychain and config.toml. "
+            "Env vars are reported, not unset."
+        ),
+        handler="fantasy_sports.commands.auth:logout",
         shape=DataShape.OBJECT,
         takes_league=False,
     )
