@@ -47,14 +47,17 @@ were retained locally by the author and are not in git.
 | 3 | One transaction for a full target lineup, or one item per slot change | **One transaction, many items, applied atomically** — but it must contain *only* the slots that change. A from==to item is rejected (`TRAN_ROSTER_SAME_SLOT`) and takes the whole transaction with it. One item alone is also fine. So R6's explicit target state is implementable as *diff, then one POST*. | p3, p6, p7, p9 |
 | 4 | Roster-lock rejection on the wire | `409` with `details[0].type == "TRAN_LINEUP_LOCKED"`, message `"Lineup transaction could not be completed, <player> is locked"`. The lock is visible before sending: `playerPoolEntry.lineupLocked` per entry. | p7, p8 |
 | 5 | Per-operation rejection vocabulary | Seven typed reasons observed (§5). `budget exceeded`, `already dropped`, `roster full` could **not** be provoked without an add/drop and are listed with a safe procedure for later. | §5 |
-| 6 | Do the read cookies authorize writes, including on co-managed teams | **Yes — and on a team the member does not own at all.** `espn_s2` alone is sufficient; the SWID cookie and the body's `memberId` are both optional. The identical swap against another manager's team (not co-managed, not commissioner) returned `200 EXECUTED`. Reversed immediately. | p10, p12, p13–p15 |
+| 6 | Do the read cookies authorize writes, including on co-managed teams | **Yes.** `espn_s2` alone is sufficient; the SWID cookie and the body's `memberId` are both optional. The identical swap against another manager's team returned `200 EXECUTED` — consistent with the session being the league's **commissioner** (§7); reversed immediately. Whether a *non-LM* member can do the same is **unverified** and could not be tested here (§6.1 gives the safe procedure). The co-manager case is likewise untested. | p10, p12, p13–p15 |
 | 7 | `--week` on a write: scoring or matchup period | Neither, in practice: a `ROSTER` write is **only accepted for the league's current `scoringPeriodId`** (`TRAN_INVALID_SCORINGPERIOD_NOT_CURRENT` for both next week and week 18). The field is named and enforced as a scoring period. | p11, p11b |
-| 8 | Commissioner vs manager authority | `isLeagueManager` is **not** in `mTeam`'s `members[]`; it is in `mNav` (with `isLeagueCreator`) and `mLeagueManager`. In this league the LM is another member — the probing account is a plain manager, which corrects #18's assumption that John holds commissioner privileges here. No LM write was exercised. | §7 |
+| 8 | Commissioner vs manager authority | No authority field in `mTeam`. `mNav` carries two per member: `isLeagueCreator` (John, the commissioner: `true`) and `isLeagueManager` (a *granted* co-LM, the team-2 owner: `true`; John: `false`). `mLeagueManager` shows only the granted flag. `fan.api` shows `groups[].groupManager: true` for John. Commissioner authority = `isLeagueCreator OR isLeagueManager`. No LM-scoped write was exercised; the cross-team lineup write executed with `isLeagueManager: false` in the body, so the session, not the flag, confers it. | §7 |
 
-The result for row 6 is the one that changes the design, so it is stated
-again plainly: **ESPN did not enforce team ownership on a lineup transaction.**
-"Only my team" has to be a client-side guard in `providers/espn.py`, not a
-property inherited from the provider.
+The result for rows 6 and 8 together is the one that changes the design, so
+it is stated plainly: **the cookie this tool holds is a commissioner's in this
+league, and ESPN honoured a cross-team lineup write on it without being asked
+to act as LM.** "Only my team" has to be a client-side guard in
+`providers/espn.py`, enforced by default regardless of role, and anything
+LM-scoped has to be a separately named, separately gated capability. Whether
+an ordinary member's cookie would also have been honoured is unknown.
 
 ---
 
@@ -85,9 +88,9 @@ the Evidence note above.)
   only `POST` was exercised.
 - Responses are gzipped (`Content-Encoding: gzip`), served through CloudFront,
   and carry `X-Fantasy-Server-Time` and `X-Fantasy-Role: NONE` on every
-  cookie-bearing response. `X-Fantasy-Role` is **[unverified]** as a
-  commissioner indicator — it read `NONE` for a plain manager, and no LM
-  session was available to compare.
+  cookie-bearing response. `X-Fantasy-Role` read `NONE` throughout — and the
+  session is the league's commissioner (§7) — so it is **not** a commissioner
+  indicator on this host; what it varies on is unknown.
 - No `Retry-After`, `X-RateLimit-*`, or any throttling header appeared on any of
   the 21 responses. Rate limiting on the write host remains **[unverified]**
   (§8).
@@ -401,40 +404,59 @@ false` and the probing member's own `memberId`.
   (`audit-trail-mTransactions2.json`), so the league's activity feed shows the
   other manager's lineup being edited by someone who is not them.
 
-The probing member is not an owner of team 11 by any record ESPN exposes:
+The probing member is not an *owner* of team 11 by any record ESPN exposes:
 `teams[11].owners` lists one SWID and it is not the prober's; `primaryOwner`
-is not the prober's; the prober's own `fan.api` profile (`preferences[]` with
-`type.id == 9`, the shape `espn-401-tells-you-nothing.md` documents) lists
-exactly one entry in this league, team 1. And the prober is not the league
-manager (§7). **ESPN executed a lineup change on a team the caller neither
-owns, co-manages, nor commissions.**
+is not the prober's; the prober's own `fan.api` profile lists exactly one
+entry in this league, team 1.
 
-Whether this is "any league member may set any lineup", or something narrower
-(a member of the *same league*, a member with *any* team, an account-level
-quirk), was **not** narrowed further: the task permitted one other-team probe
-and one was sent. A third team was not touched.
+**But the probing member is the league's commissioner** — its creator and
+primary league manager, who has additionally granted LM powers to the owner
+of team 2 (§7 has the field-by-field reconciliation). An early reading of
+this result as "an ordinary member can edit another member's lineup" was
+wrong: it read `mNav`'s `isLeagueManager` and missed `isLeagueCreator` on the
+same row. The corrected reading:
+
+- **The cross-team write is consistent with commissioner authority.** ESPN's
+  own UI lets a league manager edit any team's lineup; the API did the same
+  for the commissioner's cookie without the request asking for it —
+  `isLeagueManager: false` in the body, and `isActingAsTeamOwner: false` in
+  the response, which is plausibly the "an LM acted on a team they do not
+  own" flag rather than an ownership assertion. That field's meaning stays
+  **[unverified]**.
+- **Whether a non-LM member can do this is UNVERIFIED,** and could not be
+  tested in this league because the only cookie available belongs to its
+  commissioner. It is *not* evidence either way about ordinary members.
+- **Safe procedure to settle it later:** in a league the tester belongs to
+  but does *not* manage (`mNav` shows `isLeagueCreator: false` and
+  `isLeagueManager: false` for the session's member, and `fan.api` shows
+  `groups[].groupManager: false`), run the same swap-and-reverse against
+  another team's two unlocked, mutually-eligible players during an unlocked
+  window, exactly as p12/p12r were run. The expected result is a `409` with
+  a `TRAN_*` type naming ownership; capture it. If it executes, reverse on
+  the next request and treat it as the integrity finding this brief
+  originally thought it had.
 
 ### 6.2 What follows
 
-1. **Team ownership is a client-side invariant.** `providers/espn.py`'s write
-   path must resolve "my team" from the session — `fan.api`'s `entryId` for the
-   league, or `teams[].owners` ∋ the resolved SWID — and refuse any `teamId`
-   outside that set before building a request. `--team` on a write is not
-   "which team"; it is "which of *my* teams", and in a one-team league it is
-   redundant. This is the same class of guard as the roster-lock check: ESPN
-   will not do it for us.
-2. **This is not the co-manager case the issue asked about.** The question
-   "does the read cookie authorize writes on co-managed teams" is answered a
-   fortiori — it authorizes writes on *un*-managed teams — and the co-manager
-   case is therefore not a special case worth designing for.
+1. **Team ownership is a client-side invariant, and the reason is stronger
+   than before.** The cookie the tool holds carries commissioner authority in
+   this league, so a `--team` typo would be *honoured*, not refused.
+   `providers/espn.py`'s write path must resolve "my teams" from the session —
+   `fan.api`'s `entryId` for the league, or `teams[].owners` ∋ the resolved
+   SWID — and refuse any `teamId` outside that set before building a request.
+   `--team` on a write is "which of *my* teams", redundant in a one-team
+   league. Any LM-scoped action on another team is a separate, explicitly
+   invoked capability with its own gate (§7), never a side effect of `--team`.
+2. **The co-manager question from the issue is not answered by this probe.**
+   The commissioner's cookie writes any team; what a co-manager's cookie can
+   do (a member listed in `teams[].owners` alongside the primary owner) was
+   not tested and needs a co-managed team to test. Design for it as
+   "ownership = membership of `teams[].owners`", which is how ESPN records
+   co-managers, and verify when one exists.
 3. **The audit trail is ESPN's, not just ours.** Every executed write, own-team
    or not, is a permanent, member-attributed row in the league's transaction
    log. The journal (#16) should store ESPN's transaction `id` so the two
    ledgers can be joined.
-4. **Consider telling ESPN.** A league member editing another member's lineup
-   is a real integrity problem for every league on the platform. Whether and
-   how to report it is John's call, not this brief's; it is noted so it is not
-   lost.
 
 ### 6.3 Credential scope, summarised
 
@@ -451,35 +473,69 @@ and one was sent. A third team was not touched.
 `espn_s2` is the session; the SWID is a label ESPN already knows from it. This
 is consistent with `03-espn-api-surface.md` §2.1's description of `espn_s2` as
 the opaque session token, and it means `auth status`'s staleness reporting for
-`espn_s2` is the one that matters for writes.
+`espn_s2` is the one that matters for writes. All of these were sent by the
+commissioner's session; the credential *mechanics* (which cookie is the
+session) do not depend on role, but the *authority* that session carries
+does (§7).
 
 ---
 
 ## 7. Commissioner vs manager
 
-- **Where the flag lives.** `mTeam`'s `members[]` carries only
-  `displayName`, `firstName`, `lastName`, `id`, `notificationSettings` — no
-  authority flag. `view=mNav` adds `isLeagueManager` and `isLeagueCreator` per
-  member; `view=mLeagueManager` returns `members[]` with `id`, `displayName`,
-  `isLeagueManager` only. Neither view is in `03-espn-api-surface.md` §1.4's
-  table (which enumerated what `espn-api` sends), so this is a new read the
-  adapter will need.
-- **This league.** Exactly one member has `isLeagueManager: true`, and it is
-  the owner of team 2. The probing account (team 1) has neither flag. **#18's
-  note that "John holds commissioner privileges" is not true of the configured
-  default league**; it may be true of another league John is in, which is
-  exactly why the guard must be per-league and read from `mNav`, not assumed.
+Ground truth, from John: he is the founding, primary league manager of this
+league and has granted LM powers to the owner of team 2. What ESPN's payloads
+say, field by field, reconciled against that:
+
+| Source | Field | Team-1 member (John) | Team-2 member | Everyone else |
+|---|---|---|---|---|
+| `view=mTeam` `members[]` | — | no authority field at all | — | — |
+| `view=mNav` `members[]` | `isLeagueCreator` | **`true`** | `false` | `false` |
+| `view=mNav` `members[]` | `isLeagueManager` | `false` | **`true`** | `false` |
+| `view=mLeagueManager` `members[]` | `isLeagueManager` | `false` | **`true`** | `false` |
+| `fan.api` `preferences[type.id==9].metaData.entry.groups[]` | `groupManager` | **`true`** | not visible from John's profile | — |
+| `view=mTeam` `teams[]` | `owners` / `primaryOwner` | team 1 only | team 2 only | own team |
+
+So:
+
+- **`isLeagueManager` in the league payload marks a *granted* co-LM, not the
+  commissioner.** The creator's authority is carried by `isLeagueCreator`
+  and is *not* mirrored into `isLeagueManager`. A check that reads only
+  `isLeagueManager` — which is what the first draft of this brief did, and
+  what `mLeagueManager` alone offers — misses the primary commissioner
+  entirely. **Commissioner authority = `isLeagueCreator OR isLeagueManager`
+  in `mNav`.** `mLeagueManager` on its own is insufficient.
+- **`fan.api`'s `groups[].groupManager` is the account-side view** of the
+  same fact and reads `true` for John. It is the cheaper check when the tool
+  already knows the SWID, and it is per-league (`groupId`). It cannot see
+  other members' authority.
+- **Neither `mTeam` nor `mSettings` says anything about authority.** `mNav`
+  is not in `03-espn-api-surface.md` §1.4's table because `espn-api` never
+  requests it; the adapter needs to add it (or `fan.api`) to know who it is
+  acting as.
+- **#18's note that "John holds commissioner privileges" is correct** for
+  the configured default league, and the payload evidence for it is
+  `isLeagueCreator`, not `isLeagueManager`. The guard must still be
+  per-league and read at run time — the same cookie is a plain manager's in
+  any league John did not create or was not granted LM in.
 - **What was not exercised, by rule.** The request body's `isLeagueManager`
-  was always `false`. Whether setting it `true` as a non-LM is rejected, ignored,
-  or (worse) honoured is **[unverified]**, and so is every LM-scoped write
-  (acting on other teams *as* LM, league-setting changes, trade veto). Given
-  §6 — ESPN executed an other-team write with the flag `false` — the flag may
-  be largely decorative for lineup transactions. Do not rely on it either way.
-- **Recommendation.** The tool never sets `isLeagueManager: true`. Full stop.
-  If a future issue wants commissioner tooling it is a separate capability with
-  its own sanity gate, and the `mNav` flag is how the tool knows it is even
-  talking to a commissioner. `X-Fantasy-Role` (§1.1) may be the cheap tell on
-  every response; verify with an LM session before using it.
+  was always `false`, and the cross-team write executed anyway (§6), so for a
+  commissioner's session the body flag is not what confers the authority —
+  the session is. Whether setting it `true` changes anything (for an LM: acting
+  "as LM" in the activity feed? for a non-LM: rejected or ignored?) is
+  **[unverified]**, and so is every LM-scoped write beyond a lineup move:
+  league-setting changes, trade veto, waiver-order edits, acting on another
+  team's adds and drops. None was sent.
+- **Recommendation — the commissioner-vs-manager criterion.** The tool holds
+  a cookie whose authority is broader than the tool should exercise by
+  default. So: (1) resolve the session's role per league from `mNav` at write
+  time and record it in the journal (#16) — `creator`, `manager`, or `member`;
+  (2) refuse any cross-team `teamId` by default regardless of role (§6.2);
+  (3) never set `isLeagueManager: true`; (4) if commissioner tooling is ever
+  wanted, it is a separately named capability, opt-in per invocation,
+  routed through `/sanity-gate` (ADR-0006's fourth gate), and it must
+  *require* the `mNav` flag rather than discover its authority by trying.
+  `X-Fantasy-Role` (§1.1) read `NONE` on every response — for a commissioner's
+  session — so it is **not** an LM indicator on the write host; do not use it.
 
 ---
 
@@ -507,8 +563,11 @@ the opaque session token, and it means `auth status`'s staleness reporting for
    "which scoring period is current during a two-week round", which the read
    side already answers.
 6. **`isActingAsTeamOwner` semantics.** Returned `false` for an own-team write
-   and for an other-team write alike. Unknown meaning; not an authorization
-   signal.
+   and for the commissioner's other-team write alike. Plausibly "an LM is
+   acting on a team they do not own" — but then it should have read `true` on
+   p12 — or possibly the inverse. Unknown; not an authorization signal.
+6a. **Whether a non-LM member can write another team's lineup.** Untestable
+   here (the session is the commissioner's). Procedure in §6.1.
 7. **`executionType: "CANCEL"`** and `relatedTransactionId` for withdrawing a
    pending claim — community shape only, never sent.
 8. **The add/drop/waiver/trade shapes** in §10 are community-attested and
@@ -517,7 +576,9 @@ the opaque session token, and it means `auth status`'s staleness reporting for
 9. **IR slot rules.** `21` is in every player's `eligibleSlots` regardless of
    injury status in the raw data; whether ESPN rejects moving a healthy player
    to IR (`TRAN_*`?) was not tried.
-10. **`X-Fantasy-Role`** as a commissioner indicator (§7).
+10. **`X-Fantasy-Role`** read `NONE` for a commissioner's session, so it is
+    not the indicator §1.1 wondered about; what, if anything, it varies on is
+    unknown.
 
 ---
 
@@ -533,8 +594,10 @@ one amendment to AE2:
   player's `eligibleSlots`; every moved player has `lineupLocked: false`; the
   target does not exceed `lineupSlotCounts`; `teamId` is one the session owns
   (§6.2 item 1). Each of these is something ESPN *will* reject or — for
-  ownership — *will not*, and pre-flighting them turns a 409 into a
-  `CONFIG_INVALID` with a name, before any request.
+  ownership, when the session is a commissioner's — *will not*, and
+  pre-flighting them turns a 409 into a `CONFIG_INVALID` with a name, before
+  any request. Record the session's per-league role from `mNav` in the
+  journal entry (§7).
 - Read-back after `200`, compare slot-for-slot, `WRITE_DIVERGED` on mismatch.
   Drop AE2's "partial application is reported, not prevented" — a single POST
   is atomic (§3); divergence means the world moved, not that ESPN half-applied.
@@ -567,8 +630,9 @@ should not be sending one.
   rejection codes for budget/position/drop cannot be learned in a real league
   without leaving transaction rows other managers see.
 - The **ownership guard is load-bearing** for the irreversible class in a way
-  it is merely embarrassing for lineups: if ESPN also fails to check ownership
-  on `FREEAGENT`/`WAIVER`/`TRADE_PROPOSAL` (unknown — not probed, must not be
+  it is merely embarrassing for lineups: the session is a commissioner's in
+  this league, and if ESPN honours that authority on `FREEAGENT`/`WAIVER`/
+  `TRADE_PROPOSAL` as it did on `ROSTER` (unknown — not probed, must not be
   probed in a real league), a `--team` typo drops another manager's player.
   The guard in §6.2 item 1 is a precondition for #18, not a nicety.
 - The **timeout rule** in §8 item 1 is a precondition too: a timed-out claim
@@ -578,9 +642,10 @@ should not be sending one.
 **ADR / doc updates this brief implies:** ARCHITECTURE §5 gains
 `WRITE_REJECTED` (11) and `WRITE_DIVERGED` (12) and the write-host `401` rule;
 §6 notes that writes need `espn_s2` only; §9 and AE2 lose "no transaction
-boundary"; #18's body loses "John holds commissioner privileges" in favour of
-"read `mNav`". `docs/memory/` gets two notes: the ownership finding, and
-`isLeagueManager`-lives-in-`mNav`.
+boundary"; #18's body keeps "John holds commissioner privileges" and gains
+"read `isLeagueCreator OR isLeagueManager` from `mNav` per league".
+`docs/memory/` gets two notes: the commissioner cookie's cross-team reach, and
+where the two authority flags live.
 
 ---
 
