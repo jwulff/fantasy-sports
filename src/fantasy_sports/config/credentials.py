@@ -45,14 +45,13 @@ did nothing leaves the leaked value on disk while telling the user it is gone.
 
 from __future__ import annotations
 
-import os
-import tempfile
 import tomllib
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
 from fantasy_sports.config import paths
+from fantasy_sports.config.document import write_atomically
 from fantasy_sports.core.errors import ConfigInvalidError
 
 __all__ = ["load_credentials", "remove_credentials"]
@@ -138,7 +137,7 @@ def remove_credentials(names: Iterable[str], path: Path | None = None) -> tuple[
         del table[key]
     if not table:
         del document[TABLE]
-    _write_atomically(target, document)
+    write_atomically(target, document)
     return removed
 
 
@@ -172,20 +171,3 @@ def _table(document: dict[str, Any], target: Path) -> dict[str, Any] | None:
             details={"path": str(target), "table": TABLE, "found_type": type(table).__name__},
         )
     return table
-
-
-def _write_atomically(target: Path, document: dict[str, Any]) -> None:
-    """Serialize ``document`` over ``target`` without a window where it is partial."""
-    import tomli_w
-
-    mode = target.stat().st_mode & 0o777
-    handle, temp_name = tempfile.mkstemp(dir=target.parent, prefix=".config-", suffix=".tmp")
-    temp = Path(temp_name)
-    try:
-        with os.fdopen(handle, "w", encoding="utf-8") as stream:
-            stream.write(tomli_w.dumps(document))
-        temp.chmod(mode)
-        temp.replace(target)
-    except BaseException:  # pragma: no cover - defensive cleanup
-        temp.unlink(missing_ok=True)
-        raise

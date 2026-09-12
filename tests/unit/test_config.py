@@ -10,8 +10,10 @@ from __future__ import annotations
 
 import ast
 import json
+import stat
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -540,6 +542,105 @@ def test_save_omits_an_unset_default(isolated_home: Path):
         leagues.LeagueConfig(path=paths.config_file(), default=None, profiles_by_name={})
     )
     assert "default" not in written.read_text()
+
+
+# jwulff/fantasy-sports#85: save() must not drop the tables it does not own
+
+
+def _dynasty(**overrides: object) -> LeagueProfile:
+    fields: dict = {
+        "name": "dynasty",
+        "provider": "espn",
+        "league_id": "123456",
+        "season": 2026,
+        "sport": "football",
+    }
+    fields.update(overrides)
+    return LeagueProfile(**fields)
+
+
+def test_save_keeps_every_table_it_does_not_own(tmp_path: Path):
+    """``config.toml`` is a shared namespace: ``[credentials]`` lives there on
+    every host without a Keychain, and a rewrite that only knew about
+    ``default`` and ``[leagues]`` silently discarded it. Every table this
+    module does not own must survive a save, including ones that do not
+    exist yet.
+    """
+    path = tmp_path / "config.toml"
+    path.write_text(
+        'default = "old"\n'
+        "[credentials]\n"
+        'espn_s2 = "s2-value"\n'
+        'SWID = "{guid}"\n'
+        "[future]\n"
+        "knob = 3\n"
+        "[leagues.old]\n"
+        'provider = "espn"\n'
+        'league_id = "1"\n'
+        "season = 2025\n"
+    )
+    config = leagues.LeagueConfig(
+        path=path, default="dynasty", profiles_by_name={"dynasty": _dynasty()}
+    )
+    leagues.save(config)
+
+    document = tomllib.loads(path.read_text())
+    assert document["credentials"] == {"espn_s2": "s2-value", "SWID": "{guid}"}
+    assert document["future"] == {"knob": 3}
+    assert document["default"] == "dynasty"
+    assert set(document["leagues"]) == {"dynasty"}, "the old profile is replaced, not merged"
+    assert leagues.load(path) == config
+    assert credentials.load_credentials(path) == {"espn_s2": "s2-value", "SWID": "{guid}"}
+
+
+def test_save_removes_the_keys_it_owns_when_they_are_unset(tmp_path: Path):
+    """An unset ``default`` and an empty profile set clear the stale keys
+    rather than leaving last week's values behind them."""
+    path = tmp_path / "config.toml"
+    path.write_text(
+        'default = "gone"\n'
+        "[credentials]\n"
+        'espn_s2 = "x"\n'
+        "[leagues.gone]\n"
+        'provider = "espn"\n'
+        'league_id = "1"\n'
+        "season = 2025\n"
+    )
+    leagues.save(leagues.LeagueConfig(path=path, default=None, profiles_by_name={}))
+    document = tomllib.loads(path.read_text())
+    assert document == {"credentials": {"espn_s2": "x"}}
+
+
+def test_save_keeps_the_file_mode_and_leaves_no_temp_file(tmp_path: Path):
+    """The same atomic, mode-preserving rewrite ``remove_credentials`` uses:
+    a ``0600`` file holding cookies stays ``0600``, and no partial file is
+    ever visible at the path."""
+    path = tmp_path / "config.toml"
+    path.write_text('[credentials]\nespn_s2 = "x"\n')
+    path.chmod(0o600)
+    leagues.save(
+        leagues.LeagueConfig(path=path, default="d", profiles_by_name={"d": _dynasty(name="d")})
+    )
+    assert stat.S_IMODE(path.stat().st_mode) == 0o600
+    assert not list(tmp_path.glob(".config-*.tmp"))
+
+
+def test_save_creates_a_new_file_private(tmp_path: Path):
+    """A file that will hold cookies on the next ``auth login`` starts private."""
+    path = tmp_path / "nested" / "config.toml"
+    leagues.save(leagues.LeagueConfig(path=path, default=None, profiles_by_name={}))
+    assert stat.S_IMODE(path.stat().st_mode) == 0o600
+
+
+def test_save_refuses_to_overwrite_a_file_it_cannot_parse(tmp_path: Path):
+    """A save that cannot read the document cannot carry the other tables
+    through, and replacing a broken file with a partial one would turn a
+    syntax error into silent data loss. Same code ``load`` raises."""
+    path = tmp_path / "config.toml"
+    path.write_text("[credentials\nespn_s2 = ")
+    with pytest.raises(ConfigInvalidError):
+        leagues.save(leagues.LeagueConfig(path=path, default=None, profiles_by_name={}))
+    assert path.read_text() == "[credentials\nespn_s2 = "
 
 
 # --------------------------------------------------------------------------
