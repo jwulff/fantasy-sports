@@ -120,6 +120,15 @@ class Sample:
     trimmed: bool = False
     note: str | None = None
     """One extra sentence for the header comment, when the sample needs it."""
+    offline: bool = True
+    """Whether the unit test can regenerate this sample without the network.
+
+    Replayed and synthetic samples always can. A live sample can when the
+    canary recording (``tests/cassettes/espn/canary_2018.yaml``) holds every
+    request it makes; the few that depend on the machine, the network, or a
+    request the canary never recorded say ``False`` and are held by the
+    envelope tests only.
+    """
 
     @property
     def file(self) -> str:
@@ -410,9 +419,15 @@ def console_script() -> Path:
 class Recorder:
     """Runs invocations inside a sandbox and collects :class:`Sample` objects."""
 
-    def __init__(self, sandbox: Sandbox) -> None:
+    def __init__(self, sandbox: Sandbox, *, offline_only: bool = False) -> None:
         self.sandbox = sandbox
         self.samples: list[Sample] = []
+        self.offline_only = offline_only
+        """Skip every sample that needs the network or the real console script.
+
+        The unit test sets this and points ``requests.get`` at a recording, so
+        the same functions that generate the docs regenerate them offline.
+        """
 
     def run(
         self,
@@ -426,8 +441,11 @@ class Recorder:
         expect: int | None = 0,
         note: str | None = None,
         stderr_ok: bool = False,
+        offline: bool = True,
         **trim_options: Any,
-    ) -> Sample:
+    ) -> Sample | None:
+        if self.offline_only and not offline:
+            return None
         with environment(env if env is not None else self.sandbox.env(), drop=drop):
             out, err, code = capture(argv)
         if expect is not None and code != expect:
@@ -443,7 +461,16 @@ class Recorder:
                 raise SystemExit(f"{name}: a failure wrote to stdout: {out!r}")
             stream, text = "stderr", err
         return self.add(
-            name, argv, source, league, code, stream, self.sandbox.rewrite(text), note, trim_options
+            name,
+            argv,
+            source,
+            league,
+            code,
+            stream,
+            self.sandbox.rewrite(text),
+            note,
+            trim_options,
+            offline=offline,
         )
 
     def add(
@@ -460,6 +487,7 @@ class Recorder:
         *,
         command: str | None = None,
         parse: bool = True,
+        offline: bool = True,
     ) -> Sample:
         fmt = "text"
         trimmed = False
@@ -483,6 +511,7 @@ class Recorder:
             text=text,
             trimmed=trimmed,
             note=note,
+            offline=offline,
         )
         self.samples.append(sample)
         return sample
@@ -496,14 +525,17 @@ def live_samples(recorder: Recorder) -> None:
 
     # --help comes from the fast path, which `run()` bypasses; use the real
     # console script so the sample is the exact text a shell would print.
-    help_text = subprocess.run(
-        [str(console_script()), "--help"],
-        check=True,
-        capture_output=True,
-        text=True,
-        env={**os.environ, **sandbox.env()},
-    ).stdout
-    recorder.add("help", ["--help"], "live", "no league", 0, "stdout", help_text, None, {})
+    if not recorder.offline_only:
+        help_text = subprocess.run(
+            [str(console_script()), "--help"],
+            check=True,
+            capture_output=True,
+            text=True,
+            env={**os.environ, **sandbox.env()},
+        ).stdout
+        recorder.add(
+            "help", ["--help"], "live", "no league", 0, "stdout", help_text, None, {}, offline=False
+        )
 
     recorder.run("league-info", ["league", "info"], **live)
     recorder.run("league-info.table", ["league", "info", "--output", "table"], **live)
@@ -519,7 +551,13 @@ def live_samples(recorder: Recorder) -> None:
     recorder.run("matchups", ["matchups", "--week", "1"], **live)
     recorder.run("transactions", ["transactions", "--limit", "5"], **live, raw_depth=2)
     recorder.run("raw", ["raw", "--view", "mSettings"], **live, raw_keys=8, raw_depth=2)
-    recorder.run("raw.unfiltered", ["raw", "--view", "kona_player_info"], **live, raw_keys=3)
+    # The canary recording has no kona_player_info interaction, so the two
+    # player-pool samples, the 2019 probe below, and `doctor` (whose python and
+    # dependency versions are the machine's, and whose version check reaches
+    # the health manifest) cannot be regenerated offline.
+    recorder.run(
+        "raw.unfiltered", ["raw", "--view", "kona_player_info"], **live, raw_keys=3, offline=False
+    )
     recorder.run(
         "raw.filter",
         [
@@ -532,8 +570,9 @@ def live_samples(recorder: Recorder) -> None:
         **live,
         raw_keys=3,
         raw_depth=2,
+        offline=False,
     )
-    recorder.run("doctor", ["doctor"], **live, raw_keys=4)
+    recorder.run("doctor", ["doctor"], **live, raw_keys=4, offline=False)
     recorder.run("auth-status.env", ["auth", "status"], **live | {"league": "no league"})
 
     # Global options. `--league` names the profile explicitly; `--fresh` and
@@ -547,30 +586,13 @@ def live_samples(recorder: Recorder) -> None:
         **live,
         expect=5,
         note="League 1234 exists only for 2018, so this is ESPN's real 404",
+        offline=False,
     )
 
     # The pipe: no --output, stdout is a pipe, JSON comes out. `head` is the
     # downstream so the sample shows only the first lines.
-    script = console_script()
-    env = {**os.environ, **sandbox.env()}
-    producer = subprocess.Popen([str(script), "standings"], stdout=subprocess.PIPE, env=env)
-    consumer = subprocess.run(
-        ["head", "-4"], stdin=producer.stdout, capture_output=True, text=True, check=True
-    )
-    producer.wait()
-    recorder.add(
-        "pipe",
-        ["standings"],
-        "live",
-        PUBLIC_LEAGUE,
-        producer.returncode,
-        "stdout",
-        consumer.stdout,
-        "No --output given; stdout is a pipe, so the renderer chose JSON",
-        {},
-        command="fantasy-sports standings | head -4",
-        parse=False,
-    )
+    if not recorder.offline_only:
+        _pipe_sample(recorder)
 
     # Provoked errors, all real.
     recorder.run(
@@ -626,6 +648,30 @@ def live_samples(recorder: Recorder) -> None:
     # Usage errors are typer's own: prose on stderr, exit 2, no envelope.
     recorder.run("error-usage", ["standings", "--output", "yaml"], **live, expect=2)
     recorder.run("error-usage.missing", ["roster"], **live, expect=2)
+
+
+def _pipe_sample(recorder: Recorder) -> None:
+    script = console_script()
+    env = {**os.environ, **recorder.sandbox.env()}
+    producer = subprocess.Popen([str(script), "standings"], stdout=subprocess.PIPE, env=env)
+    consumer = subprocess.run(
+        ["head", "-4"], stdin=producer.stdout, capture_output=True, text=True, check=True
+    )
+    producer.wait()
+    recorder.add(
+        "pipe",
+        ["standings"],
+        "live",
+        PUBLIC_LEAGUE,
+        producer.returncode,
+        "stdout",
+        consumer.stdout,
+        "No --output given; stdout is a pipe, so the renderer chose JSON",
+        {},
+        command="fantasy-sports standings | head -4",
+        parse=False,
+        offline=False,
+    )
 
 
 def replayed_samples(recorder: Recorder) -> None:

@@ -3,14 +3,14 @@
   "provider": "espn",
   "league_id": null,
   "season": null,
-  "generated_at": "2026-09-12T19:10:16Z",
+  "generated_at": "2026-09-12T19:19:04Z",
   "data_as_of": null,
   "data_age_seconds": null,
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
   "data": {
-    "generated_at": "2026-09-12T19:10:16.828145Z",
+    "generated_at": "2026-09-12T19:19:04.367646Z",
     "complete": true,
     "credentials": [
       {
@@ -19,7 +19,7 @@
         "source": "keychain",
         "age_days": 0.0,
         "age_basis": "stored_at",
-        "stored_at": "2026-09-12T19:10:16.826779Z",
+        "stored_at": "2026-09-12T19:19:04.366286Z",
         "last_success_at": null,
         "freshness": "fresh"
       },
@@ -29,7 +29,7 @@
         "source": "keychain",
         "age_days": 0.0,
         "age_basis": "stored_at",
-        "stored_at": "2026-09-12T19:10:16.826779Z",
+        "stored_at": "2026-09-12T19:19:04.366286Z",
         "last_success_at": null,
         "freshness": "fresh"
       }

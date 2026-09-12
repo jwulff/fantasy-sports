@@ -9,6 +9,7 @@
     "format": "text",
     "trimmed": false,
     "note": null,
+    "offline": false,
     "file": "help.txt"
   },
   {
@@ -21,6 +22,7 @@
     "format": "json",
     "trimmed": true,
     "note": null,
+    "offline": true,
     "file": "league-info.json"
   },
   {
@@ -33,6 +35,7 @@
     "format": "text",
     "trimmed": false,
     "note": null,
+    "offline": true,
     "file": "league-info.table.txt"
   },
   {
@@ -45,6 +48,7 @@
     "format": "json",
     "trimmed": true,
     "note": null,
+    "offline": true,
     "file": "teams.json"
   },
   {
@@ -57,6 +61,7 @@
     "format": "json",
     "trimmed": true,
     "note": null,
+    "offline": true,
     "file": "teams.no-raw.json"
   },
   {
@@ -69,6 +74,7 @@
     "format": "json",
     "trimmed": true,
     "note": null,
+    "offline": true,
     "file": "standings.json"
   },
   {
@@ -81,6 +87,7 @@
     "format": "text",
     "trimmed": false,
     "note": null,
+    "offline": true,
     "file": "standings.table.txt"
   },
   {
@@ -93,6 +100,7 @@
     "format": "text",
     "trimmed": false,
     "note": null,
+    "offline": true,
     "file": "standings.csv.txt"
   },
   {
@@ -105,6 +113,7 @@
     "format": "json",
     "trimmed": true,
     "note": null,
+    "offline": true,
     "file": "roster.json"
   },
   {
@@ -117,6 +126,7 @@
     "format": "json",
     "trimmed": true,
     "note": null,
+    "offline": true,
     "file": "roster.week.json"
   },
   {
@@ -129,6 +139,7 @@
     "format": "json",
     "trimmed": true,
     "note": null,
+    "offline": true,
     "file": "matchups.json"
   },
   {
@@ -141,6 +152,7 @@
     "format": "json",
     "trimmed": true,
     "note": null,
+    "offline": true,
     "file": "transactions.json"
   },
   {
@@ -153,6 +165,7 @@
     "format": "json",
     "trimmed": true,
     "note": null,
+    "offline": true,
     "file": "raw.json"
   },
   {
@@ -165,6 +178,7 @@
     "format": "json",
     "trimmed": true,
     "note": null,
+    "offline": false,
     "file": "raw.unfiltered.json"
   },
   {
@@ -177,6 +191,7 @@
     "format": "json",
     "trimmed": true,
     "note": null,
+    "offline": false,
     "file": "raw.filter.json"
   },
   {
@@ -189,6 +204,7 @@
     "format": "json",
     "trimmed": false,
     "note": null,
+    "offline": false,
     "file": "doctor.json"
   },
   {
@@ -201,6 +217,7 @@
     "format": "json",
     "trimmed": false,
     "note": null,
+    "offline": true,
     "file": "auth-status.env.json"
   },
   {
@@ -213,6 +230,7 @@
     "format": "json",
     "trimmed": true,
     "note": null,
+    "offline": true,
     "file": "option-league.json"
   },
   {
@@ -225,6 +243,7 @@
     "format": "json",
     "trimmed": true,
     "note": null,
+    "offline": true,
     "file": "option-fresh.json"
   },
   {
@@ -237,6 +256,7 @@
     "format": "json",
     "trimmed": true,
     "note": null,
+    "offline": true,
     "file": "option-no-cache.json"
   },
   {
@@ -249,6 +269,7 @@
     "format": "json",
     "trimmed": false,
     "note": "League 1234 exists only for 2018, so this is ESPN's real 404",
+    "offline": false,
     "file": "option-season.json"
   },
   {
@@ -261,6 +282,7 @@
     "format": "text",
     "trimmed": false,
     "note": "No --output given; stdout is a pipe, so the renderer chose JSON",
+    "offline": false,
     "file": "pipe.txt"
   },
   {
@@ -273,6 +295,7 @@
     "format": "json",
     "trimmed": false,
     "note": "ESPN does not serve box scores before 2019",
+    "offline": true,
     "file": "error-not-available.json"
   },
   {
@@ -285,6 +308,7 @@
     "format": "json",
     "trimmed": false,
     "note": null,
+    "offline": true,
     "file": "error-not-available.free-agents.json"
   },
   {
@@ -297,6 +321,7 @@
     "format": "json",
     "trimmed": false,
     "note": null,
+    "offline": true,
     "file": "error-league-not-found.json"
   },
   {
@@ -309,6 +334,7 @@
     "format": "json",
     "trimmed": false,
     "note": null,
+    "offline": true,
     "file": "error-league-not-found.team.json"
   },
   {
@@ -321,6 +347,7 @@
     "format": "json",
     "trimmed": false,
     "note": null,
+    "offline": true,
     "file": "error-league-not-found.ambiguous.json"
   },
   {
@@ -333,6 +360,7 @@
     "format": "json",
     "trimmed": false,
     "note": null,
+    "offline": true,
     "file": "error-config-invalid.filter.json"
   },
   {
@@ -345,6 +373,7 @@
     "format": "json",
     "trimmed": false,
     "note": "No cookie in the environment, the Keychain, or config.toml",
+    "offline": true,
     "file": "error-auth-missing.json"
   },
   {
@@ -357,6 +386,7 @@
     "format": "json",
     "trimmed": false,
     "note": "config.toml is missing a closing bracket",
+    "offline": true,
     "file": "error-config-invalid.json"
   },
   {
@@ -369,6 +399,7 @@
     "format": "json",
     "trimmed": false,
     "note": "No config.toml at all",
+    "offline": true,
     "file": "error-no-config.json"
   },
   {
@@ -381,6 +412,7 @@
     "format": "text",
     "trimmed": false,
     "note": null,
+    "offline": true,
     "file": "error-usage.txt"
   },
   {
@@ -393,6 +425,7 @@
     "format": "text",
     "trimmed": false,
     "note": null,
+    "offline": true,
     "file": "error-usage.missing.txt"
   },
   {
@@ -405,6 +438,7 @@
     "format": "json",
     "trimmed": true,
     "note": null,
+    "offline": true,
     "file": "box-scores.json"
   },
   {
@@ -417,6 +451,7 @@
     "format": "json",
     "trimmed": true,
     "note": null,
+    "offline": true,
     "file": "free-agents.json"
   },
   {
@@ -429,6 +464,7 @@
     "format": "json",
     "trimmed": false,
     "note": null,
+    "offline": true,
     "file": "error-config-invalid.pos.json"
   },
   {
@@ -441,6 +477,7 @@
     "format": "json",
     "trimmed": false,
     "note": null,
+    "offline": true,
     "file": "auth-status.missing.json"
   },
   {
@@ -453,6 +490,7 @@
     "format": "json",
     "trimmed": false,
     "note": "Prompts answered with placeholder cookies, the SWID pasted without braces; the prompt guidance went to stderr",
+    "offline": true,
     "file": "auth-login.json"
   },
   {
@@ -465,6 +503,7 @@
     "format": "json",
     "trimmed": false,
     "note": null,
+    "offline": true,
     "file": "auth-status.json"
   },
   {
@@ -477,6 +516,7 @@
     "format": "json",
     "trimmed": false,
     "note": null,
+    "offline": true,
     "file": "auth-logout.json"
   },
   {
@@ -489,6 +529,7 @@
     "format": "json",
     "trimmed": false,
     "note": "No observed ESPN response proves a cookie is dead, so this code has never been emitted; a rejected cookie surfaces as LEAGUE_NOT_FOUND today",
+    "offline": true,
     "file": "error-auth-expired.json"
   },
   {
@@ -501,6 +542,7 @@
     "format": "json",
     "trimmed": false,
     "note": null,
+    "offline": true,
     "file": "error-provider-unavailable.json"
   },
   {
@@ -513,6 +555,7 @@
     "format": "json",
     "trimmed": false,
     "note": null,
+    "offline": true,
     "file": "error-rate-limited.json"
   },
   {
@@ -525,6 +568,7 @@
     "format": "json",
     "trimmed": true,
     "note": null,
+    "offline": true,
     "file": "error-schema-drift.json"
   }
 ]

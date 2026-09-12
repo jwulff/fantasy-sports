@@ -61,15 +61,21 @@ because a hand-typed sample is a sample that is wrong by the second release.
   least one sample; no sample names a league outside `{1234, 99}`; both
   docs are byte-identical to what splicing the committed samples produces,
   so a hand edit inside a marker block or to a sample file fails CI; and
-  every sample that *can* be produced offline — the eleven replayed and
-  synthetic ones — is regenerated inside the test and compared to its
-  committed copy, timestamps and cache flags aside, so a change to what a
-  command renders fails CI until the samples are regenerated (Codex's
-  first-pass point: docs-match-samples alone proved nothing about
-  samples-match-code). The live samples cannot be checked against ESPN
-  offline; the envelope tests hold their structure. `test_readme.py` now
-  scans `docs/commands.md`'s command lines against the registry alongside
-  the README's.
+  **38 of the 44 samples are regenerated inside the test** and compared to
+  their committed copies, timestamps and cache flags aside, so a change to
+  what a command renders fails CI until the samples are regenerated. The
+  replayed and synthetic ones come from their own fixtures; the live ones
+  are replayed from the committed canary recording of the same public
+  league, which turned out to hold every request all but three of them
+  make. The six the index marks `offline: false` — `--help`, the pipe,
+  `doctor`, the two `kona_player_info` reads, and the 2019 probe — depend
+  on the machine or on a request the recording never captured, and are held
+  by the envelope tests only. (Codex's two passes drove this: the first
+  pointed out that docs-match-samples proved nothing about
+  samples-match-code, the second that regenerating only the offline league
+  left the live samples unguarded.) `test_readme.py` now scans
+  `docs/commands.md`'s command lines against the registry alongside the
+  README's.
 
 ## Decisions worth recording
 

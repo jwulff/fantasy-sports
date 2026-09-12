@@ -13,11 +13,15 @@ These tests hold three things about that (jwulff/fantasy-sports#93):
 * the docs are byte-identical to what splicing the committed samples produces,
   so a sample edited by hand or a doc edited inside a marker block fails here
   rather than silently drifting;
-* every sample that can be produced offline — the eleven replayed and
-  synthetic ones — is regenerated here and compared to its committed copy,
-  timestamps aside, so a change to what a command renders fails CI until the
-  samples are regenerated. The live samples cannot be checked against ESPN
-  offline; their structure is held by the envelope tests above.
+* every sample that can be produced offline is regenerated here and compared
+  to its committed copy, timestamps aside, so a change to what a command
+  renders fails CI until the samples are regenerated. The replayed and
+  synthetic samples come from their own fixtures; the live ones are replayed
+  from the committed canary recording of the same public league. The six
+  the index marks ``offline: false`` — ``--help``, the pipe, ``doctor``, the
+  two ``kona_player_info`` reads, and the 2019 probe — depend on the machine
+  or on a request the recording never captured, and are held by the envelope
+  tests only.
 
 Offline. The script is imported (the repo root is on ``sys.path`` via
 ``pythonpath``); the regeneration runs commands in-process against a private
@@ -29,9 +33,14 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from pathlib import Path
 
 import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from _harness import RecordedEspn  # noqa: E402
 
 from fantasy_sports.core.errors import ErrorCode
 from fantasy_sports.output import EXIT_CODES, SCHEMA, Envelope
@@ -42,6 +51,7 @@ from scripts.render_readme_samples import (
     SAMPLES_DIR,
     Recorder,
     Sandbox,
+    live_samples,
     load_index,
     referenced_names,
     replayed_samples,
@@ -226,18 +236,39 @@ def _stable(value):
     return value
 
 
+_TIMESTAMP = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z")
+_AGE = re.compile(r"\b\d+s( \(cached\))?")
+
+
+def _stable_text(text: str) -> str:
+    """A table's header and sources lines carry the same volatile values."""
+    return _AGE.sub("Ns", _TIMESTAMP.sub("T", text))
+
+
 @pytest.fixture(scope="module")
 def regenerated(tmp_path_factory: pytest.TempPathFactory) -> dict[str, str]:
-    """Every replayed and synthetic sample, produced fresh by the generator."""
+    """Every offline-capable sample, produced fresh by the generator's own code.
+
+    ``requests.get`` is pointed at the canary recording for the live block —
+    the same league the docs were generated from, served from disk — and the
+    replayed block installs its own stub. The Keychain backend is the null one
+    so a developer's real cookies are never consulted.
+    """
     import os
 
+    import requests
+
     saved = {k: os.environ.get(k) for k in ("PYTHON_KEYRING_BACKEND",)}
+    original_get = requests.get
     os.environ["PYTHON_KEYRING_BACKEND"] = "keyring.backends.null.Keyring"
+    requests.get = RecordedEspn("espn/canary_2018.yaml")
     try:
-        recorder = Recorder(Sandbox(tmp_path_factory.mktemp("samples")))
+        recorder = Recorder(Sandbox(tmp_path_factory.mktemp("samples")), offline_only=True)
+        live_samples(recorder)
         replayed_samples(recorder)
         synthetic_samples(recorder)
     finally:
+        requests.get = original_get
         for k, v in saved.items():
             if v is None:
                 os.environ.pop(k, None)
@@ -246,11 +277,16 @@ def regenerated(tmp_path_factory: pytest.TempPathFactory) -> dict[str, str]:
     return {sample.name: sample.text for sample in recorder.samples}
 
 
-OFFLINE_SAMPLES = sorted(n for n, e in INDEX.items() if e["source"] in {"replayed", "synthetic"})
+OFFLINE_SAMPLES = sorted(n for n, e in INDEX.items() if e["offline"])
 
 
-def test_the_offline_samples_cover_every_replayed_and_synthetic_entry(regenerated):
+def test_the_regeneration_covers_every_offline_sample_and_only_those(regenerated):
     assert set(regenerated) == set(OFFLINE_SAMPLES)
+
+
+def test_only_the_six_environment_dependent_samples_are_exempt():
+    exempt = {n for n, e in INDEX.items() if not e["offline"]}
+    assert exempt == {"help", "pipe", "doctor", "raw.unfiltered", "raw.filter", "option-season"}
 
 
 @pytest.mark.parametrize("name", OFFLINE_SAMPLES)
@@ -261,7 +297,9 @@ def test_offline_sample_matches_what_the_code_renders_today(name: str, regenerat
             f"{name} drifted from the code; run scripts/render_readme_samples.py"
         )
     else:
-        assert fresh == committed
+        assert _stable_text(fresh) == _stable_text(committed), (
+            f"{name} drifted from the code; run scripts/render_readme_samples.py"
+        )
 
 
 # --------------------------------------------------------------------------- #
