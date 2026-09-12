@@ -1,0 +1,113 @@
+{
+  "name": "p12-other-team-swap",
+  "note": "Same-shaped swap against team 11 (not First2232's); expect rejection",
+  "captured_at": "2026-09-12T18:31:03+00:00",
+  "request": {
+    "method": "POST",
+    "url": "https://lm-api-writes.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/segments/0/leagues/713073439/transactions/",
+    "headers": {
+      "User-Agent": "python-requests/2.34.2",
+      "Accept-Encoding": "gzip, deflate",
+      "Accept": "*/*",
+      "Connection": "keep-alive",
+      "Content-Type": "application/json",
+      "x-fantasy-source": "kona",
+      "x-fantasy-platform": "kona-PROD",
+      "Cookie": "<redacted>",
+      "Content-Length": "345"
+    },
+    "cookies_sent": [
+      "SWID",
+      "espn_s2"
+    ],
+    "body": {
+      "isLeagueManager": false,
+      "teamId": 11,
+      "type": "ROSTER",
+      "memberId": "{00000000-DCBA-FDFE-2D27-7ED8CC01C371}",
+      "scoringPeriodId": 1,
+      "executionType": "EXECUTE",
+      "items": [
+        {
+          "playerId": 4567750,
+          "type": "LINEUP",
+          "fromLineupSlotId": 4,
+          "toLineupSlotId": 20
+        },
+        {
+          "playerId": 4701936,
+          "type": "LINEUP",
+          "fromLineupSlotId": 20,
+          "toLineupSlotId": 4
+        }
+      ]
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json;charset=utf-8",
+      "Transfer-Encoding": "chunked",
+      "Connection": "keep-alive",
+      "Date": "Sat, 12 Sep 2026 18:31:03 GMT",
+      "X-Frame-Options": "DENY",
+      "Content-Encoding": "gzip",
+      "X-Fantasy-Server-Time": "Sat, 12 Sep 2026 18:31:03 GMT",
+      "X-Fantasy-Role": "NONE",
+      "Cache-Control": "must-revalidate",
+      "Pragma": "no-cache",
+      "Expires": "-1",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET,PUT,POST,DELETE,OPTIONS,HEAD",
+      "Access-Control-Allow-Credentials": "true",
+      "Vary": "origin,accept-encoding",
+      "Access-Control-Expose-Headers": "location,content-length,etag,if-none-match,X-Fantasy-Filter-Player-Count,X-Fantasy-Filter-Communication-Count,X-Fantasy-Filter-Schedule-Count,X-Fantasy-Filter-Transaction-Count,X-Fantasy-Role,X-Fantasy-Last-Update-League,X-Fantasy-Server-Time,X-Fantasy-Filter-TopicType-NOTE-Count,X-Fantasy-Filter-TopicType-POLL-Count,X-Fantasy-Filter-TopicType-MSG_BOARD-Count,X-Fantasy-Filter-TopicType-CHAT-Count,X-Fantasy-Filter-TopicType-EMAIL-Count,X-Fantasy-Filter-TopicType-OTHER-Count,X-Fantasy-Filter-TopicType-ACTIVITY_TRANSACTIONS-Count,X-Fantasy-Filter-TopicType-ACTIVITY_SETTINGS-Count,X-Fantasy-Filter-TopicType-ACTIVITY_STATUS-Count,X-Fantasy-Filter-TopicType-ACTIVITY_SCHEDULE-Count,X-Fantasy-Filter-TopicType-MSG_BOARD_GROUP-Count,X-Fantasy-Filter-TopicType-MSG_BOARD_MATCHUP-Count,X-Fantasy-Filter-TopicType-REMINDER_ACTIVATE-Count,X-Fantasy-Filter-TopicType-REMINDER_SCHEDULE-Count,X-Fantasy-Filter-TopicType-CHAT_ALL_MEMBERS-Count,X-Fantasy-Filter-TopicType-CHAT_DIRECT_MESSAGE-Count,Polling-Interval",
+      "X-Content-Type-Options": "nosniff",
+      "X-XSS-Protection": "0",
+      "X-Cache": "Miss from cloudfront",
+      "Via": "1.1 10bfbac2daf99d585c60cd6a21af0e12.cloudfront.net (CloudFront)",
+      "X-Amz-Cf-Pop": "SEA900-P13",
+      "X-Amz-Cf-Id": "62afFgfN9a2MRrop4lpn7mq8BGpzMDTv0pIWFQkQHl9GJUpeki5vFg=="
+    },
+    "body": {
+      "bidAmount": 0,
+      "executionType": "EXECUTE",
+      "id": "3063bba2-ab36-45a7-aa05-cdf05700f0b9",
+      "isActingAsTeamOwner": false,
+      "isLeagueManager": false,
+      "isPending": false,
+      "items": [
+        {
+          "fromLineupSlotId": 4,
+          "fromTeamId": 0,
+          "isKeeper": false,
+          "overallPickNumber": 0,
+          "playerId": 4567750,
+          "toLineupSlotId": 20,
+          "toTeamId": 0,
+          "type": "LINEUP"
+        },
+        {
+          "fromLineupSlotId": 20,
+          "fromTeamId": 0,
+          "isKeeper": false,
+          "overallPickNumber": 0,
+          "playerId": 4701936,
+          "toLineupSlotId": 4,
+          "toTeamId": 0,
+          "type": "LINEUP"
+        }
+      ],
+      "memberId": "{00000000-DCBA-FDFE-2D27-7ED8CC01C371}",
+      "proposedDate": 1789237863766,
+      "rating": 0,
+      "scoringPeriodId": 1,
+      "skipTransactionCounters": false,
+      "status": "EXECUTED",
+      "subOrder": 0,
+      "teamId": 11,
+      "type": "ROSTER"
+    },
+    "elapsed_ms": 81
+  }
+}

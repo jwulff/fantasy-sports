@@ -10,6 +10,12 @@ football API, distributed via `uv tool install fantasy-sports`.
 
 ### Added
 
+- **ESPN write-surface research brief** — `docs/research/05-espn-write-surface.md`
+  with scrubbed captures: the write host and lineup-transaction shape confirmed
+  end to end against a real league, the `409 TRAN_*` rejection vocabulary,
+  `espn_s2` as the sole write credential, writes pinned to the current scoring
+  period, and the finding that ESPN executed a lineup change on a team the
+  caller does not own. Research only; nothing writes yet (#14).
 - **`auth logout`** — removes `espn_s2` and `SWID` from the Keychain and from
   `config.toml`'s `[credentials]` table (every other key survives), reports
   each link as removed / absent / still-set / unavailable without ever
