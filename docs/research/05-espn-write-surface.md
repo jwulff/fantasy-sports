@@ -519,8 +519,10 @@ So:
   and is *not* mirrored into `isLeagueManager`. A check that reads only
   `isLeagueManager` — which is what the first draft of this brief did, and
   what `mLeagueManager` alone offers — misses the primary commissioner
-  entirely. **Commissioner authority = `isLeagueCreator OR isLeagueManager`
-  in `mNav`.** `mLeagueManager` on its own is insufficient.
+  entirely. **Any LM-scoped logic must treat `isLeagueCreator ||
+  isLeagueManager` as privileged until proven otherwise**; ESPN's
+  `isLeagueManager` does not capture "founding LM who delegated" —
+  `isLeagueCreator` does. `mLeagueManager` on its own is insufficient.
 - **`fan.api`'s `groups[].groupManager` is the account-side view** of the
   same fact and reads `true` for John. It is the cheaper check when the tool
   already knows the SWID, and it is per-league (`groupId`). It cannot see

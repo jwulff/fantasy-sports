@@ -1,15 +1,17 @@
-# The commissioner's cookie writes any team's lineup without being asked to
+# ESPN's lineup-write authority is broader than team ownership
 
 **Found:** 2026-09-12, researching #14; corrected the same day against
 John's ground truth. **Applies to:** every write command (#15, #16, #18), the
 provider's write transport, and any test that assumes ESPN will refuse an
 out-of-scope `teamId`.
 
-A `ROSTER` transaction with `LINEUP` items sent to
-`lm-api-writes.fantasy.espn.com` with another manager's `teamId` — same
-league, caller not in that team's `owners`, `isLeagueManager: false` in the
-body — returned `200` / `status: "EXECUTED"`, moved that team's players, and
-was recorded in `mTransactions2` under the *caller's* member id. Reversed on
+**The observation, precisely:** the league *creator's* cookies (`mNav`
+`isLeagueCreator: true`, `isLeagueManager: false`) sent a `ROSTER`
+transaction with `LINEUP` items to `lm-api-writes.fantasy.espn.com` with
+another manager's `teamId` — a team the caller is not in the `owners` of —
+with `isLeagueManager: false` in the body, and ESPN returned `200` /
+`status: "EXECUTED"`, moved that team's players, and recorded the row in
+`mTransactions2` under the *caller's* member id. Reversed on
 the next request; the team read back identical. Evidence:
 `docs/research/05-espn-write-surface/p12-*.json`; the brief's §6.
 
