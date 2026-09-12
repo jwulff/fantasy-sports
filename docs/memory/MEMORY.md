@@ -23,5 +23,6 @@ individual files when their topic is relevant.
 | [no-code-for-a-bad-argument.md](no-code-for-a-bad-argument.md) | The taxonomy describes the world, not the invocation — why a bad `--pos`/`--filter` stays `CONFIG_INVALID` for good (settled #48, ADR-0009) with a `details.kind` discriminator, why exit 2 is the CLI's own, and why `--no-cache` must be a cache mode |
 | [generated-callbacks-and-a-test-tree-that-bites.md](generated-callbacks-and-a-test-tree-that-bites.md) | Typer callbacks assembled from declared params rather than handler signatures — plus duplicate test/`conftest` basenames, and the `--disable-socket` that stopped the live suite ever running |
 | [doctor-must-never-raise.md](doctor-must-never-raise.md) | Two ways `doctor` almost stopped being crash-proof — an uncaught downstream `ConfigInvalidError`, and a three-way boolean opt-out check silently inverted — and why each was only caught by a test aimed at that exact branch |
+| [default-args-defeat-monkeypatch.md](default-args-defeat-monkeypatch.md) | A default parameter bound at import time silently ignores a later `monkeypatch.setattr` on the module — why an injectable default must resolve inside the function body, not as the parameter's own default |
 Nothing here should duplicate what the code, git history, `CLAUDE.md`, or
 `docs/ARCHITECTURE.md` already record.

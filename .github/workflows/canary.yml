@@ -1,9 +1,16 @@
 name: ESPN canary
 
-# ADR-0005 server side, detection only (jwulff/fantasy-sports#11). Hits
-# ESPN's public test league (1234, 2018) -- no credentials, no secrets. See
-# scripts/canary/README.md for the classification design and what's
-# deliberately deferred (auto-filed issues, the public health.json).
+# ADR-0005 server side (jwulff/fantasy-sports#11, #64). Hits ESPN's public
+# test league (1234, 2018) -- no credentials, no secrets. See
+# scripts/canary/README.md for the classification design.
+#
+# Two jobs, deliberately: `canary` only ever *detects* drift and needs
+# nothing more than `contents: read`; `publish-drift` is the only place in
+# this workflow that files/updates a GitHub issue or commits `health.json`,
+# and it runs -- with the write scope that requires -- only when `canary`
+# classified the run as SCHEMA_DRIFT (jwulff/fantasy-sports#64 AC5). Splitting
+# jobs makes that a property GitHub Actions enforces at the token level, not
+# something `scripts/canary/run.py`'s own code has to be trusted to respect.
 
 on:
   schedule:
@@ -18,6 +25,8 @@ concurrency:
   group: canary
   cancel-in-progress: false
 
+# The safe default for the workflow as a whole. `publish-drift` below
+# escalates its own job explicitly; `canary` never needs to.
 permissions:
   contents: read
 
@@ -25,6 +34,10 @@ jobs:
   canary:
     name: ESPN canary (league 1234, 2018)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      classification: ${{ steps.run.outputs.classification }}
     steps:
       - uses: actions/checkout@v5
 
@@ -43,10 +56,84 @@ jobs:
 
       # workflow_dispatch always runs in full (--force): a manually-fired
       # canary should never silently no-op on an offseason weekday.
+      #
+      # The step's own exit code still becomes the job's result (a red run
+      # is itself the detection signal on BUILD_ERROR/CANARY_INFRA/
+      # SCHEMA_DRIFT, unchanged from #11) -- `set +e`/`set -e` around the
+      # python invocation only defers *that* exit long enough to also record
+      # `classification` via $GITHUB_OUTPUT, which `publish-drift` below
+      # needs even when this job ends in failure.
       - name: Run the canary
+        id: run
         run: |
+          set +e
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            uv run python scripts/canary/run.py --force
+            uv run python scripts/canary/run.py --force --report-json canary_report.json
           else
-            uv run python scripts/canary/run.py
+            uv run python scripts/canary/run.py --report-json canary_report.json
           fi
+          status=$?
+          set -e
+
+          classification="none"
+          if [ -f canary_report.json ]; then
+            classification=$(uv run python -c "import json; print(json.load(open('canary_report.json'))['classification'])")
+          fi
+          echo "classification=$classification" >> "$GITHUB_OUTPUT"
+          exit "$status"
+
+      - name: Upload the report for the publish job
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: canary-report
+          path: canary_report.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  publish-drift:
+    name: File/update the auto-error issue and publish health.json
+    needs: canary
+    # `always()` because job 1 intentionally *fails* (red run) on
+    # SCHEMA_DRIFT -- the default `if` on a `needs:` job requires every
+    # dependency to have succeeded, which would skip this job on the one
+    # classification it exists to handle.
+    if: always() && needs.canary.outputs.classification == 'schema_drift'
+    runs-on: ubuntu-latest
+    permissions:
+      # The only write scope in this workflow, and only this job holds it:
+      # `issues: write` to auto-file/update the `auto-error` issue,
+      # `contents: write` to commit `health.json` -- both scoped to the one
+      # path (jwulff/fantasy-sports#64) that ever needs them.
+      contents: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies (locked)
+        run: uv sync --locked
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: canary-report
+
+      - name: File/update the issue and write health.json
+        run: uv run python scripts/canary/publish_drift.py --report-json canary_report.json
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Commit health.json if it changed
+        run: |
+          if [ -z "$(git status --porcelain -- health.json)" ]; then
+            echo "health.json unchanged; nothing to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add health.json
+          git commit -m "canary: publish health.json for confirmed SCHEMA_DRIFT"
+          git push
