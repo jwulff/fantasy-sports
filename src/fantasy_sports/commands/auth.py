@@ -124,16 +124,42 @@ def logout() -> Envelope:
     every link that still holds the credential. It contains no values.
 
     A link that cannot be reached — locked Keychain, no backend, an unreadable
-    config file — is reported ``unavailable`` rather than failing the command,
-    so the other links are still cleared. Nothing stored anywhere is a
-    success, not an error: the outcome the user wanted is the one they have.
+    config file — is reported ``unavailable``, and the other links are still
+    cleared first. Then the command **fails**: ``CONFIG_INVALID`` with
+    ``kind: "credential_store"`` and the whole per-link report under
+    ``details.report``. A value may still be on the machine, and exit 0 is
+    the one answer a script or an agent branching on the status must not get
+    while that is true (raised on the launch thread, jwulff/fantasy-sports#89).
+    The code is the taxonomy's "a human must change something; retrying
+    unchanged cannot work" (ADR-0009): unlock the Keychain or fix the file,
+    run it again, and the second run finishes the job and exits 0. The
+    environment is different: ``still-set`` is reported, not failed, because
+    the command named the variables and there is nothing it could have done.
+
+    Nothing stored anywhere is a success, not an error: the outcome the user
+    wanted is the one they have.
     """
     from fantasy_sports.auth.chain import ESPN_CREDENTIALS
     from fantasy_sports.auth.logout import clear_credentials
+    from fantasy_sports.core.errors import ConfigInvalidError
     from fantasy_sports.output.envelope import Envelope
 
-    data = clear_credentials(ESPN_CREDENTIALS).to_payload()
+    report = clear_credentials(ESPN_CREDENTIALS)
+    data = report.to_payload()
     require_shape(data, command="auth logout")
+    if report.unavailable:
+        names = ", ".join(report.unavailable)
+        raise ConfigInvalidError(
+            f"auth logout could not reach every stored link for {names}; a value may "
+            "still be on this machine. Removed: "
+            f"{', '.join(report.removed) or 'nothing'}.",
+            kind="credential_store",
+            remediation=(
+                "Unlock the Keychain or fix the config file named in the warnings, then "
+                "run `fantasy-sports auth logout` again; it is idempotent."
+            ),
+            details={"report": data},
+        )
     return Envelope.success(provider=PROVIDER, data=data)
 
 

@@ -310,27 +310,41 @@ def test_a_blank_env_var_is_not_still_set(monkeypatch: pytest.MonkeyPatch):
 
 
 # ---------------------------------------------------------------------------
-# Links that cannot be reached are unavailable, not silently absent
+# Links that cannot be reached are unavailable, and the command fails
+# (jwulff/fantasy-sports#89)
 # ---------------------------------------------------------------------------
 
 
-def test_no_keyring_backend_is_unavailable_and_config_is_still_cleared(
+def _report_of(err: ConfigInvalidError) -> dict[str, Any]:
+    """The per-link report an unavailable-link failure still carries."""
+    payload = err.to_dict()
+    assert payload["code"] == "CONFIG_INVALID"
+    assert payload["retryable"] is False
+    assert payload["details"]["kind"] == "credential_store"
+    return payload["details"]["report"]
+
+
+def test_no_keyring_backend_is_unavailable_config_is_still_cleared_and_it_fails(
     keyring_module: FakeKeyring, isolated_home: Path
 ):
+    """The other links are cleared first; then the command refuses to say success."""
     keyring_module.fail_reads = _NoKeyringError("No recommended backend was available")
     _config_path(isolated_home).write_text(CONFIG_WITH_CREDENTIALS, encoding="utf-8")
 
-    envelope = auth_commands.logout()
-    data = envelope.data
+    with pytest.raises(ConfigInvalidError) as caught:
+        auth_commands.logout()
 
-    assert envelope.ok, "an unreachable link degrades the report; it does not fail the command"
+    data = _report_of(caught.value)
     rows = _rows(data)
     assert rows["espn_s2"]["keychain"] == "unavailable"
     assert rows["swid"]["keychain"] == "unavailable"
-    assert rows["espn_s2"]["config"] == "removed"
+    assert rows["espn_s2"]["config"] == "removed", "the reachable link was still cleared"
     assert data["removed"] == ["espn_s2", "swid"]
+    assert data["unavailable"] == ["espn_s2", "swid"]
     assert sum("Keychain could not be reached" in note for note in data["warnings"]) == 2
+    assert "again" in (caught.value.remediation or "")
     _assert_no_values(data)
+    _assert_no_values(caught.value.to_dict())
 
 
 def test_a_keychain_that_reads_but_will_not_delete_is_unavailable(
@@ -340,8 +354,10 @@ def test_a_keychain_that_reads_but_will_not_delete_is_unavailable(
     _seed_keychain(keyring_module)
     keyring_module.fail_deletes = _KeyringLocked("User interaction is not allowed")
 
-    data = auth_commands.logout().data
+    with pytest.raises(ConfigInvalidError) as caught:
+        auth_commands.logout()
 
+    data = _report_of(caught.value)
     rows = _rows(data)
     assert rows["espn_s2"]["keychain"] == "unavailable"
     assert data["removed"] == []
@@ -359,14 +375,68 @@ def test_an_unreadable_config_file_is_unavailable_not_absent(
     path.mkdir()
     _seed_keychain(keyring_module)
 
-    envelope = auth_commands.logout()
-    data = envelope.data
+    with pytest.raises(ConfigInvalidError) as caught:
+        auth_commands.logout()
 
-    assert envelope.ok
+    data = _report_of(caught.value)
     rows = _rows(data)
     assert rows["espn_s2"]["config"] == "unavailable"
     assert rows["espn_s2"]["keychain"] == "removed"
     assert any("could not be read or rewritten" in note for note in data["warnings"])
+
+
+def test_an_unavailable_link_exits_nonzero_through_the_cli_with_the_report(
+    keyring_module: FakeKeyring, isolated_home: Path, capsys: pytest.CaptureFixture[str]
+):
+    """What u/kantorcodes1 asked on the launch thread: not exit 0 while a value may remain."""
+    keyring_module.fail_reads = _NoKeyringError("No recommended backend was available")
+    _config_path(isolated_home).write_text(CONFIG_WITH_CREDENTIALS, encoding="utf-8")
+
+    status = run(["auth", "logout"])
+    captured = capsys.readouterr()
+
+    assert status != 0
+    assert captured.out == "", "a failure keeps stdout byte-empty"
+    payload = json.loads(captured.err)
+    assert payload["error"]["code"] == "CONFIG_INVALID"
+    report = payload["error"]["details"]["report"]
+    assert report["removed"] == ["espn_s2", "swid"]
+    assert report["unavailable"] == ["espn_s2", "swid"]
+    for stream in (captured.out, captured.err):
+        assert FAKE_S2 not in stream
+        assert FAKE_SWID not in stream
+
+
+def test_a_second_logout_after_the_link_is_fixed_finishes_and_exits_zero(
+    keyring_module: FakeKeyring, isolated_home: Path
+):
+    _seed_keychain(keyring_module)
+    _config_path(isolated_home).write_text(CONFIG_WITH_CREDENTIALS, encoding="utf-8")
+    keyring_module.fail_deletes = _KeyringLocked("User interaction is not allowed")
+    with pytest.raises(ConfigInvalidError):
+        auth_commands.logout()
+    assert len(keyring_module.store) == 2
+
+    keyring_module.fail_deletes = None
+    envelope = auth_commands.logout()
+
+    assert envelope.ok
+    assert envelope.data["unavailable"] == []
+    assert envelope.data["removed"] == ["espn_s2", "swid"]
+    assert keyring_module.store == {}
+
+
+def test_a_still_set_environment_is_reported_not_failed(
+    keyring_module: FakeKeyring, monkeypatch: pytest.MonkeyPatch
+):
+    """The command named the variables; there is nothing more it could do."""
+    monkeypatch.setenv("FANTASY_SPORTS_ESPN_S2", FAKE_S2)
+
+    envelope = auth_commands.logout()
+
+    assert envelope.ok
+    assert envelope.data["still_set"] == ["espn_s2"]
+    assert envelope.data["unavailable"] == []
 
 
 def test_a_damaged_config_file_is_config_invalid_not_a_silent_skip(
