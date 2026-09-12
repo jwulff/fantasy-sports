@@ -406,6 +406,14 @@ def test_an_encoding_vcrpy_cannot_decode_is_refused_rather_than_recorded() -> No
 PUBLIC_LEAGUES = frozenset({"1234", "99"})
 
 
+#: Any URL path that names a league, in a cassette or anywhere else a
+#: request/response capture might be committed — in the current-season shape
+#: (``/leagues/<id>``) or the historical one (``/leagueHistory/<id>``) that
+#: pre-2018 seasons and the 401 alternate-shape retry use
+#: (``docs/research/03-espn-api-surface.md`` §1.2).
+_LEAGUE_IN_URL = re.compile(r"/(?:leagues|leagueHistory)/(\d+)")
+
+
 def _committed_cassettes() -> list[Path]:
     return [
         path
@@ -427,15 +435,9 @@ def test_every_committed_cassette_comes_from_a_public_league() -> None:
         for interaction in document["interactions"]:
             uri = interaction["request"]["uri"]
             assert uri.startswith(ESPN_HOST), f"{path.name} recorded a non-ESPN host"
-            _, _, tail = uri.partition("/leagues/")
-            if tail:
-                league = tail.split("/")[0].split("?")[0]
+            for match in _LEAGUE_IN_URL.finditer(uri):
+                league = match.group(1)
                 assert league in PUBLIC_LEAGUES, f"{path.name} records private league {league}"
-
-
-#: Any URL path that names a league, in a cassette or anywhere else a
-#: request/response capture might be committed.
-_LEAGUE_IN_URL = re.compile(r"/leagues/(\d+)")
 
 
 def _committed_fixtures() -> list[Path]:
@@ -461,6 +463,25 @@ def test_every_committed_fixture_names_only_public_leagues() -> None:
             if match.group(1) not in PUBLIC_LEAGUES:
                 offending.append(f"{path.relative_to(REPO_ROOT)} names league {match.group(1)}")
     assert not offending, "\n".join(offending)
+
+
+@pytest.mark.parametrize(
+    "uri",
+    [
+        "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/segments/0/leagues/55501?view=mTeam",
+        "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/leagueHistory/55501?seasonId=2017",
+        "https://lm-api-writes.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/segments/0/leagues/55501/transactions/",
+    ],
+    ids=["current", "historical", "writes"],
+)
+def test_the_provenance_pattern_sees_every_league_url_shape(uri: str) -> None:
+    """Both endpoint shapes name the league; the scan must read both.
+
+    Codex's second pass on #92 caught that ``/leagueHistory/<id>`` slipped past
+    a ``/leagues/``-only match, so a private *historical* recording would have
+    passed both provenance checks.
+    """
+    assert [m.group(1) for m in _LEAGUE_IN_URL.finditer(uri)] == ["55501"]
 
 
 def test_private_recordings_are_gitignored() -> None:
