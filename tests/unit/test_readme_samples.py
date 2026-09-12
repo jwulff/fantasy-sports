@@ -300,6 +300,23 @@ def test_only_the_six_environment_dependent_samples_are_exempt():
     assert exempt == {"help", "pipe", "doctor", "raw.unfiltered", "raw.filter", "option-season"}
 
 
+def test_the_help_sample_is_what_the_fast_path_renders_today():
+    """``--help`` is exempt from regeneration only because it needs the console
+    script; its text is generated from the registry and can be checked directly."""
+    from fantasy_sports.cli.fastpath import render_help
+
+    assert _read("help").rstrip("\n") == render_help().rstrip("\n")
+
+
+def test_the_pipe_sample_is_the_head_of_the_standings_envelope():
+    """The four lines ``head`` kept are deterministic: the opening brace and
+    the schema, provider, and league id of the same standings read."""
+    head = _read("pipe").splitlines()
+    full = _read("standings").splitlines()
+    assert head == full[:4]
+    assert head[1] == f'  "schema": "{SCHEMA}",'
+
+
 @pytest.mark.parametrize("name", OFFLINE_SAMPLES)
 def test_offline_sample_matches_what_the_code_renders_today(name: str, regenerated):
     fresh, committed = regenerated[name], _read(name)

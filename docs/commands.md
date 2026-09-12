@@ -17,8 +17,10 @@ fixtures, the live ones from the committed canary recording of the same
 league — and fails if a committed sample no longer matches what the code
 renders, or if the docs and the samples disagree. Six samples depend on the
 machine or on a request the recording never captured (`--help`, the pipe,
-`doctor`, the two `kona_player_info` reads, and the 2019 probe); those are
-held to the envelope contract only. Regenerate with:
+`doctor`, the two `kona_player_info` reads, and the 2019 probe); the four
+JSON ones are held to the envelope contract, `--help` is compared to what
+the fast path renders from the registry, and the pipe sample must be the
+head of the standings envelope. Regenerate with:
 
 ```bash
 uv run python scripts/render_readme_samples.py

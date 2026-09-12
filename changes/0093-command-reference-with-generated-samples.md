@@ -62,15 +62,19 @@ because a hand-typed sample is a sample that is wrong by the second release.
   docs are byte-identical to what splicing the committed samples produces,
   so a hand edit inside a marker block or to a sample file fails CI; and
   **38 of the 44 samples are regenerated inside the test** and compared to
-  their committed copies, timestamps and cache flags aside, so a change to
-  what a command renders fails CI until the samples are regenerated. The
+  their committed copies, timestamps and ages aside — `sources[].cached` is
+  deliberately compared, since it is what the `--fresh` and `--no-cache`
+  samples exist to show — so a change to what a command renders fails CI
+  until the samples are regenerated. The
   replayed and synthetic ones come from their own fixtures; the live ones
   are replayed from the committed canary recording of the same public
   league, which turned out to hold every request all but three of them
   make. The six the index marks `offline: false` — `--help`, the pipe,
   `doctor`, the two `kona_player_info` reads, and the 2019 probe — depend
-  on the machine or on a request the recording never captured, and are held
-  by the envelope tests only. (Codex's two passes drove this: the first
+  on the machine or on a request the recording never captured; the four
+  JSON ones are held by the envelope tests, `--help` is compared to what the
+  fast path renders from the registry, and the pipe sample must be the
+  first four lines of the standings envelope. (Codex's passes drove this: the first
   pointed out that docs-match-samples proved nothing about
   samples-match-code, the second that regenerating only the offline league
   left the live samples unguarded.) `test_readme.py` now scans
