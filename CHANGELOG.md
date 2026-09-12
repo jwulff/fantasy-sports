@@ -56,6 +56,11 @@ football API, distributed via `uv tool install fantasy-sports`.
   opponent on the ratings; the adapter now reads it from
   `proTeamSchedules_wl` directly, and the library's `"None"` sentinel no
   longer reaches the output as a club (#72).
+- **`roster` and `free-agents` returned `opponent: null`** for every player
+  while `box-scores` resolved it. The shared player path never read the
+  schedule at all; it now takes its opponent from the same
+  `proTeamSchedules_wl` map the box-score path uses, a bye is `null`, and a
+  player with no club (`"None"`) has neither a team nor an opponent (#86).
 
 ### Out of scope for v0.1
 
