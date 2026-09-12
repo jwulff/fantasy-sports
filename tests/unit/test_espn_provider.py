@@ -643,6 +643,66 @@ def test_lock_state_follows_the_kickoff_that_was_re_derived(synthetic: EspnProvi
         assert all(slot.is_locked is True for slot in after.fetch_roster(*SYNTHETIC, "1"))
 
 
+# --------------------------------------------------------------------------- #
+# jwulff/fantasy-sports#86: the opponent comes from the schedule, on every read
+# --------------------------------------------------------------------------- #
+
+
+def test_a_roster_slot_names_the_opponent_from_the_schedule(synthetic: EspnProvider):
+    """``box-scores`` learned this in #74; ``roster`` never did (#86).
+
+    The synthetic schedule has one week-2 game, KC at SEA. Every rostered
+    player is on one of those two clubs, so each has exactly one opponent, and
+    it is the club they are not on.
+    """
+    roster = synthetic.fetch_roster(*SYNTHETIC, "1")
+    opponents = {slot.player.name: slot.player.opponent for slot in roster}
+    assert opponents == {
+        "Ada Lovelace": "SEA",
+        "Grace Hopper": "SEA",
+        "Katherine Johnson": "KC",
+    }
+
+
+def test_a_free_agent_names_the_opponent_the_same_way(synthetic: EspnProvider):
+    """Same ``_player`` path, same schedule -- the out-of-scope check #86 asked for."""
+    agents = synthetic.fetch_free_agents(*SYNTHETIC, 2)
+    opponents = {agent.player.name: agent.player.opponent for agent in agents}
+    assert opponents == {"Barbara Liskov": "KC", "Radia Perlman": "SEA"}
+
+
+def test_a_bye_or_an_unrostered_club_is_no_opponent_never_the_string_none():
+    """A club with no game that period is on a bye: ``None``, not a guess.
+
+    ``PRO_TEAM_MAP[0]`` is the literal string ``"None"`` -- ``espn-api``'s
+    free-agent "club" -- and it must not reach the output as either a team or
+    an opponent.
+    """
+    from fantasy_sports.providers.espn import _player
+
+    class Bye:
+        playerId = 7
+        name = "Bye Week"
+        position = "RB"
+        proTeam = "KC"
+        eligibleSlots = ["RB"]
+        injuryStatus = "ACTIVE"
+        stats: dict = {}
+
+    class Unsigned(Bye):
+        proTeam = "None"
+
+    kickoffs: dict = {}
+    opponents = {(26, 2): 12}  # SEA plays KC; KC's own row is absent
+    bye = _player(Bye(), {}, kickoffs, opponents, 2)
+    assert bye.pro_team == "KC"
+    assert bye.opponent is None
+
+    unsigned = _player(Unsigned(), {}, kickoffs, opponents, 2)
+    assert unsigned.pro_team is None
+    assert unsigned.opponent is None
+
+
 def test_nothing_the_adapter_returns_can_reach_the_envelope_naive(synthetic: EspnProvider):
     """The output layer refuses a naive datetime, so this fails loudly or passes.
 

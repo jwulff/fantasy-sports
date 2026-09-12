@@ -1052,10 +1052,12 @@ class EspnProvider:
         """A team's roster. ``week=None`` is the current roster (R3).
 
         Every slot carries its lineup slot, the player's eligible slots, the
-        kickoff of that player's game, and whether the slot is still
-        changeable. Kickoff is re-derived from the raw epoch milliseconds in
-        ``proTeamSchedules_wl`` — never from ``espn-api``'s ``Player.schedule``,
-        whose datetimes are naive and host-local.
+        kickoff and opponent of that player's game, and whether the slot is
+        still changeable. Kickoff and opponent are both read from the raw
+        ``proTeamSchedules_wl`` payload — never from ``espn-api``'s
+        ``Player.schedule``, whose datetimes are naive and host-local, and
+        never from its ``pro_opponent``, which is gated on positional ratings
+        ESPN may not have published (#72, #86).
         """
         with self._read(league_id, season, "fetch_roster") as league:
             wanted = _as_int(team_id)
@@ -1079,12 +1081,19 @@ class EspnProvider:
                     details={"team_id": str(wanted), "league_id": str(league_id)},
                 )
 
-            entries = _roster_entries(self._transport(league_id, season), wanted, scoring_period)
-            kickoffs = _kickoff_map(self._transport(league_id, season).responses)
+            transport = self._transport(league_id, season)
+            entries = _roster_entries(transport, wanted, scoring_period)
+            kickoffs = _kickoff_map(transport.responses)
+            opponents = _opponent_map(transport.responses)
             now = self._now()
             return [
                 _roster_slot(
-                    player, entries.get(player.playerId, {}), kickoffs, scoring_period, now
+                    player,
+                    entries.get(player.playerId, {}),
+                    kickoffs,
+                    opponents,
+                    scoring_period,
+                    now,
                 )
                 for player in team.roster
             ]
@@ -1287,9 +1296,17 @@ class EspnProvider:
             transport = self._transport(league_id, season)
             entries = _free_agent_entries(transport.responses)
             kickoffs = _kickoff_map(transport.responses)
+            opponents = _opponent_map(transport.responses)
             now = self._now()
             return [
-                _free_agent(player, entries.get(player.playerId, {}), kickoffs, scoring_period, now)
+                _free_agent(
+                    player,
+                    entries.get(player.playerId, {}),
+                    kickoffs,
+                    opponents,
+                    scoring_period,
+                    now,
+                )
                 for player in players
             ]
 
@@ -1933,17 +1950,23 @@ def _player(
     player: Any,
     raw: Mapping[str, Any],
     kickoffs: Mapping[tuple[int, int], int],
+    opponents: Mapping[tuple[int, int], int],
     week: int | None,
 ) -> Player:
-    """One normalized player, with the context R3 requires for a lineup call."""
+    """One normalized player, with the context R3 requires for a lineup call.
+
+    Kickoff and opponent come from the schedule maps, keyed by the player's
+    pro team and the scoring period, exactly as :func:`_lineup_entry` does for
+    a box score. A club with no game that period is on a bye: no kickoff, no
+    opponent. ``"None"`` is ``espn-api``'s free-agent club and is never a team.
+    """
     from espn_api.football.constant import PRO_TEAM_MAP
 
-    pro_team_id = next(
-        (key for key, value in PRO_TEAM_MAP.items() if value == player.proTeam), None
-    )
-    kickoff_ms = (
-        kickoffs.get((pro_team_id, week)) if pro_team_id is not None and week is not None else None
-    )
+    pro_team = _library_str(player.proTeam)
+    pro_team_id = _pro_team_ids().get(pro_team) if pro_team else None
+    keyed = pro_team_id is not None and week is not None
+    kickoff_ms = kickoffs.get((pro_team_id, week)) if keyed else None
+    opponent = opponents.get((pro_team_id, week)) if keyed else None
     projected = player.stats.get(week, {}).get("projected_points") if week is not None else None
     return Player(
         provider=PROVIDER,
@@ -1953,7 +1976,8 @@ def _player(
         eligible_slots=tuple(player.eligibleSlots),
         status=getattr(player, "active_status", None),
         injury_status=player.injuryStatus,
-        pro_team=player.proTeam,
+        pro_team=pro_team,
+        opponent=None if opponent is None else _library_str(PRO_TEAM_MAP.get(opponent)),
         projected_points=None if projected is None else float(projected),
         kickoff=None if kickoff_ms is None else from_epoch_millis(kickoff_ms),
         raw=dict(raw),
@@ -1964,10 +1988,11 @@ def _roster_slot(
     player: Any,
     raw: Mapping[str, Any],
     kickoffs: Mapping[tuple[int, int], int],
+    opponents: Mapping[tuple[int, int], int],
     week: int | None,
     now: datetime,
 ) -> RosterSlot:
-    normalized = _player(player, raw, kickoffs, week)
+    normalized = _player(player, raw, kickoffs, opponents, week)
     slot = player.lineupSlot or ""
     return RosterSlot(
         provider=PROVIDER,
@@ -1984,6 +2009,7 @@ def _free_agent(
     player: Any,
     raw: Mapping[str, Any],
     kickoffs: Mapping[tuple[int, int], int],
+    opponents: Mapping[tuple[int, int], int],
     week: int | None,
     now: datetime,
 ) -> FreeAgent:
@@ -1991,7 +2017,7 @@ def _free_agent(
     return FreeAgent(
         provider=PROVIDER,
         provider_id=str(player.playerId),
-        player=_player(player, raw, kickoffs, week),
+        player=_player(player, raw, kickoffs, opponents, week),
         percent_owned=None if owned is None or owned < 0 else float(owned),
         raw=dict(raw),
     )
