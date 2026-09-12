@@ -39,5 +39,5 @@ the session confers the authority, not the flag; and `X-Fantasy-Role` read
 `NONE` on every write-host response for the commissioner's own session, so it
 is not the indicator it looks like.
 
-Related: [[commissioner-cookie-writes-any-teams-lineup]],
+Related: [[espn-lineup-write-authority-is-broader-than-team-ownership]],
 [[espn-api-is-a-shape-reader-not-a-client]]
