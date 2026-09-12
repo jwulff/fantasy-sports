@@ -311,16 +311,27 @@ Three things worth noticing:
 1. **The write host's 401 is typed and constant, like the read host's** — but
    it is a *different* constant. `AUTH_MISSING_CREDENTIALS` was returned for
    "no cookies", for "a well-formed but invalid `espn_s2`", and for "SWID
-   only". It therefore cannot distinguish expired from absent either, and the
-   asymmetry in `espn-401-tells-you-nothing.md` carries over: *we sent nothing*
-   is `AUTH_MISSING`; *we sent a credential and got this* is the one place a
-   positive `AUTH_EXPIRED` classification is defensible, because on the write
-   host there is no "wrong URL shape for the season" ambiguity (no
-   `leagueHistory` alternate exists for writes) and no "league not visible"
-   reading (the read of the same league succeeded seconds earlier with the same
-   cookie). Recommend: a write-host 401 after a successful read with the same
-   credential set → `AUTH_EXPIRED`; a write-host 401 with nothing sent →
-   `AUTH_MISSING`.
+   only". It therefore cannot distinguish expired from absent from refused,
+   and the invariant in `espn-401-tells-you-nothing.md` and ARCHITECTURE §14
+   item 1 carries over unchanged: **`AUTH_EXPIRED` needs positive evidence,
+   and this body is not it.** *We sent nothing* is a fact about us and maps
+   to `AUTH_MISSING`. *We sent a credential and got this* is genuinely
+   ambiguous — and the write path makes it *more* so, not less, because
+   every write is preceded by a read of the same league on the same cookie
+   (to compute the diff), and that read having just succeeded is evidence the
+   session is *valid*. A 401 in that position is at least as likely to be a
+   write-side policy change or a host-specific failure as an expiry that
+   landed in the seconds between the two requests; mapping it to
+   `AUTH_EXPIRED` would send the user to re-extract working cookies on every
+   attempt and hide the regression. Recommend: keep it ambiguous —
+   `WRITE_REJECTED` with `details.kind: "auth"` and `provider_type:
+   "AUTH_MISSING_CREDENTIALS"`, `retryable: false`, and a remediation that
+   says what is known ("the same session read this league a moment ago; ESPN
+   refused the write — check `auth status`, then whether write access to the
+   league changed"). `AUTH_EXPIRED` stays reachable only from a reason type
+   that positively proves the credential failed, and the write host has not
+   shown one either. (Codex's review on #92 caught the first draft
+   recommending `AUTH_EXPIRED` here.)
 2. **The 400 has no type.** It is what a malformed body gets — an enum ESPN
    does not recognise, and presumably a field it does not expect. That is our
    bug or ESPN's shape moving, never something a user fixes, so it maps to
@@ -378,8 +389,10 @@ to satisfy it; the second is recommended.
   the world moved — and wants its own code (`WRITE_DIVERGED`, exit 12) rather
   than being folded into a rejection.
 
-  The existing codes still apply above the rejection layer: write-host `401` →
-  `AUTH_EXPIRED`/`AUTH_MISSING` (§5.1 item 1); `400` without `details` →
+  The existing codes still apply above the rejection layer: write-host `401`
+  with nothing sent → `AUTH_MISSING`, with a credential sent →
+  `WRITE_REJECTED` / `kind: "auth"`, never `AUTH_EXPIRED` (§5.1 item 1);
+  `400` without `details` →
   `SCHEMA_DRIFT`; 5xx/timeouts → `PROVIDER_UNAVAILABLE` **with the caveat in
   §8 item 1** (a timed-out write may have applied); a `429` → `RATE_LIMITED`
   once one has ever been seen.
@@ -604,8 +617,9 @@ one amendment to AE2:
 - `--dry-run` reports the exact `items` list that would be sent. There is no
   server-side validate mode (§2.2), so R9's "does not validate provider
   acceptance" stands.
-- Error mapping per §5.3: `WRITE_REJECTED` + `details.kind`, plus the
-  write-host `401` → `AUTH_EXPIRED` rule in §5.1.
+- Error mapping per §5.3: `WRITE_REJECTED` + `details.kind`, with a
+  write-host `401` on a credential that just read the league kept ambiguous
+  (`kind: "auth"`), never promoted to `AUTH_EXPIRED` (§5.1 item 1).
 - Cache: a successful write must purge every entry tagged with this league
   and this scoring period (R10) — `mRoster`, `mTeam`, `mMatchup`,
   `mTransactions2` all changed within 1.5 s of each write. The `X-Fantasy-Last-Update-League`
@@ -640,7 +654,8 @@ should not be sending one.
   `03-espn-api-surface.md` §1.4) before any retry.
 
 **ADR / doc updates this brief implies:** ARCHITECTURE §5 gains
-`WRITE_REJECTED` (11) and `WRITE_DIVERGED` (12) and the write-host `401` rule;
+`WRITE_REJECTED` (11) and `WRITE_DIVERGED` (12), with the write-host `401`
+explicitly *not* a path to `AUTH_EXPIRED`;
 §6 notes that writes need `espn_s2` only; §9 and AE2 lose "no transaction
 boundary"; #18's body keeps "John holds commissioner privileges" and gains
 "read `isLeagueCreator OR isLeagueManager` from `mNav` per league".
