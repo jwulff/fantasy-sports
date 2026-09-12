@@ -40,7 +40,9 @@ does the round-trip correctly.
   stale — a regression from `write_text`, which followed the link, and a
   latent defect in `remove_credentials`, which never did. The writer now
   targets the referent, so both callers write through the link and the
-  link survives.
+  link survives. Its second pass added the corollary: both callers resolve
+  the path *once*, before the read, so the document read and the document
+  written are the same file even if the link is retargeted in between.
 
 ## What did not change
 

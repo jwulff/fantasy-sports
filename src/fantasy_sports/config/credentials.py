@@ -119,7 +119,9 @@ def remove_credentials(names: Iterable[str], path: Path | None = None) -> tuple[
         caller (``auth logout``) reports that link as unavailable rather than
         removed; swallowing it here would report a removal that did not happen.
     """
-    target = paths.config_file() if path is None else path
+    # Resolved once: the read and the rewrite must land on the same referent
+    # even if a symlinked config is retargeted between them.
+    target = (paths.config_file() if path is None else path).resolve()
     wanted = set(names)
     try:
         document = _parse(target)

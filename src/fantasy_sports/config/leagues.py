@@ -163,7 +163,9 @@ def save(config: LeagueConfig, path: Path | None = None) -> Path:
         cannot be read, and overwriting it would turn a syntax error into
         data loss. Returns the path written.
     """
-    path = path or config.path
+    # Resolved once, so the document read and the document written are the
+    # same file even if a symlinked config is retargeted mid-save.
+    path = (path or config.path).resolve()
     document = _read_document(path)
     document.pop("default", None)
     document.pop("leagues", None)
