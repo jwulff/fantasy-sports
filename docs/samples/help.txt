@@ -1,0 +1,27 @@
+Usage: fantasy-sports [OPTIONS] COMMAND [ARGS]...
+
+  Agent-native CLI for fantasy sports leagues. Every payload is a versioned
+  envelope; every failure is a machine-readable code on stderr.
+
+Options (accepted before or after the command):
+  --league, -l TEXT  Named league profile from config.toml. Defaults to the configured default.
+  --season INTEGER   Four-digit year, overriding the profile's season for this call.
+  --output, -o TEXT  json, table, or csv. Defaults to json unless stdout is a terminal.
+  --fresh            Refetch from the provider and update the cache entry.
+  --no-cache         Neither read nor write the cache. Wins over --fresh if both are given.
+  --no-raw           Strip `raw` from every normalized object in the payload, recursively. Marks raw_omitted=true in the envelope. `raw --view` is passthrough by definition and ignores this flag.
+  -V, --version      Show the version and exit.
+  -h, --help         Show this message and exit.
+
+Commands:
+  auth          3 subcommands: login, logout, status
+  box-scores    List both lineups for a week's matchups, player by player, with projections.
+  doctor        Run every health check: config, credentials, cache, version, provider status.
+  free-agents   List unrostered players, optionally filtered to one position.
+  league        1 subcommand: info
+  matchups      List head-to-head pairings for a week, with both ESPN period identifiers.
+  raw           Pass a view straight through to ESPN and return its payload unmodified.
+  roster        List one team's roster slots: player, lineup slot, eligibility, kickoff, lock.
+  standings     List teams in the provider's own rank order, with a 1-based standing.
+  teams         List every team with its record, points, and owners. Unordered.
+  transactions  List recent roster moves, newest first, walking scoring periods backward.

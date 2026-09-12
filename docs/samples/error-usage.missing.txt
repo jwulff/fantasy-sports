@@ -1,0 +1,4 @@
+Usage: fantasy-sports roster [OPTIONS]
+Try 'fantasy-sports roster --help' for help.
+
+Error: Missing option '--team'.
