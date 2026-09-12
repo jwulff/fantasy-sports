@@ -201,6 +201,105 @@ def test_apply_drift_appends_a_second_entry_for_a_distinct_issue():
     assert {issue["issue"] for issue in known_issues} == {42, 99}
 
 
+def test_apply_drift_puts_the_current_run_first_even_when_an_older_issue_exists():
+    """``fantasy_sports.health.client.build_health_block`` picks
+    ``matches[0]`` (jwulff/fantasy-sports#91 review, P2) -- the entry for
+    *this* run must lead the list, not trail behind an older, possibly
+    stale drift that happened to be filed first."""
+    manifest = apply_drift(
+        {},
+        _drift_report(),
+        _outcome(issue_number=42),
+        provider="espn",
+        checked_at="2026-09-10T00:00:00Z",
+        endpoint=ENDPOINT,
+    )
+    manifest = apply_drift(
+        manifest,
+        CheckReport(
+            classification=Classification.SCHEMA_DRIFT,
+            missing_paths=["settings.scoringSettings"],
+            detail="a second, distinct drift",
+        ),
+        _outcome(issue_number=99),
+        provider="espn",
+        checked_at=CHECKED_AT,
+        endpoint=ENDPOINT,
+    )
+    known_issues = manifest["providers"]["espn"]["known_issues"]
+    assert known_issues[0]["issue"] == 99
+
+
+def test_apply_drift_moves_a_recurring_issue_back_to_the_front():
+    """A recurring drift against an issue that is no longer the newest one
+    still becomes the freshest observation -- it should lead again, not stay
+    wherever it was left after the intervening distinct drift."""
+    manifest = apply_drift(
+        {},
+        _drift_report(),
+        _outcome(issue_number=42),
+        provider="espn",
+        checked_at="2026-09-10T00:00:00Z",
+        endpoint=ENDPOINT,
+    )
+    manifest = apply_drift(
+        manifest,
+        CheckReport(
+            classification=Classification.SCHEMA_DRIFT,
+            missing_paths=["settings.scoringSettings"],
+            detail="a second, distinct drift",
+        ),
+        _outcome(issue_number=99),
+        provider="espn",
+        checked_at="2026-09-11T00:00:00Z",
+        endpoint=ENDPOINT,
+    )
+    # #42 recurs again, most recently of all.
+    manifest = apply_drift(
+        manifest,
+        _drift_report("recurred"),
+        _outcome(issue_number=42, created=False),
+        provider="espn",
+        checked_at=CHECKED_AT,
+        endpoint=ENDPOINT,
+    )
+    known_issues = manifest["providers"]["espn"]["known_issues"]
+    assert known_issues[0]["issue"] == 42
+    assert known_issues[0]["summary"] == "recurred"
+    assert {issue["issue"] for issue in known_issues} == {42, 99}
+
+
+def test_apply_drift_caps_known_issues_and_drops_the_oldest():
+    """Recovery-to-OK never prunes a stale entry (see the module docstring),
+    so the cap is the only thing standing between one provider and an
+    unboundedly growing known_issues list."""
+    from scripts.canary.health_manifest import MAX_KNOWN_ISSUES_PER_PROVIDER
+
+    manifest: dict = {}
+    for i in range(MAX_KNOWN_ISSUES_PER_PROVIDER + 2):
+        manifest = apply_drift(
+            manifest,
+            CheckReport(
+                classification=Classification.SCHEMA_DRIFT,
+                missing_paths=[f"path.{i}"],
+                detail=f"drift #{i}",
+            ),
+            _outcome(issue_number=100 + i),
+            provider="espn",
+            checked_at=f"2026-09-{i + 1:02d}T00:00:00Z",
+            endpoint=ENDPOINT,
+        )
+    known_issues = manifest["providers"]["espn"]["known_issues"]
+    assert len(known_issues) == MAX_KNOWN_ISSUES_PER_PROVIDER
+    # The most recent MAX entries survive, leading with the very latest.
+    newest_issue_number = 100 + MAX_KNOWN_ISSUES_PER_PROVIDER + 1
+    oldest_surviving = 100 + 2  # the first two (100, 101) were evicted
+    assert known_issues[0]["issue"] == newest_issue_number
+    assert known_issues[-1]["issue"] == oldest_surviving
+    assert 100 not in {issue["issue"] for issue in known_issues}
+    assert 101 not in {issue["issue"] for issue in known_issues}
+
+
 def test_apply_drift_sets_the_top_level_updated_at():
     manifest = apply_drift(
         {}, _drift_report(), _outcome(), provider="espn", checked_at=CHECKED_AT, endpoint=ENDPOINT

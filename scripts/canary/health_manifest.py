@@ -50,6 +50,7 @@ from scripts.canary.shapes import CheckReport, Classification
 
 __all__ = [
     "HEALTH_SCHEMA",
+    "MAX_KNOWN_ISSUES_PER_PROVIDER",
     "apply_drift",
     "load_health_manifest",
     "publish_drift",
@@ -57,6 +58,15 @@ __all__ = [
 ]
 
 HEALTH_SCHEMA = "fantasy-sports-health/v1"
+
+#: The retention cap :func:`apply_drift` enforces on one provider's
+#: ``known_issues`` list. Recovery to ``OK`` never prunes an entry (see the
+#: module docstring), so this is the only thing standing between one
+#: provider and an unboundedly growing list of every distinct drift ever
+#: observed. Five is arbitrary but generous -- ADR-0005's whole premise is
+#: that a genuine, *distinct* schema break is rare; five simultaneously open
+#: ones would itself be a signal something else is wrong.
+MAX_KNOWN_ISSUES_PER_PROVIDER = 5
 
 
 def _skeleton() -> dict[str, Any]:
@@ -139,7 +149,27 @@ def apply_drift(
     dedup already ties to this signature, so a recurring run against the
     same open issue *replaces* its entry (fresh ``checked_at``/``summary``)
     instead of appending a duplicate, while a genuinely distinct drift (a
-    different open issue) is appended alongside it.
+    different open issue) is added alongside it.
+
+    **Ordering: the current run's entry always leads the list.** Every entry
+    this canary writes carries the same ``code`` (``SCHEMA_DRIFT`` -- see
+    :func:`_known_issue_entry`), so
+    ``fantasy_sports.health.manifest.ProviderHealth.issues_for`` cannot
+    distinguish them by code, and
+    ``fantasy_sports.health.client.build_health_block`` picks ``matches[0]``
+    -- whichever entry happens to be *first* -- to surface to a failing
+    command. Appending would let the oldest (possibly long-since-irrelevant)
+    drift keep winning that pick forever; inserting at index 0 means the
+    manifest always points a user at what the canary just observed, not
+    whatever was filed first. (Caught in review on #64 -- Codex, PR #91.)
+
+    **Retention: capped at :data:`MAX_KNOWN_ISSUES_PER_PROVIDER`.** Recovery
+    to ``OK`` is deliberately not handled by this module (see the module
+    docstring), so nothing ever removes a stale entry on its own; without a
+    cap, every genuinely distinct drift ever seen would accumulate here
+    forever. The oldest entries beyond the cap are dropped -- "oldest" here
+    means *not recently reconfirmed*, since the leading position is always
+    the just-observed drift and eviction happens from the tail.
 
     Never touches ``latest_version``/``min_supported_version``/
     ``yanked_versions`` or any other provider's entry -- those belong to the
@@ -165,7 +195,8 @@ def apply_drift(
 
     new_entry = _known_issue_entry(report, outcome, endpoint=endpoint)
     known_issues = [issue for issue in known_issues if issue.get("issue") != outcome.issue_number]
-    known_issues.append(new_entry)
+    known_issues.insert(0, new_entry)
+    known_issues = known_issues[:MAX_KNOWN_ISSUES_PER_PROVIDER]
 
     provider_entry.update(
         {"status": "degraded", "checked_at": checked_at, "known_issues": known_issues}
