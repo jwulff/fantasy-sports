@@ -23,5 +23,7 @@ individual files when their topic is relevant.
 | [no-code-for-a-bad-argument.md](no-code-for-a-bad-argument.md) | The taxonomy describes the world, not the invocation — why a bad `--pos`/`--filter` stays `CONFIG_INVALID` for good (settled #48, ADR-0009) with a `details.kind` discriminator, why exit 2 is the CLI's own, and why `--no-cache` must be a cache mode |
 | [generated-callbacks-and-a-test-tree-that-bites.md](generated-callbacks-and-a-test-tree-that-bites.md) | Typer callbacks assembled from declared params rather than handler signatures — plus duplicate test/`conftest` basenames, and the `--disable-socket` that stopped the live suite ever running |
 | [doctor-must-never-raise.md](doctor-must-never-raise.md) | Two ways `doctor` almost stopped being crash-proof — an uncaught downstream `ConfigInvalidError`, and a three-way boolean opt-out check silently inverted — and why each was only caught by a test aimed at that exact branch |
+| [espn-does-not-check-team-ownership-on-lineup-writes.md](espn-does-not-check-team-ownership-on-lineup-writes.md) | A lineup write with another manager's `teamId` executed — ownership is a client-side guard, and no cassette may pretend ESPN rejects it |
+| [isleaguemanager-lives-in-mnav.md](isleaguemanager-lives-in-mnav.md) | `mTeam` carries no commissioner flag; `mNav` and `mLeagueManager` do — and John is not the LM of the default league |
 Nothing here should duplicate what the code, git history, `CLAUDE.md`, or
 `docs/ARCHITECTURE.md` already record.
