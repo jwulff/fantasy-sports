@@ -1,0 +1,28 @@
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "espn",
+  "league_id": "1234",
+  "season": 2018,
+  "generated_at": "2026-09-12T18:57:59Z",
+  "data_as_of": null,
+  "data_age_seconds": null,
+  "sources": [],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": null,
+  "error": {
+    "code": "SCHEMA_DRIFT",
+    "message": "ESPN's mTeam response no longer has the shape espn-api reads (missing key 'teams', in League._fetch_teams).",
+    "retryable": false,
+    "agent_action": "Stop and file an issue; the provider's response shape changed.",
+    "remediation": "File an issue with this error payload; the provider's response shape changed.",
+    "details": {
+      "view": "mTeam",
+      "operation": "fetch_standings",
+      "cause": "KeyError",
+      "path": "… 3 items",
+      "…": "… 1 more key"
+    },
+    "health": null
+  }
+}

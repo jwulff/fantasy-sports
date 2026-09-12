@@ -1,0 +1,14 @@
+espn · league 1234 · season 2018 · generated 2026-09-12T18:57:55Z · data age 0s
+field          value                                                                          
+──────────────────────────────────────────────────────────────────────────────────────────────
+provider       espn                                                                           
+provider_id    1234                                                                           
+name           Arizona 1234                                                                   
+season         2018                                                                           
+sport          nfl                                                                            
+team_count     10                                                                             
+current_week   17                                                                             
+roster_slots   {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "D/ST": 1, "K": 1, "BE": 7, "RB/WR/TE": 1}
+`raw` omitted from this table; use --output json for the provider payload.
+sources: mTeam+mRoster+mMatchup+mSettings+mStandings 0s (cached), players_wl 0s (cached), 
+proTeamSchedules_wl 0s (cached), mDraftDetail 0s (cached)

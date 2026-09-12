@@ -1,0 +1,22 @@
+{
+  "schema": "fantasy-sports/v1",
+  "provider": null,
+  "league_id": null,
+  "season": null,
+  "generated_at": "2026-09-12T18:57:59Z",
+  "data_as_of": null,
+  "data_age_seconds": null,
+  "sources": [],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": null,
+  "error": {
+    "code": "LEAGUE_NOT_FOUND",
+    "message": "no league given and no 'default' set in ~/.config/fantasy-sports/config.toml; no leagues are configured. Pass --league <name>.",
+    "retryable": false,
+    "agent_action": "Ask the human to confirm the league id and their access.",
+    "remediation": null,
+    "details": null,
+    "health": null
+  }
+}

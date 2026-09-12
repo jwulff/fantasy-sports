@@ -1,0 +1,24 @@
+{
+  "schema": "fantasy-sports/v1",
+  "provider": null,
+  "league_id": null,
+  "season": null,
+  "generated_at": "2026-09-12T18:57:59Z",
+  "data_as_of": null,
+  "data_age_seconds": null,
+  "sources": [],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": null,
+  "error": {
+    "code": "LEAGUE_NOT_FOUND",
+    "message": "no team matches --team 'Nobody'. Teams in this league: 1='Team 1', 2='Team 2', 3='FANTASY GOD', 4='THE KING', 5='Team 5', 6='Team Viking Queen', 7='Team 7', 8='Team 8', 9='Team Mizrachi', 10='Team 10'.",
+    "retryable": false,
+    "agent_action": "Ask the human to confirm the league id and their access.",
+    "remediation": "Run `fantasy-sports teams` to list the ids in this league.",
+    "details": {
+      "team": "Nobody"
+    },
+    "health": null
+  }
+}

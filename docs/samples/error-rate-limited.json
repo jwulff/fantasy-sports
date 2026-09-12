@@ -1,0 +1,26 @@
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "espn",
+  "league_id": "1234",
+  "season": 2018,
+  "generated_at": "2026-09-12T18:57:59Z",
+  "data_as_of": null,
+  "data_age_seconds": null,
+  "sources": [],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": null,
+  "error": {
+    "code": "RATE_LIMITED",
+    "message": "ESPN throttled this request (HTTP 429).",
+    "retryable": true,
+    "agent_action": "Retry after `details.retry_after` seconds.",
+    "remediation": "Wait for `details.retry_after` seconds, then retry.",
+    "details": {
+      "status": 429,
+      "view": "mTeam",
+      "retry_after": 30.0
+    },
+    "health": null
+  }
+}

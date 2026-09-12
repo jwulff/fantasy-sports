@@ -1,0 +1,34 @@
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "espn",
+  "league_id": "1234",
+  "season": 2018,
+  "generated_at": "2026-09-12T18:57:56Z",
+  "data_as_of": "2026-09-12T18:57:56Z",
+  "data_age_seconds": 0,
+  "sources": [
+    {
+      "name": "kona_player_info",
+      "fetched_at": "2026-09-12T18:57:56Z",
+      "age_seconds": 0,
+      "cached": false
+    }
+  ],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": {
+    "kona_player_info": {
+      "view": "kona_player_info",
+      "filtered": true,
+      "complete": true,
+      "warning": null,
+      "payload": {
+        "players": [
+          "… 12 keys",
+          "… 12 keys"
+        ]
+      }
+    }
+  },
+  "error": null
+}

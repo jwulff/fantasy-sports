@@ -1,0 +1,25 @@
+{
+  "schema": "fantasy-sports/v1",
+  "provider": null,
+  "league_id": null,
+  "season": null,
+  "generated_at": "2026-09-12T18:57:59Z",
+  "data_as_of": null,
+  "data_age_seconds": null,
+  "sources": [],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": null,
+  "error": {
+    "code": "NOT_AVAILABLE",
+    "message": "ESPN does not serve box scores for the 2018 season.",
+    "retryable": false,
+    "agent_action": "Do not retry as sent; check `remediation` for a supported alternative.",
+    "remediation": "Box scores exist from 2019 onward. Use `matchups` for an earlier season; it returns team-level scores.",
+    "details": {
+      "season": "2018",
+      "week": "1"
+    },
+    "health": null
+  }
+}
