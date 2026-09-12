@@ -34,6 +34,14 @@ does the round-trip correctly.
   `ConfigInvalidError` `load()` does, through the same `_read_document`
   helper `load()` now uses.
 
+- **The writer resolves a symlink before it replaces anything.** Codex's
+  review caught that `temp.replace(link)` swaps a symlinked `config.toml`
+  for a plain file and leaves the canonical copy in a dotfiles checkout
+  stale — a regression from `write_text`, which followed the link, and a
+  latent defect in `remove_credentials`, which never did. The writer now
+  targets the referent, so both callers write through the link and the
+  link survives.
+
 ## What did not change
 
 Comments and hand formatting are still lost on a rewrite — `tomli-w`
@@ -42,10 +50,11 @@ cannot keep them, and the trade is already documented on
 
 ## Tests
 
-Five new tests in `tests/unit/test_config.py`: `[credentials]` and an
+Six new tests in `tests/unit/test_config.py`: `[credentials]` and an
 unknown `[future]` table survive a save while the old profile is replaced
 (the issue's own acceptance test), unset keys are removed, a `0600` file
 stays `0600` with no temp file left behind, a new file is created private,
-and an unparseable file is left byte-for-byte alone. `config/document.py`,
+an unparseable file is left byte-for-byte alone, and a symlinked config is
+written through by both `save()` and `remove_credentials`. `config/document.py`,
 `leagues.py`, and `credentials.py` are each at 100% line and branch
 coverage.

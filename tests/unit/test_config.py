@@ -632,6 +632,30 @@ def test_save_creates_a_new_file_private(tmp_path: Path):
     assert stat.S_IMODE(path.stat().st_mode) == 0o600
 
 
+def test_save_writes_through_a_symlink_rather_than_replacing_it(tmp_path: Path):
+    """A config managed from a dotfiles repo is a symlink at the XDG path.
+    ``write_text`` followed it; an atomic ``replace`` on the link itself would
+    swap the link for a plain file and leave the canonical copy stale. The
+    rewrite lands on the referent and the link survives. Same for
+    ``remove_credentials``, which shares the writer."""
+    real = tmp_path / "dotfiles" / "fantasy-sports.toml"
+    real.parent.mkdir()
+    real.write_text('[credentials]\nespn_s2 = "x"\nSWID = "{g}"\n')
+    link = tmp_path / "config.toml"
+    link.symlink_to(real)
+
+    leagues.save(
+        leagues.LeagueConfig(path=link, default="d", profiles_by_name={"d": _dynasty(name="d")})
+    )
+    assert link.is_symlink() and link.resolve() == real.resolve()
+    assert tomllib.loads(real.read_text())["leagues"]["d"]["league_id"] == "123456"
+    assert not list(tmp_path.glob(".config-*.tmp"))
+
+    assert credentials.remove_credentials(["SWID"], link) == ("SWID",)
+    assert link.is_symlink()
+    assert tomllib.loads(real.read_text())["credentials"] == {"espn_s2": "x"}
+
+
 def test_save_refuses_to_overwrite_a_file_it_cannot_parse(tmp_path: Path):
     """A save that cannot read the document cannot carry the other tables
     through, and replacing a broken file with a partial one would turn a
