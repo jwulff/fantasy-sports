@@ -5,7 +5,8 @@
     "league id in every URL replaced with 99, the repository's invented synthetic league (docs/testing.md section 6)",
     "the probing member's SWID replaced with {SWID-REDACTED} rather than a salted pseudonym, so it is not a confirmable mapping",
     "ESPN transaction ids replaced with <uuid>; they were distinct per transaction",
-    "CloudFront request ids dropped"
+    "CloudFront request ids dropped",
+    "team-1 player ids replaced with a stable synthetic mapping (9000001..9000014, D/ST -9000001), and player names inside ESPN's messages replaced with the same synthetic label \u2014 the repository owner's own roster is a private-league recording too (docs/testing.md section 6); slot ids are untouched"
   ],
   "captured_at": "2026-09-12T18:30:13+00:00",
   "request": {
@@ -35,25 +36,25 @@
       "executionType": "EXECUTE",
       "items": [
         {
-          "playerId": 4685472,
+          "playerId": 9000013,
           "type": "LINEUP",
           "fromLineupSlotId": 4,
           "toLineupSlotId": 20
         },
         {
-          "playerId": 4685278,
+          "playerId": 9000012,
           "type": "LINEUP",
           "fromLineupSlotId": 20,
           "toLineupSlotId": 4
         },
         {
-          "playerId": 4429795,
+          "playerId": 9000009,
           "type": "LINEUP",
           "fromLineupSlotId": 2,
           "toLineupSlotId": 2
         },
         {
-          "playerId": 3916387,
+          "playerId": 9000004,
           "type": "LINEUP",
           "fromLineupSlotId": 0,
           "toLineupSlotId": 0
@@ -86,12 +87,12 @@
     },
     "body": {
       "messages": [
-        "Jahmyr Gibbs is already in the RB slot"
+        "Player 9000009 is already in the RB slot"
       ],
       "details": [
         {
-          "message": "Jahmyr Gibbs is already in the RB slot",
-          "shortMessage": "Jahmyr Gibbs is already in the RB slot",
+          "message": "Player 9000009 is already in the RB slot",
+          "shortMessage": "Player 9000009 is already in the RB slot",
           "resolution": null,
           "type": "TRAN_ROSTER_SAME_SLOT",
           "metaData": null

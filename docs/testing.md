@@ -248,8 +248,9 @@ rather than on content — a name is not machine-recognisable, but a league id i
   the worked example of what "rewrite it until it is not a private-league
   recording" means: league id replaced with `99`, member id replaced with the
   non-confirmable placeholder, another manager's player ids and snapshots
-  withheld, transaction ids redacted, and a `redactions` list in each file
-  saying so.
+  withheld, the owner's own player ids replaced by a stable synthetic mapping
+  (and the names ESPN interpolates into messages with it), transaction ids
+  redacted, and a `redactions` list in each file saying so.
 
 None of that can stop a determined contributor, and it is not meant to. It
 means the committable path is the default and the uncommittable one takes a

@@ -6,7 +6,8 @@
     "the probing member's SWID replaced with {SWID-REDACTED} rather than a salted pseudonym, so it is not a confirmable mapping",
     "ESPN transaction ids replaced with <uuid>; they were distinct per transaction",
     "CloudFront request ids dropped",
-    "both playerId values replaced with 0: they are another league member's roster choices (docs/testing.md section 6). Slot ids are as sent: a WR(4) <-> BE(20) swap of two WR-eligible, unlocked players"
+    "both playerId values replaced with 0: they are another league member's roster choices (docs/testing.md section 6). Slot ids are as sent: a WR(4) <-> BE(20) swap of two WR-eligible, unlocked players",
+    "team-1 player ids replaced with a stable synthetic mapping (9000001..9000014, D/ST -9000001), and player names inside ESPN's messages replaced with the same synthetic label \u2014 the repository owner's own roster is a private-league recording too (docs/testing.md section 6); slot ids are untouched"
   ],
   "captured_at": "2026-09-12T18:31:03+00:00",
   "request": {

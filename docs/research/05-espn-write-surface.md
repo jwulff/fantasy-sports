@@ -30,8 +30,12 @@ not a confirmable mapping; ESPN's transaction UUIDs are `<uuid>`; and the
 other manager's roster (§6) is withheld — their player ids are `0` in the two
 captures that touched their team and their `mRoster` snapshots are replaced by
 equality facts. Member and team names never appear. The probing member's own
-roster player ids are kept (they are the repository owner's own choices), and
-NFL player names in ESPN's messages are public identifiers. A test now asserts
+roster is a private-league recording too, so its player ids are replaced by
+a *stable* synthetic mapping (`9000001`–`9000014`, `-9000001` for the D/ST)
+applied identically across every file — joins between captures and
+read-backs survive, slot ids are untouched — and the player names ESPN
+interpolates into rejection messages are replaced with the same synthetic
+label. A test now asserts
 no committed `.json`/`.yaml` anywhere in the tree names a league outside the
 public set (`tests/unit/test_cassette_harness.py`). The unredacted captures
 were retained locally by the author and are not in git.
@@ -45,7 +49,7 @@ were retained locally by the author and are not in git.
 | 1 | Write host and path, distinct from `lm-api-reads` | `POST https://lm-api-writes.fantasy.espn.com/apis/v3/games/ffl/seasons/{season}/segments/0/leagues/{league_id}/transactions/` — same path family as reads, different host. `GET` on it is `405 HTTP_METHOD_NOT_SUPPORTED`. | p0, p3 |
 | 2 | Lineup-set confirmed end to end | Yes. `type: "ROSTER"` envelope with `type: "LINEUP"` items → `200`, body `status: "EXECUTED"`, read-back shows exactly the requested slots changed. | p3, p4, readbacks |
 | 3 | One transaction for a full target lineup, or one item per slot change | **One transaction, many items, applied atomically** — but it must contain *only* the slots that change. A from==to item is rejected (`TRAN_ROSTER_SAME_SLOT`) and takes the whole transaction with it. One item alone is also fine. So R6's explicit target state is implementable as *diff, then one POST*. | p3, p6, p7, p9 |
-| 4 | Roster-lock rejection on the wire | `409` with `details[0].type == "TRAN_LINEUP_LOCKED"`, message `"Lineup transaction could not be completed, <player> is locked"`. The lock is visible before sending: `playerPoolEntry.lineupLocked` per entry. | p7, p8 |
+| 4 | Roster-lock rejection on the wire | `409` with `details[0].type == "TRAN_LINEUP_LOCKED"`, message `"Lineup transaction could not be completed, <player fullName> is locked"` (the name is synthetic in the captures). The lock is visible before sending: `playerPoolEntry.lineupLocked` per entry. | p7, p8 |
 | 5 | Per-operation rejection vocabulary | Seven typed reasons observed (§5). `budget exceeded`, `already dropped`, `roster full` could **not** be provoked without an add/drop and are listed with a safe procedure for later. | §5 |
 | 6 | Do the read cookies authorize writes, including on co-managed teams | **Yes.** `espn_s2` alone is sufficient; the SWID cookie and the body's `memberId` are both optional. The identical swap against another manager's team returned `200 EXECUTED` — consistent with the session being the league's **commissioner** (§7); reversed immediately. Whether a *non-LM* member can do the same is **unverified** and could not be tested here (§6.1 gives the safe procedure). The co-manager case is likewise untested. | p10, p12, p13–p15 |
 | 7 | `--week` on a write: scoring or matchup period | Neither, in practice: a `ROSTER` write is **only accepted for the league's current `scoringPeriodId`** (`TRAN_INVALID_SCORINGPERIOD_NOT_CURRENT` for both next week and week 18). The field is named and enforced as a scoring period. | p11, p11b |
@@ -128,8 +132,8 @@ Cookie: espn_s2=<redacted>; SWID=<redacted>
   "scoringPeriodId": 1,
   "executionType": "EXECUTE",
   "items": [
-    {"playerId": 4685472, "type": "LINEUP", "fromLineupSlotId": 4,  "toLineupSlotId": 20},
-    {"playerId": 4685278, "type": "LINEUP", "fromLineupSlotId": 20, "toLineupSlotId": 4}
+    {"playerId": 9000013, "type": "LINEUP", "fromLineupSlotId": 4,  "toLineupSlotId": 20},
+    {"playerId": 9000012, "type": "LINEUP", "fromLineupSlotId": 20, "toLineupSlotId": 4}
   ]
 }
 ```
@@ -176,9 +180,9 @@ no body interpolation, so nothing for a caller-formatted message to catch.
   "isPending": false,
   "items": [
     {"fromLineupSlotId": 4,  "fromTeamId": 0, "isKeeper": false, "overallPickNumber": 0,
-     "playerId": 4685472, "toLineupSlotId": 20, "toTeamId": 0, "type": "LINEUP"},
+     "playerId": 9000013, "toLineupSlotId": 20, "toTeamId": 0, "type": "LINEUP"},
     {"fromLineupSlotId": 20, "fromTeamId": 0, "isKeeper": false, "overallPickNumber": 0,
-     "playerId": 4685278, "toLineupSlotId": 4,  "toTeamId": 0, "type": "LINEUP"}
+     "playerId": 9000012, "toLineupSlotId": 4,  "toTeamId": 0, "type": "LINEUP"}
   ],
   "memberId": "{<swid>}",
   "proposedDate": 1789237765019,

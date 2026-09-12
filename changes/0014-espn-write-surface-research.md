@@ -81,9 +81,11 @@ recording is not committable even scrubbed — and it was right, so the
 committed files were rewritten until they are not one: the cookie line is
 redacted, the league id in every URL is the synthetic `99`, the member id is
 the non-confirmable `{SWID-REDACTED}` rather than a salted pseudonym,
-transaction UUIDs are redacted, and the other manager's roster is withheld
-(player ids `0`, snapshots replaced by equality facts). Each file lists its
-own redactions. The scrub was checked in-process against the real values,
+transaction UUIDs are redacted, the other manager's roster is withheld
+(player ids `0`, snapshots replaced by equality facts), and — on a further
+pass — the owner's own roster is mapped to stable synthetic player ids, with
+the names ESPN wrote into rejection messages mapped the same way. Each file
+lists its own redactions. The scrub was checked in-process against the real values,
 every member GUID, and `CREDENTIAL_PATTERNS`. The provenance test that used to
 read only cassette YAML now scans the text of every committed `.json`/`.yaml`
 for a league id in a URL, so the next capture under `docs/` cannot bypass it.
