@@ -406,12 +406,26 @@ def test_an_encoding_vcrpy_cannot_decode_is_refused_rather_than_recorded() -> No
 PUBLIC_LEAGUES = frozenset({"1234", "99"})
 
 
-#: Any URL path that names a league, in a cassette or anywhere else a
-#: request/response capture might be committed — in the current-season shape
-#: (``/leagues/<id>``) or the historical one (``/leagueHistory/<id>``) that
-#: pre-2018 seasons and the 401 alternate-shape retry use
-#: (``docs/research/03-espn-api-surface.md`` §1.2).
-_LEAGUE_IN_URL = re.compile(r"/(?:leagues|leagueHistory)/(\d+)")
+#: Every shape in which a committed capture can name a league:
+#: the current-season path (``/leagues/<id>``), the historical path
+#: (``/leagueHistory/<id>``) that pre-2018 seasons and the 401 alternate-shape
+#: retry use (``docs/research/03-espn-api-surface.md`` §1.2), a ``leagueId=``
+#: query parameter (the ``href`` fields in a ``fan.api`` profile), and the
+#: ``groupId`` / ``leagueId`` JSON keys a ``fan.api`` membership response
+#: carries in its body (``docs/memory/espn-401-tells-you-nothing.md``).
+_LEAGUE_ID_SHAPES = re.compile(
+    r"/(?:leagues|leagueHistory)/(\d+)"
+    r"|[?&]leagueId=(\d+)"
+    r"""|["']?(?:groupId|leagueId)["']?\s*[:=]\s*["']?(\d+)"""
+)
+
+
+def _league_ids_in(text: str) -> list[str]:
+    """Every league id ``text`` names, in any of the shapes above."""
+    return [
+        next(group for group in match.groups() if group)
+        for match in _LEAGUE_ID_SHAPES.finditer(text)
+    ]
 
 
 def _committed_cassettes() -> list[Path]:
@@ -435,8 +449,7 @@ def test_every_committed_cassette_comes_from_a_public_league() -> None:
         for interaction in document["interactions"]:
             uri = interaction["request"]["uri"]
             assert uri.startswith(ESPN_HOST), f"{path.name} recorded a non-ESPN host"
-            for match in _LEAGUE_IN_URL.finditer(uri):
-                league = match.group(1)
+            for league in _league_ids_in(uri):
                 assert league in PUBLIC_LEAGUES, f"{path.name} records private league {league}"
 
 
@@ -459,29 +472,47 @@ def test_every_committed_fixture_names_only_public_leagues() -> None:
     assert fixtures, "no committed fixtures found; this check is vacuous"
     offending: list[str] = []
     for path in fixtures:
-        for match in _LEAGUE_IN_URL.finditer(path.read_text(encoding="utf-8", errors="replace")):
-            if match.group(1) not in PUBLIC_LEAGUES:
-                offending.append(f"{path.relative_to(REPO_ROOT)} names league {match.group(1)}")
+        for league in _league_ids_in(path.read_text(encoding="utf-8", errors="replace")):
+            if league not in PUBLIC_LEAGUES:
+                offending.append(f"{path.relative_to(REPO_ROOT)} names league {league}")
     assert not offending, "\n".join(offending)
 
 
 @pytest.mark.parametrize(
-    "uri",
+    "text",
     [
         "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/segments/0/leagues/55501?view=mTeam",
         "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/leagueHistory/55501?seasonId=2017",
         "https://lm-api-writes.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/segments/0/leagues/55501/transactions/",
+        "https://fantasy.espn.com/football/fantasycast?leagueId=55501&teamId=1",
+        '"groups": [{"groupId": 55501, "groupName": "x"}]',
+        "groupId: '55501'",
+        '{"leagueId": "55501"}',
     ],
-    ids=["current", "historical", "writes"],
+    ids=[
+        "current",
+        "historical",
+        "writes",
+        "query",
+        "fan-api-groupId",
+        "yaml-groupId",
+        "leagueId-key",
+    ],
 )
-def test_the_provenance_pattern_sees_every_league_url_shape(uri: str) -> None:
-    """Both endpoint shapes name the league; the scan must read both.
+def test_the_provenance_pattern_sees_every_league_id_shape(text: str) -> None:
+    """Every shape a capture can name a league in; the scan must read them all.
 
-    Codex's second pass on #92 caught that ``/leagueHistory/<id>`` slipped past
-    a ``/leagues/``-only match, so a private *historical* recording would have
-    passed both provenance checks.
+    Codex's passes on #92 caught two gaps in turn: ``/leagueHistory/<id>``
+    slipped past a ``/leagues/``-only match, and a ``fan.api`` membership
+    response names the league only in ``groups[].groupId`` and a ``leagueId=``
+    query string, never in the request path. A private recording in either
+    shape would have passed both provenance checks.
     """
-    assert [m.group(1) for m in _LEAGUE_IN_URL.finditer(uri)] == ["55501"]
+    assert _league_ids_in(text) == ["55501"]
+
+
+def test_the_provenance_pattern_ignores_ids_that_are_not_leagues() -> None:
+    assert _league_ids_in('{"teamId": 55501, "playerId": 55501, "seasonId": 2026}') == []
 
 
 def test_private_recordings_are_gitignored() -> None:
