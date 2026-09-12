@@ -39,6 +39,18 @@ path never received that fix — and on inspection it was worse than that.
   the fallback when no row for the period exists. So `pro_team`, `kickoff`,
   and `opponent` now all describe the same week on a past-week read.
 
+- **A `proTeamId` of `0` on a stat row is a gap, not an answer.** Codex's
+  second pass suggested honouring an explicit `0` as "the player was
+  unsigned that week", citing Dez Bryant in the 2018 recording. Implemented
+  and checked live, it blanked 12 of 15 players on the current-week roster:
+  before a game is played, the only row ESPN serves for the period is the
+  projection (`statSourceId` 1), and it carries `proTeamId: 0` for
+  everyone — Josh Allen the day before his opener, and Dez Bryant in the
+  recording, which is that same projection row rather than an actual one.
+  No actual row in the corpus carries a `0`. The suggestion was rejected on
+  that evidence and the live shape is pinned by a test, since it is exactly
+  the kind of plausible reading that passes offline and fails on Sunday.
+
 ## Why not read `espn-api`'s `Player.schedule`?
 
 The same reason `_kickoff_map` does not (`docs/memory` and #72): the library

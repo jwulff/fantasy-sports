@@ -747,6 +747,18 @@ def test_a_past_week_read_uses_the_club_the_player_was_on_that_week():
     agent_raw = {"player": {"stats": [{"scoringPeriodId": 3, "statSourceId": 0, "proTeamId": 26}]}}
     assert _player(Traded(), agent_raw, kickoffs, opponents, 3).pro_team == "SEA"
 
+    # ``proTeamId: 0`` on a row is not a witness. Live on 2026-09-12, every
+    # player whose game had not been played yet carried exactly one week-1
+    # row -- the projection, ``statSourceId`` 1 -- with ``proTeamId`` 0, and
+    # the 2018 recording has the same shape for Dez Bryant. Honouring the 0
+    # as "unsigned that week" blanked 12 of 15 players on a live roster read;
+    # it means "no club recorded on this row", and the current club stands.
+    not_yet_played = _player(
+        Traded(), raw(scoringPeriodId=3, statSourceId=1, proTeamId=0), kickoffs, opponents, 3
+    )
+    assert not_yet_played.pro_team == "KC"
+    assert not_yet_played.opponent == "SEA"
+
     # Malformed rows are ignored, never a crash.
     junk = {"playerPoolEntry": {"player": {"stats": ["x", {"scoringPeriodId": 3}]}}}
     assert _player(Traded(), junk, kickoffs, opponents, 3).pro_team == "KC"

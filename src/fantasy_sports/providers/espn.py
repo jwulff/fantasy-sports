@@ -1998,6 +1998,11 @@ def _week_pro_team_id(raw: Mapping[str, Any], week: int | None) -> int | None:
     entry does not. Either row for the period -- actual (``statSourceId`` 0)
     or projection (1) -- names the club. ``None`` when nothing does, and the
     caller falls back to the player's current club.
+
+    A ``proTeamId`` of ``0`` is **not** a witness that the player was unsigned
+    that week: before a game is played the only row for the period is the
+    projection, and it carries ``0`` for every player. Treating it as an
+    answer blanked most of a live roster (PR #87 review); it is a gap.
     """
     if week is None:
         return None
