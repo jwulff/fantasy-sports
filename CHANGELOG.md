@@ -39,6 +39,11 @@ football API, distributed via `uv tool install fantasy-sports`.
   `auto-error` issue the day the unofficial API drifts, a health manifest, and
   a client-side check so `doctor` can tell you whether a failure is your
   credentials, a known outage, or something new.
+- **The canary auto-files and dedupes an `auto-error` issue on confirmed
+  `SCHEMA_DRIFT`, and publishes/updates the public `health.json`** the
+  client-side health check reads — a separately-permissioned second CI job
+  (`issues: write`/`contents: write`) that runs only on that classification,
+  never on `BUILD_ERROR`/`CANARY_INFRA` (#64).
 - **Performance and quality budgets, enforced in CI** (ADR-0008): sub-50ms
   cold start, five-dependency ceiling, sub-256KB wheel, 90%/85% line/branch
   coverage, 80% mutation score on `core/` and `providers/` — see

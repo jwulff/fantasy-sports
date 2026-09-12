@@ -1,10 +1,13 @@
 # The ESPN canary
 
-ADR-0005 server side. Detection only — see "Scope" below for why.
+ADR-0005 server side: detection (`run.py`) plus, on confirmed drift, the
+public-facing write path (`publish_drift.py`) — see "Scope" below for how
+that split works and why it used to stop at detection alone.
 
 ```bash
 uv run python scripts/canary/run.py            # respects the season cadence gate
 uv run python scripts/canary/run.py --force     # always runs (used by workflow_dispatch)
+uv run python scripts/canary/run.py --report-json canary_report.json   # for publish_drift.py, below
 ```
 
 Scheduled by `.github/workflows/canary.yml`. Uses no credentials — it reads
@@ -26,30 +29,31 @@ jwulff/fantasy-sports#11's original acceptance criteria included auto-filing
 a GitHub issue on drift and publishing/updating a public `health.json` in
 the repo. The [2026-08-28 review
 comment](https://github.com/jwulff/fantasy-sports/issues/11#issuecomment-5448649774)
-reclassified that: John's own agents run unattended against a live season on
-an API mid-overhaul, which is the exposure detection exists to close —
-*before* a decision gets made against broken data. **Detection is core
-scope. The public-facing health manifest and auto-filed issues stay
-deferred**, split into a follow-up issue (linked from #11).
+deferred that half into a follow-up issue so #11 could ship detection alone
+first. #64 is that follow-up, and it ships the deferred half without
+touching how detection itself works:
 
-So this canary:
+- **`run.py` still only detects.** It runs on a schedule, hits the public
+  league with no credentials, asserts on the response shape, and fails
+  loudly and distinguishably when something's wrong — unchanged from #11,
+  including the fact that a failed scheduled workflow run is itself a
+  detection signal independent of anything below. Its `--report-json` flag
+  (added by #64) is purely a hand-off: the structured `CheckReport`, not a
+  new responsibility.
+- **`publish_drift.py` is the write half**, and only it ever files or
+  updates a GitHub issue, or writes `health.json` — and only when the report
+  it's handed classifies as `SCHEMA_DRIFT`. `.github/workflows/canary.yml`
+  runs it as a second job, gated on the first job's classification output,
+  holding `issues: write`/`contents: write` that the detection job never
+  has. See "Publishing on drift" below.
 
-- **Does** run on a schedule, hit the public league with no credentials,
-  assert on the response shape, and fail loudly and distinguishably when
-  something's wrong. A failed scheduled workflow run is itself the
-  detection signal — GitHub's own Actions failure notification is what
-  reaches a human today, same as any other broken workflow.
-- **Does not** open, update, or deduplicate a GitHub issue.
-- **Does not** publish or update anything in the repo. `shape_manifest.json`
-  next to this file is committed by a human (or an agent, reviewed like any
-  other change) when the shape genuinely and legitimately changes — see
-  "Updating the manifest" below — never by the workflow itself.
-
-`shape_manifest.json` is **not** the ADR-0005 §11.2 public `health.json`.
-That file carries `latest_version`/`known_issues` for end users reading it
-from `raw.githubusercontent.com`, and doesn't exist yet — it's part of the
-deferred follow-up. This one is a private structural fingerprint the canary
-diffs itself against, run to run.
+`shape_manifest.json` is **not** the ADR-0005 §11.2 public `health.json` —
+still true, and still worth saying explicitly since the names are easy to
+conflate. That file carries `latest_version`/per-provider `status` and
+`known_issues` for end users reading it from `raw.githubusercontent.com`,
+written by `scripts/canary/health_manifest.py`. This one is a private
+structural fingerprint the canary diffs itself against, run to run, updated
+by hand (see "Updating the manifest" below) and never by the workflow.
 
 ## Classification
 
@@ -110,6 +114,44 @@ Everything here is offline-testable and tested in
 recording — proving ESPN still sends the documented shape is this script's
 job; proving the diff/classification logic reacts correctly to each way a
 shape can fail to match is the test suite's.
+
+## Publishing on drift
+
+Only a confirmed `SCHEMA_DRIFT` ever reaches `publish_drift.py` — never
+`BUILD_ERROR`/`CANARY_INFRA`/`OK` (jwulff/fantasy-sports#64 AC4). Two things
+happen, both idempotent across repeated runs of the same underlying drift:
+
+1. **`issue_filer.py` dedupes before filing.** The drift is fingerprinted
+   from its own content — missing paths, `(field, value)` enum gaps, and
+   removed signature keys, deliberately *not* which player happened to
+   carry a gap or how the prose is worded (`docs/research/01-telemetry-auto-issues.md`
+   §4's anti-flood design, adapted from the client-telemetry proposal to
+   this canary's one-provider, one-endpoint case). `gh issue list --search
+   "<signature> in:body"` against the `auto-error` label finds an existing
+   open issue for that exact drift; a hit gets a comment, a miss gets a new
+   issue labelled `auto-error`.
+2. **`health_manifest.py` folds the outcome into `health.json`** (ADR-0005
+   §11.2's shape), upserting the `known_issues` entry for that provider by
+   GitHub issue number — a recurring run against the same open issue
+   refreshes it in place; a distinct drift (a different open issue) is
+   appended alongside it. `latest_version`/`min_supported_version`/
+   `yanked_versions` and every other provider's entry are read back
+   untouched — this canary knows nothing about PyPI releases or Yahoo/
+   Sleeper.
+
+**Recovery to `OK` is a deliberate non-feature in this version.** A later
+run that classifies `OK` never calls `publish_drift.py` at all, so a
+provider marked `"degraded"` stays that way until a human edits
+`health.json` (typically when closing the issue). See
+`changes/0087-canary-drift-issue-and-health-json.md` for the reasoning and
+what a follow-up would need to add automatic recovery safely.
+
+The workflow enforces the write-scope boundary structurally, not just by
+convention: `canary` (job 1) runs with `permissions: contents: read` and
+cannot file an issue or push a commit no matter what its Python does;
+`publish-drift` (job 2) is the only job with `issues: write`/`contents:
+write`, and GitHub Actions gates it on job 1's `classification` output being
+exactly `schema_drift`.
 
 ## What is deliberately not checked
 

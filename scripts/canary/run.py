@@ -1,26 +1,29 @@
 #!/usr/bin/env python3
-"""The live ESPN canary — ADR-0005 server side, detection only.
+"""The live ESPN canary — ADR-0005 server side, the detection half.
 
     uv run python scripts/canary/run.py            # respects the cadence gate
     uv run python scripts/canary/run.py --force     # always runs (workflow_dispatch)
+    uv run python scripts/canary/run.py --report-json canary_report.json  # for publish_drift.py
 
 ## Scope: what this does and does not do
 
 jwulff/fantasy-sports#11's acceptance criteria originally included auto-filing
 a GitHub issue on drift and publishing/updating a `health.json` manifest in
-the repo. The 2026-08-28 review comment on #11 reclassified that:
-**detection is core scope; the public-facing health manifest and auto-filed
-issues stay deferred**, split into a follow-up issue. This script is the
-detection half only. On drift it makes the failure loud and unambiguous —
-a red, clearly-labelled scheduled workflow run — which is what stops
-`SCHEMA_DRIFT` firing client-side "with nothing behind it." It does not open
-or update any GitHub issue, and it does not write anything back to the repo.
+the repo. The 2026-08-28 review comment on #11 deferred that into a follow-up
+issue (#64, now built as `scripts/canary/publish_drift.py`) so #11 could ship
+detection alone first. This script is still the detection half only — it
+does not itself open or update any GitHub issue, and it does not write
+anything back to the repo. On drift it makes the failure loud and
+unambiguous — a red, clearly-labelled scheduled workflow run, unchanged from
+#11 — and, given `--report-json`, hands its structured findings to
+`publish_drift.py` (a second, separately-permissioned CI job; see
+`.github/workflows/canary.yml`) rather than filing anything itself.
 
 `shape_manifest.json` next to this file is **not** the ADR-0005 §11.2 public
 `health.json` — that one carries `latest_version`/`known_issues` for end
-users and stays unbuilt until the follow-up issue. This one is an internal
-structural fingerprint of the canary league's response, used only to diff
-run-to-run drift. See `scripts/canary/README.md`.
+users, and is written by `scripts/canary/health_manifest.py` on confirmed
+drift. This one is an internal structural fingerprint of the canary league's
+response, used only to diff run-to-run drift. See `scripts/canary/README.md`.
 
 ## Classification
 
@@ -110,6 +113,23 @@ def _emit(report_summary: str) -> None:
     _write_summary(report_summary)
 
 
+def _write_report_json(report: CheckReport, path: Path | None) -> None:
+    """Write ``report.to_dict()`` to ``--report-json``, if given.
+
+    This is the hand-off jwulff/fantasy-sports#64's two-job workflow needs:
+    job 1 (this script, ``permissions: contents: read``) writes the
+    structured findings here; job 2 (``scripts/canary/publish_drift.py``,
+    ``permissions: contents: write, issues: write``) reads them back with
+    :func:`scripts.canary.shapes.report_from_dict` rather than re-fetching
+    ESPN or re-parsing :meth:`CheckReport.render_summary`'s prose. A no-op
+    when ``path`` is ``None`` -- every existing caller of ``run.py`` that
+    never passes ``--report-json`` keeps working unchanged.
+    """
+    if path is None:
+        return
+    path.write_text(json.dumps(report.to_dict(), indent=2) + "\n", encoding="utf-8")
+
+
 def _build_error_report(exc: BaseException) -> CheckReport:
     from scripts.canary.shapes import CheckReport, Classification
 
@@ -137,7 +157,7 @@ def _infra_report(exc: BaseException) -> CheckReport:
     )
 
 
-def run(*, force: bool) -> int:
+def run(*, force: bool, report_path: Path | None = None) -> int:
     today = datetime.now(UTC).date()
     if not force and not should_run_today(today):
         message = (
@@ -145,6 +165,8 @@ def run(*, force: bool) -> int:
             f"{today.strftime('%A')}); skipping. Pass --force to run anyway."
         )
         _emit(f"## Canary result: SKIPPED\n{message}")
+        # No CheckReport exists for a skip -- nothing for job 2 to act on, and
+        # its workflow `if:` gate only ever matches "schema_drift" anyway.
         return 0
 
     try:
@@ -153,17 +175,23 @@ def run(*, force: bool) -> int:
         from fantasy_sports.core.errors import FantasySportsError
         from fantasy_sports.providers.espn import EspnProvider
     except BaseException as exc:  # noqa: BLE001 - this *is* the classification
-        _emit(_build_error_report(exc).render_summary())
+        report = _build_error_report(exc)
+        _emit(report.render_summary())
+        _write_report_json(report, report_path)
         return 1
 
     try:
         provider = EspnProvider()
         payload = provider.fetch_raw(CANARY_LEAGUE, CANARY_SEASON, view=BOOTSTRAP_VIEWS)
     except FantasySportsError as exc:
-        _emit(_infra_report(exc).render_summary())
+        report = _infra_report(exc)
+        _emit(report.render_summary())
+        _write_report_json(report, report_path)
         return 1
     except Exception as exc:  # noqa: BLE001 - unclassified is infra, never drift (R12)
-        _emit(_infra_report(exc).render_summary())
+        report = _infra_report(exc)
+        _emit(report.render_summary())
+        _write_report_json(report, report_path)
         return 1
 
     from espn_api.football.constant import POSITION_MAP, PRO_TEAM_MAP
@@ -178,6 +206,7 @@ def run(*, force: bool) -> int:
         pro_team_map=PRO_TEAM_MAP,
     )
     _emit(report.render_summary())
+    _write_report_json(report, report_path)
     return 0 if report.ok else 1
 
 
@@ -188,8 +217,17 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="skip the season cadence gate (used for workflow_dispatch)",
     )
+    parser.add_argument(
+        "--report-json",
+        type=Path,
+        default=None,
+        help=(
+            "write the CheckReport as JSON to this path -- the hand-off "
+            "scripts/canary/publish_drift.py (job 2) reads (jwulff/fantasy-sports#64)"
+        ),
+    )
     args = parser.parse_args(argv)
-    return run(force=args.force)
+    return run(force=args.force, report_path=args.report_json)
 
 
 if __name__ == "__main__":

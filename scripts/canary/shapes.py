@@ -56,6 +56,7 @@ __all__ = [
     "enum_coverage_gaps",
     "extract_signature",
     "missing_required_paths",
+    "report_from_dict",
     "resolve_path",
 ]
 
@@ -282,6 +283,54 @@ class CheckReport:
                 for path, keys in sorted(self.signature_diff.added.items()):
                     lines.append(f"- `{path}`: {', '.join(keys)}")
         return "\n".join(lines)
+
+    def to_dict(self) -> dict[str, Any]:
+        """A JSON-serializable projection, the inverse of :func:`report_from_dict`.
+
+        jwulff/fantasy-sports#64's two-job workflow needs this: the detection
+        job (``contents: read``) writes one of these to ``--report-json`` so
+        the publish job (``contents: write``, ``issues: write``) can act on
+        the *structured* findings — the fingerprint the dedup search keys on
+        (:mod:`scripts.canary.issue_filer`) needs the actual missing paths and
+        removed keys, not a re-parse of :meth:`render_summary`'s prose.
+        """
+        return {
+            "classification": self.classification.value,
+            "missing_paths": list(self.missing_paths),
+            "enum_gaps": [
+                {"field": gap.field, "value": gap.value, "context": gap.context}
+                for gap in self.enum_gaps
+            ],
+            "signature_diff": (
+                {"added": self.signature_diff.added, "removed": self.signature_diff.removed}
+                if self.signature_diff is not None
+                else None
+            ),
+            "detail": self.detail,
+        }
+
+
+def report_from_dict(data: Mapping[str, Any]) -> CheckReport:
+    """The inverse of :meth:`CheckReport.to_dict`. See that method for why."""
+    signature_diff_raw = data.get("signature_diff")
+    signature_diff = (
+        SignatureDiff(
+            added=dict(signature_diff_raw.get("added", {})),
+            removed=dict(signature_diff_raw.get("removed", {})),
+        )
+        if signature_diff_raw is not None
+        else None
+    )
+    return CheckReport(
+        classification=Classification(data["classification"]),
+        missing_paths=list(data.get("missing_paths", [])),
+        enum_gaps=[
+            EnumGap(field=gap["field"], value=gap["value"], context=gap["context"])
+            for gap in data.get("enum_gaps", [])
+        ],
+        signature_diff=signature_diff,
+        detail=data.get("detail", ""),
+    )
 
 
 def classify(
