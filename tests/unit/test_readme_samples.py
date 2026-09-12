@@ -219,7 +219,10 @@ def test_the_command_reference_covers_every_registered_command():
 # --------------------------------------------------------------------------- #
 
 #: Keys whose values legitimately differ between two generations of the same
-#: sample: clocks, ages, and whether a fetch happened to hit the cache.
+#: sample: clocks and ages. ``sources[].cached`` is deliberately *not* here —
+#: the fresh sandbox and the fixed invocation order make it deterministic, and
+#: it is the one observable the ``--fresh`` and ``--no-cache`` samples exist
+#: to show, so a regression there must fail this comparison.
 VOLATILE_KEYS = frozenset(
     {
         "generated_at",
@@ -227,7 +230,6 @@ VOLATILE_KEYS = frozenset(
         "data_age_seconds",
         "fetched_at",
         "age_seconds",
-        "cached",
         "stored_at",
         "age_days",
     }
@@ -243,11 +245,14 @@ def _stable(value):
 
 
 _TIMESTAMP = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z")
-_AGE = re.compile(r"\b\d+s( \(cached\))?")
+_AGE = re.compile(r"\b\d+s\b")
 
 
 def _stable_text(text: str) -> str:
-    """A table's header and sources lines carry the same volatile values."""
+    """A table's header and sources lines carry the same volatile values.
+
+    Ages are masked; the ``(cached)`` marker after each source is kept.
+    """
     return _AGE.sub("Ns", _TIMESTAMP.sub("T", text))
 
 

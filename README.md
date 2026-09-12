@@ -380,10 +380,12 @@ them:
    stderr — except `auth login`, which is interactive and writes its prompts
    and cookie guidance to stderr on the way to a successful envelope. A
    failure is one JSON document on stderr, an empty stdout, and the exit
-   status from the table above. Exit `2` is the other exception: a usage
-   error is prose on stderr with no envelope, because the argument parser
-   refused the call before the CLI ran. Pass `--output json` if you cannot
-   be sure stdout is a pipe.
+   status from the table above; when stderr is a terminal, and only then,
+   a `PROVIDER_UNAVAILABLE` or `SCHEMA_DRIFT` failure may be followed by a
+   prose paragraph of upgrade or outage guidance for the human watching.
+   Exit `2` is the other exception: a usage error is prose on stderr with
+   no envelope, because the argument parser refused the call before the
+   CLI ran. Pass `--output json` if you cannot be sure stdout is a pipe.
 2. **Branch on `error.code`, then read `remediation`.** `retryable` says
    whether trying again unchanged can work; `agent_action` is the standing
    instruction for that code; `remediation`, when present, is the concrete

@@ -2253,7 +2253,10 @@ Every failure is one JSON document on stderr, with the same key set as a
 success — `data` is `null`, `error` is not — and stdout is byte-empty, so a
 parser reading stdout never sees half a payload. The process exits with the
 code's own status, so a cron job or an agent can branch without parsing
-anything.
+anything. One qualification: when stderr is a **terminal**, and only then, a
+`PROVIDER_UNAVAILABLE` or `SCHEMA_DRIFT` failure may be followed by a short
+prose paragraph of upgrade or known-outage guidance for the person watching;
+piped stderr is always exactly the one document.
 
 | Code | Exit | Meaning | `retryable` | Agent response |
 |---|---|---|---|---|
