@@ -58,11 +58,18 @@ because a hand-typed sample is a sample that is wrong by the second release.
   JSON sample parses, carries `"schema": "fantasy-sports/v1"`, and has the
   full envelope key set; every error sample names a taxonomy code and the
   index records that code's exit status; every code in `ErrorCode` has at
-  least one sample; no sample names a league outside `{1234, 99}`; and both
+  least one sample; no sample names a league outside `{1234, 99}`; both
   docs are byte-identical to what splicing the committed samples produces,
-  so a hand edit inside a marker block or to a sample file fails CI.
-  `test_readme.py` now scans `docs/commands.md`'s command lines against the
-  registry alongside the README's.
+  so a hand edit inside a marker block or to a sample file fails CI; and
+  every sample that *can* be produced offline — the eleven replayed and
+  synthetic ones — is regenerated inside the test and compared to its
+  committed copy, timestamps and cache flags aside, so a change to what a
+  command renders fails CI until the samples are regenerated (Codex's
+  first-pass point: docs-match-samples alone proved nothing about
+  samples-match-code). The live samples cannot be checked against ESPN
+  offline; the envelope tests hold their structure. `test_readme.py` now
+  scans `docs/commands.md`'s command lines against the registry alongside
+  the README's.
 
 ## Decisions worth recording
 
@@ -78,7 +85,9 @@ because a hand-typed sample is a sample that is wrong by the second release.
   under `| jq`. Two things use the real console script: `--help`, which
   lives on the fast path, and the pipe demonstration, which pipes for real
   into `head`. `sys.argv[0]` is set to `fantasy-sports` for the duration so
-  typer's usage lines name the right program.
+  typer's usage lines name the right program, and the rendered command line
+  is `shlex.join`ed so an argument with a space or a JSON filter copies back
+  as the call that was captured.
 - **The README now carries a Python fence, and `ruff format` formats
   Markdown code blocks.** `docs/` is excluded on purpose
   (`docs/memory/ruff-format-rewrites-markdown.md`); the README is not, so the

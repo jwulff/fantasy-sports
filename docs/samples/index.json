@@ -109,7 +109,7 @@
   },
   {
     "name": "roster.week",
-    "command": "fantasy-sports roster --team FANTASY GOD --week 1 --no-raw",
+    "command": "fantasy-sports roster --team 'FANTASY GOD' --week 1 --no-raw",
     "source": "live",
     "league": "ESPN public league 1234, season 2018",
     "exit": 0,
@@ -169,7 +169,7 @@
   },
   {
     "name": "raw.filter",
-    "command": "fantasy-sports raw --view kona_player_info --filter {\"players\":{\"limit\":2,\"sortPercOwned\":{\"sortPriority\":1,\"sortAsc\":false}}}",
+    "command": "fantasy-sports raw --view kona_player_info --filter '{\"players\":{\"limit\":2,\"sortPercOwned\":{\"sortPriority\":1,\"sortAsc\":false}}}'",
     "source": "live",
     "league": "ESPN public league 1234, season 2018",
     "exit": 0,

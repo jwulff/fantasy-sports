@@ -3,43 +3,43 @@
   "provider": "espn",
   "league_id": "99",
   "season": 2026,
-  "generated_at": "2026-09-12T18:57:59Z",
-  "data_as_of": "2026-09-12T18:57:59Z",
+  "generated_at": "2026-09-12T19:10:16Z",
+  "data_as_of": "2026-09-12T19:10:16Z",
   "data_age_seconds": 0,
   "sources": [
     {
       "name": "mTeam+mRoster+mMatchup+mSettings+mStandings",
-      "fetched_at": "2026-09-12T18:57:59Z",
+      "fetched_at": "2026-09-12T19:10:16Z",
       "age_seconds": 0,
       "cached": true
     },
     {
       "name": "players_wl",
-      "fetched_at": "2026-09-12T18:57:59Z",
+      "fetched_at": "2026-09-12T19:10:16Z",
       "age_seconds": 0,
       "cached": true
     },
     {
       "name": "proTeamSchedules_wl",
-      "fetched_at": "2026-09-12T18:57:59Z",
+      "fetched_at": "2026-09-12T19:10:16Z",
       "age_seconds": 0,
       "cached": true
     },
     {
       "name": "mDraftDetail",
-      "fetched_at": "2026-09-12T18:57:59Z",
+      "fetched_at": "2026-09-12T19:10:16Z",
       "age_seconds": 0,
       "cached": true
     },
     {
       "name": "kona_player_info",
-      "fetched_at": "2026-09-12T18:57:59Z",
+      "fetched_at": "2026-09-12T19:10:16Z",
       "age_seconds": 0,
       "cached": false
     },
     {
       "name": "mPositionalRatings",
-      "fetched_at": "2026-09-12T18:57:59Z",
+      "fetched_at": "2026-09-12T19:10:16Z",
       "age_seconds": 0,
       "cached": false
     }

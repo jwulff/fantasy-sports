@@ -3,31 +3,31 @@
   "provider": "espn",
   "league_id": "1234",
   "season": 2018,
-  "generated_at": "2026-09-12T18:57:58Z",
-  "data_as_of": "2026-09-12T18:57:58Z",
+  "generated_at": "2026-09-12T19:10:16Z",
+  "data_as_of": "2026-09-12T19:10:15Z",
   "data_age_seconds": 0,
   "sources": [
     {
       "name": "mTeam+mRoster+mMatchup+mSettings+mStandings",
-      "fetched_at": "2026-09-12T18:57:58Z",
+      "fetched_at": "2026-09-12T19:10:15Z",
       "age_seconds": 0,
       "cached": false
     },
     {
       "name": "players_wl",
-      "fetched_at": "2026-09-12T18:57:58Z",
+      "fetched_at": "2026-09-12T19:10:16Z",
       "age_seconds": 0,
       "cached": false
     },
     {
       "name": "proTeamSchedules_wl",
-      "fetched_at": "2026-09-12T18:57:58Z",
+      "fetched_at": "2026-09-12T19:10:16Z",
       "age_seconds": 0,
       "cached": false
     },
     {
       "name": "mDraftDetail",
-      "fetched_at": "2026-09-12T18:57:58Z",
+      "fetched_at": "2026-09-12T19:10:16Z",
       "age_seconds": 0,
       "cached": false
     }

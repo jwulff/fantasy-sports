@@ -12,10 +12,17 @@ These tests hold three things about that (jwulff/fantasy-sports#93):
   exit status, and every code in the taxonomy has at least one sample;
 * the docs are byte-identical to what splicing the committed samples produces,
   so a sample edited by hand or a doc edited inside a marker block fails here
-  rather than silently drifting.
+  rather than silently drifting;
+* every sample that can be produced offline — the eleven replayed and
+  synthetic ones — is regenerated here and compared to its committed copy,
+  timestamps aside, so a change to what a command renders fails CI until the
+  samples are regenerated. The live samples cannot be checked against ESPN
+  offline; their structure is held by the envelope tests above.
 
-Offline and read-only. The script's pure functions are imported (the repo
-root is on ``sys.path`` via ``pythonpath``); nothing here runs a command.
+Offline. The script is imported (the repo root is on ``sys.path`` via
+``pythonpath``); the regeneration runs commands in-process against a private
+XDG tree and the unit tests' transport stub, and ``pytest-socket`` guarantees
+nothing reaches the network.
 """
 
 from __future__ import annotations
@@ -33,9 +40,13 @@ from scripts.render_readme_samples import (
     ELLIPSIS,
     INDEX_FILE,
     SAMPLES_DIR,
+    Recorder,
+    Sandbox,
     load_index,
     referenced_names,
+    replayed_samples,
     splice,
+    synthetic_samples,
     trim,
 )
 
@@ -185,6 +196,72 @@ def test_the_command_reference_covers_every_registered_command():
     reference = (DOCS[1]).read_text(encoding="utf-8")
     for invocation in REGISTRY:
         assert f"### `{invocation}`" in reference, f"{invocation!r} has no section"
+
+
+# --------------------------------------------------------------------------- #
+# The offline samples still match what the code renders today
+# --------------------------------------------------------------------------- #
+
+#: Keys whose values legitimately differ between two generations of the same
+#: sample: clocks, ages, and whether a fetch happened to hit the cache.
+VOLATILE_KEYS = frozenset(
+    {
+        "generated_at",
+        "data_as_of",
+        "data_age_seconds",
+        "fetched_at",
+        "age_seconds",
+        "cached",
+        "stored_at",
+        "age_days",
+    }
+)
+
+
+def _stable(value):
+    if isinstance(value, dict):
+        return {k: _stable(v) for k, v in value.items() if k not in VOLATILE_KEYS}
+    if isinstance(value, list):
+        return [_stable(v) for v in value]
+    return value
+
+
+@pytest.fixture(scope="module")
+def regenerated(tmp_path_factory: pytest.TempPathFactory) -> dict[str, str]:
+    """Every replayed and synthetic sample, produced fresh by the generator."""
+    import os
+
+    saved = {k: os.environ.get(k) for k in ("PYTHON_KEYRING_BACKEND",)}
+    os.environ["PYTHON_KEYRING_BACKEND"] = "keyring.backends.null.Keyring"
+    try:
+        recorder = Recorder(Sandbox(tmp_path_factory.mktemp("samples")))
+        replayed_samples(recorder)
+        synthetic_samples(recorder)
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+    return {sample.name: sample.text for sample in recorder.samples}
+
+
+OFFLINE_SAMPLES = sorted(n for n, e in INDEX.items() if e["source"] in {"replayed", "synthetic"})
+
+
+def test_the_offline_samples_cover_every_replayed_and_synthetic_entry(regenerated):
+    assert set(regenerated) == set(OFFLINE_SAMPLES)
+
+
+@pytest.mark.parametrize("name", OFFLINE_SAMPLES)
+def test_offline_sample_matches_what_the_code_renders_today(name: str, regenerated):
+    fresh, committed = regenerated[name], _read(name)
+    if INDEX[name]["format"] == "json":
+        assert _stable(json.loads(fresh)) == _stable(json.loads(committed)), (
+            f"{name} drifted from the code; run scripts/render_readme_samples.py"
+        )
+    else:
+        assert fresh == committed
 
 
 # --------------------------------------------------------------------------- #

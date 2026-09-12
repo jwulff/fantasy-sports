@@ -3,7 +3,7 @@
   "provider": null,
   "league_id": null,
   "season": null,
-  "generated_at": "2026-09-12T18:57:56Z",
+  "generated_at": "2026-09-12T19:10:14Z",
   "data_as_of": null,
   "data_age_seconds": null,
   "sources": [],
@@ -47,7 +47,7 @@
         "status": "ok",
         "summary": "ESPN credentials are configured.",
         "details": {
-          "generated_at": "2026-09-12T18:57:56.784279Z",
+          "generated_at": "2026-09-12T19:10:14.501202Z",
           "complete": true,
           "credentials": [
             {

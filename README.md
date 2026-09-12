@@ -210,31 +210,31 @@ fantasy-sports standings
   "provider": "espn",
   "league_id": "1234",
   "season": 2018,
-  "generated_at": "2026-09-12T18:57:55Z",
-  "data_as_of": "2026-09-12T18:57:54Z",
+  "generated_at": "2026-09-12T19:10:13Z",
+  "data_as_of": "2026-09-12T19:10:12Z",
   "data_age_seconds": 0,
   "sources": [
     {
       "name": "mTeam+mRoster+mMatchup+mSettings+mStandings",
-      "fetched_at": "2026-09-12T18:57:54Z",
+      "fetched_at": "2026-09-12T19:10:12Z",
       "age_seconds": 0,
       "cached": true
     },
     {
       "name": "players_wl",
-      "fetched_at": "2026-09-12T18:57:54Z",
+      "fetched_at": "2026-09-12T19:10:12Z",
       "age_seconds": 0,
       "cached": true
     },
     {
       "name": "proTeamSchedules_wl",
-      "fetched_at": "2026-09-12T18:57:54Z",
+      "fetched_at": "2026-09-12T19:10:12Z",
       "age_seconds": 0,
       "cached": true
     },
     {
       "name": "mDraftDetail",
-      "fetched_at": "2026-09-12T18:57:54Z",
+      "fetched_at": "2026-09-12T19:10:12Z",
       "age_seconds": 0,
       "cached": true
     }
@@ -328,7 +328,7 @@ fantasy-sports box-scores --week 1
   "provider": null,
   "league_id": null,
   "season": null,
-  "generated_at": "2026-09-12T18:57:59Z",
+  "generated_at": "2026-09-12T19:10:16Z",
   "data_as_of": null,
   "data_age_seconds": null,
   "sources": [],
@@ -376,11 +376,13 @@ them:
 
 1. **Parse stdout as JSON; parse stderr as JSON only when the exit status is
    non-zero.** A success is one JSON document on stdout and nothing on
-   stderr. A failure is one JSON document on stderr, an empty stdout, and
-   the exit status from the table above. Exit `2` is the one exception: a
-   usage error is prose on stderr with no envelope, because the argument
-   parser refused the call before the CLI ran. Pass `--output json` if you
-   cannot be sure stdout is a pipe.
+   stderr — except `auth login`, which is interactive and writes its prompts
+   and cookie guidance to stderr on the way to a successful envelope. A
+   failure is one JSON document on stderr, an empty stdout, and the exit
+   status from the table above. Exit `2` is the other exception: a usage
+   error is prose on stderr with no envelope, because the argument parser
+   refused the call before the CLI ran. Pass `--output json` if you cannot
+   be sure stdout is a pipe.
 2. **Branch on `error.code`, then read `remediation`.** `retryable` says
    whether trying again unchanged can work; `agent_action` is the standing
    instruction for that code; `remediation`, when present, is the concrete

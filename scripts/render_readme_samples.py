@@ -51,6 +51,7 @@ import io
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -473,7 +474,7 @@ class Recorder:
             fmt = "json"
         sample = Sample(
             name=name,
-            command=command or " ".join(["fantasy-sports", *argv]),
+            command=command or shlex.join(["fantasy-sports", *argv]),
             source=source,
             league=league,
             exit=code,
