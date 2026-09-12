@@ -126,10 +126,26 @@ class LogoutReport:
         """Names the environment still supplies after this call."""
         return tuple(row.name for row in self.credentials if row.still_set)
 
+    @property
+    def unavailable(self) -> tuple[str, ...]:
+        """Names with a stored link this call could not reach.
+
+        A value may still be there. This is the one outcome the command must
+        not report as success (jwulff/fantasy-sports#89): a script or an agent
+        branching on the exit status has to learn that the remediation is not
+        finished, and a warning inside a success envelope does not tell it.
+        """
+        return tuple(
+            row.name
+            for row in self.credentials
+            if LinkOutcome.UNAVAILABLE in (row.keychain, row.config)
+        )
+
     def to_payload(self) -> dict[str, object]:
         return {
             "removed": list(self.removed),
             "still_set": list(self.still_set),
+            "unavailable": list(self.unavailable),
             "credentials": [row.to_payload() for row in self.credentials],
             "keychain_service": self.keychain_service,
             "config_path": str(self.config_path),

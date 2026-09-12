@@ -115,8 +115,12 @@ exposed (committed to a public fork, pasted somewhere, printed by a bug):
    its parent's variables, so an exported `FANTASY_SPORTS_ESPN_S2` or
    `FANTASY_SPORTS_SWID` (or one of the bare aliases) is reported as
    `still-set`, by name, and you remove it from your shell profile, `launchd`
-   plist, or CI secrets yourself. Re-run `auth logout` after unlocking the
-   Keychain if it reported that link `unavailable`.
+   plist, or CI secrets yourself. If it could not reach a link at all (a
+   locked Keychain, an unreadable file) it reports that link `unavailable`
+   and **exits nonzero** with `CONFIG_INVALID`, because a value may still be
+   on the machine; the per-link report is in `error.details.report`. Unlock
+   the Keychain or fix the file and run it again. Exit 0 means every stored
+   copy it could reach is gone.
 4. Re-run `fantasy-sports auth login` to store the new values.
 5. If the exposure went through a channel this project controls, such as a
    committed cassette, a log line, or a cache entry, please report it
