@@ -70,12 +70,20 @@ capture each in a throwaway league before #18 implements them.
 ## Evidence handling
 
 Captures live in `docs/research/05-espn-write-surface/` as one JSON per probe
-plus the read-back ledger and ESPN's own transaction log for the session. The
-cookie line is redacted, every SWID is the repo's per-GUID cassette pseudonym,
-and member and team names are replaced; the scrub was checked in-process
-against the real values and against `CREDENTIAL_PATTERNS`, and the
-repo-wide fixture scan covers `.json` under `docs/`. No cassette was recorded
-for a write, by design.
+plus the read-back ledger and ESPN's own transaction log for the session.
+Codex's review pointed at `docs/testing.md` §6 — a real private league's
+recording is not committable even scrubbed — and it was right, so the
+committed files were rewritten until they are not one: the cookie line is
+redacted, the league id in every URL is the synthetic `99`, the member id is
+the non-confirmable `{SWID-REDACTED}` rather than a salted pseudonym,
+transaction UUIDs are redacted, and the other manager's roster is withheld
+(player ids `0`, snapshots replaced by equality facts). Each file lists its
+own redactions. The scrub was checked in-process against the real values,
+every member GUID, and `CREDENTIAL_PATTERNS`. The provenance test that used to
+read only cassette YAML now scans the text of every committed `.json`/`.yaml`
+for a league id in a URL, so the next capture under `docs/` cannot bypass it.
+The unredacted captures stay with the author, outside git. No cassette was
+recorded for a write, by design.
 
 ## Memory
 

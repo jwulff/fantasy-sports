@@ -22,6 +22,7 @@ Three properties are asserted here that nothing else can assert:
 from __future__ import annotations
 
 import gzip
+import re
 import socket
 import zlib
 from pathlib import Path
@@ -430,6 +431,36 @@ def test_every_committed_cassette_comes_from_a_public_league() -> None:
             if tail:
                 league = tail.split("/")[0].split("?")[0]
                 assert league in PUBLIC_LEAGUES, f"{path.name} records private league {league}"
+
+
+#: Any URL path that names a league, in a cassette or anywhere else a
+#: request/response capture might be committed.
+_LEAGUE_IN_URL = re.compile(r"/leagues/(\d+)")
+
+
+def _committed_fixtures() -> list[Path]:
+    return iter_fixture_paths(REPO_ROOT)
+
+
+def test_every_committed_fixture_names_only_public_leagues() -> None:
+    """The same provenance rule, over every committed fixture-shaped file.
+
+    The cassette test above reads ``interactions[].request.uri`` and so only
+    sees cassette YAML. A research capture under ``docs/`` is a recording too
+    (#14 committed the first ones) and it must not become the way a private
+    league's id reaches the tree — so this scans the *text* of every ``.json``
+    and ``.yaml`` git would commit, wherever it lives, for a league id in a
+    URL path. A private league's captures have to be rewritten to name the
+    synthetic league before they land (``docs/testing.md`` §6).
+    """
+    fixtures = _committed_fixtures()
+    assert fixtures, "no committed fixtures found; this check is vacuous"
+    offending: list[str] = []
+    for path in fixtures:
+        for match in _LEAGUE_IN_URL.finditer(path.read_text(encoding="utf-8", errors="replace")):
+            if match.group(1) not in PUBLIC_LEAGUES:
+                offending.append(f"{path.relative_to(REPO_ROOT)} names league {match.group(1)}")
+    assert not offending, "\n".join(offending)
 
 
 def test_private_recordings_are_gitignored() -> None:

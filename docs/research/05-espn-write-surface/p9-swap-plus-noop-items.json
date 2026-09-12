@@ -1,10 +1,16 @@
 {
   "name": "p9-swap-plus-noop-items",
   "note": "Swap plus two from==to items; does ESPN accept a full-lineup style body with no-op items?",
+  "redactions": [
+    "league id in every URL replaced with 99, the repository's invented synthetic league (docs/testing.md section 6)",
+    "the probing member's SWID replaced with {SWID-REDACTED} rather than a salted pseudonym, so it is not a confirmable mapping",
+    "ESPN transaction ids replaced with <uuid>; they were distinct per transaction",
+    "CloudFront request ids dropped"
+  ],
   "captured_at": "2026-09-12T18:30:13+00:00",
   "request": {
     "method": "POST",
-    "url": "https://lm-api-writes.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/segments/0/leagues/713073439/transactions/",
+    "url": "https://lm-api-writes.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/segments/0/leagues/99/transactions/",
     "headers": {
       "User-Agent": "python-requests/2.34.2",
       "Accept-Encoding": "gzip, deflate",
@@ -24,7 +30,7 @@
       "isLeagueManager": false,
       "teamId": 1,
       "type": "ROSTER",
-      "memberId": "{00000000-DCBA-FDFE-2D27-7ED8CC01C371}",
+      "memberId": "{SWID-REDACTED}",
       "scoringPeriodId": 1,
       "executionType": "EXECUTE",
       "items": [
@@ -76,10 +82,7 @@
       "Access-Control-Expose-Headers": "location,content-length,etag,if-none-match,X-Fantasy-Filter-Player-Count,X-Fantasy-Filter-Communication-Count,X-Fantasy-Filter-Schedule-Count,X-Fantasy-Filter-Transaction-Count,X-Fantasy-Role,X-Fantasy-Last-Update-League,X-Fantasy-Server-Time,X-Fantasy-Filter-TopicType-NOTE-Count,X-Fantasy-Filter-TopicType-POLL-Count,X-Fantasy-Filter-TopicType-MSG_BOARD-Count,X-Fantasy-Filter-TopicType-CHAT-Count,X-Fantasy-Filter-TopicType-EMAIL-Count,X-Fantasy-Filter-TopicType-OTHER-Count,X-Fantasy-Filter-TopicType-ACTIVITY_TRANSACTIONS-Count,X-Fantasy-Filter-TopicType-ACTIVITY_SETTINGS-Count,X-Fantasy-Filter-TopicType-ACTIVITY_STATUS-Count,X-Fantasy-Filter-TopicType-ACTIVITY_SCHEDULE-Count,X-Fantasy-Filter-TopicType-MSG_BOARD_GROUP-Count,X-Fantasy-Filter-TopicType-MSG_BOARD_MATCHUP-Count,X-Fantasy-Filter-TopicType-REMINDER_ACTIVATE-Count,X-Fantasy-Filter-TopicType-REMINDER_SCHEDULE-Count,X-Fantasy-Filter-TopicType-CHAT_ALL_MEMBERS-Count,X-Fantasy-Filter-TopicType-CHAT_DIRECT_MESSAGE-Count,Polling-Interval",
       "X-Content-Type-Options": "nosniff",
       "X-XSS-Protection": "0",
-      "X-Cache": "Error from cloudfront",
-      "Via": "1.1 8860d81843d61e0fdef1f2d205adcd5a.cloudfront.net (CloudFront)",
-      "X-Amz-Cf-Pop": "SEA900-P13",
-      "X-Amz-Cf-Id": "Y_dy1xZSwH0F_Pv8RYaBFsUT3jxAjKmithjiLwNAFipKIp4lAmydlg=="
+      "X-Cache": "Error from cloudfront"
     },
     "body": {
       "messages": [
