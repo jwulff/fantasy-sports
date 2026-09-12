@@ -1957,13 +1957,20 @@ def _player(
 
     Kickoff and opponent come from the schedule maps, keyed by the player's
     pro team and the scoring period, exactly as :func:`_lineup_entry` does for
-    a box score. A club with no game that period is on a bye: no kickoff, no
-    opponent. ``"None"`` is ``espn-api``'s free-agent club and is never a team.
+    a box score. The club is the one the player was on *that week*, read from
+    the raw entry's stat row for the period the way ``BoxPlayer`` does;
+    ``Player.proTeam`` is today's club, and keying a past week by it would
+    show a traded player facing his new club's opponent. A club with no game
+    that period is on a bye: no kickoff, no opponent. ``"None"`` is
+    ``espn-api``'s free-agent club and is never a team.
     """
     from espn_api.football.constant import PRO_TEAM_MAP
 
-    pro_team = _library_str(player.proTeam)
-    pro_team_id = _pro_team_ids().get(pro_team) if pro_team else None
+    pro_team_id = _week_pro_team_id(raw, week)
+    if pro_team_id is None:
+        current = _library_str(player.proTeam)
+        pro_team_id = _pro_team_ids().get(current) if current else None
+    pro_team = _library_str(PRO_TEAM_MAP.get(pro_team_id)) if pro_team_id is not None else None
     keyed = pro_team_id is not None and week is not None
     kickoff_ms = kickoffs.get((pro_team_id, week)) if keyed else None
     opponent = opponents.get((pro_team_id, week)) if keyed else None
@@ -1982,6 +1989,28 @@ def _player(
         kickoff=None if kickoff_ms is None else from_epoch_millis(kickoff_ms),
         raw=dict(raw),
     )
+
+
+def _week_pro_team_id(raw: Mapping[str, Any], week: int | None) -> int | None:
+    """The club a player was on in ``week``, from the raw entry's stat rows.
+
+    A roster entry nests the player under ``playerPoolEntry``; a free-agent
+    entry does not. Either row for the period -- actual (``statSourceId`` 0)
+    or projection (1) -- names the club. ``None`` when nothing does, and the
+    caller falls back to the player's current club.
+    """
+    if week is None:
+        return None
+    pool = raw.get("playerPoolEntry", raw)
+    stats = pool.get("player", {}).get("stats", []) if isinstance(pool, Mapping) else []
+    if not isinstance(stats, list):
+        return None
+    for row in stats:
+        if isinstance(row, Mapping) and _as_int(row.get("scoringPeriodId")) == week:
+            team_id = _as_int(row.get("proTeamId"))
+            if team_id:
+                return team_id
+    return None
 
 
 def _roster_slot(

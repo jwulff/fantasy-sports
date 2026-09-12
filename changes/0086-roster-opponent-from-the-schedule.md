@@ -29,6 +29,16 @@ path never received that fix — and on inspection it was worse than that.
   for the period is a bye: `opponent` is `null`, never a guess and never the
   literal `"None"`.
 
+- **The club is the one the player was on that week.** Codex's review
+  caught that `Player.proTeam` is today's club, so a `--week 3` read in
+  week 9 would key the schedule by a traded player's *new* club and show
+  him facing the wrong opponent — and, pre-existing, the wrong kickoff.
+  `_week_pro_team_id` reads the raw entry's stat row for the period (either
+  the actual or the projection row names it), which is the same field
+  `BoxPlayer` uses to get this right in `box-scores`; the current club is
+  the fallback when no row for the period exists. So `pro_team`, `kickoff`,
+  and `opponent` now all describe the same week on a past-week read.
+
 ## Why not read `espn-api`'s `Player.schedule`?
 
 The same reason `_kickoff_map` does not (`docs/memory` and #72): the library
@@ -39,8 +49,12 @@ answers without a condition attached.
 
 ## Tests
 
-Three new tests in `tests/unit/test_espn_provider.py`, against the
+Four new tests in `tests/unit/test_espn_provider.py`, against the
 synthetic 2026 cassette (one week-2 game, KC at SEA): every rostered player
 on team 1 has the club they are not on as their opponent; both free agents
-resolve the same way; and a direct `_player` call shows a bye as `None` and
-a `"None"` club as neither a team nor an opponent. No cassette changed.
+resolve the same way; a direct `_player` call shows a bye as `None` and a
+`"None"` club as neither a team nor an opponent; and a traded player's
+past-week read keys club, opponent, and kickoff by the stat row's club, for
+both the roster and free-agent raw shapes, ignoring malformed rows. No
+cassette changed. Live against the Supper Club league: every player on
+team 11 carries an opponent for the current week and for `--week 1`.

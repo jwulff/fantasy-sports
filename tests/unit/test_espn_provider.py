@@ -703,6 +703,57 @@ def test_a_bye_or_an_unrostered_club_is_no_opponent_never_the_string_none():
     assert unsigned.opponent is None
 
 
+def test_a_past_week_read_uses_the_club_the_player_was_on_that_week():
+    """``Player.proTeam`` is the player's club *today*; a week-3 roster read in
+    week 9 must key the schedule by the club he was on in week 3, or a traded
+    player is shown facing his new club's opponent. The raw entry's stat row
+    for the period carries that club, the same field ``BoxPlayer`` reads.
+    """
+    from fantasy_sports.providers.espn import _player
+
+    class Traded:
+        playerId = 8
+        name = "Moved Midseason"
+        position = "WR"
+        proTeam = "KC"  # today
+        eligibleSlots = ["WR"]
+        injuryStatus = "ACTIVE"
+        stats: dict = {}
+
+    def raw(**stat_row: object) -> dict:
+        return {"playerPoolEntry": {"player": {"stats": [stat_row]}}}
+
+    kickoffs = {(26, 3): 1789318800000, (12, 3): 1789330500000}
+    opponents = {(26, 3): 12, (12, 3): 26}
+    week_three = raw(scoringPeriodId=3, statSourceId=0, proTeamId=26)
+    moved = _player(Traded(), week_three, kickoffs, opponents, 3)
+    assert moved.pro_team == "SEA"
+    assert moved.opponent == "KC"
+    assert moved.kickoff == datetime(2026, 9, 13, 17, 0, tzinfo=UTC)
+
+    # A projection row (``statSourceId`` 1) for the period is as good a witness
+    # of the club as an actual row; a row for another period is not.
+    projected = _player(
+        Traded(), raw(scoringPeriodId=3, statSourceId=1, proTeamId=26), kickoffs, opponents, 3
+    )
+    assert projected.pro_team == "SEA"
+    other_week = _player(
+        Traded(), raw(scoringPeriodId=2, statSourceId=0, proTeamId=26), kickoffs, opponents, 3
+    )
+    assert other_week.pro_team == "KC"
+    assert other_week.opponent == "SEA"
+
+    # The free-agent payload nests the player one level shallower.
+    agent_raw = {"player": {"stats": [{"scoringPeriodId": 3, "statSourceId": 0, "proTeamId": 26}]}}
+    assert _player(Traded(), agent_raw, kickoffs, opponents, 3).pro_team == "SEA"
+
+    # Malformed rows are ignored, never a crash.
+    junk = {"playerPoolEntry": {"player": {"stats": ["x", {"scoringPeriodId": 3}]}}}
+    assert _player(Traded(), junk, kickoffs, opponents, 3).pro_team == "KC"
+    unlisted = {"playerPoolEntry": {"player": {"stats": "no"}}}
+    assert _player(Traded(), unlisted, {}, {}, 3).pro_team == "KC"
+
+
 def test_nothing_the_adapter_returns_can_reach_the_envelope_naive(synthetic: EspnProvider):
     """The output layer refuses a naive datetime, so this fails loudly or passes.
 
