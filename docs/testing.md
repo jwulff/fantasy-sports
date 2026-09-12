@@ -238,6 +238,16 @@ rather than on content — a name is not machine-recognisable, but a league id i
   directory.
 - `tests/cassettes/private/` is gitignored, asserted by
   `test_private_recordings_are_gitignored`.
+- `test_every_committed_fixture_names_only_public_leagues` extends the first
+  check to the *text* of every committed `.json` and `.yaml` anywhere in the
+  tree, in both URL shapes (`/leagues/<id>` and `/leagueHistory/<id>`),
+  because a research capture under `docs/` is a recording too. The
+  write-surface captures in `docs/research/05-espn-write-surface/` (#14) are
+  the worked example of what "rewrite it until it is not a private-league
+  recording" means: league id replaced with `99`, member id replaced with the
+  non-confirmable placeholder, another manager's player ids and snapshots
+  withheld, transaction ids redacted, and a `redactions` list in each file
+  saying so.
 
 None of that can stop a determined contributor, and it is not meant to. It
 means the committable path is the default and the uncommittable one takes a
