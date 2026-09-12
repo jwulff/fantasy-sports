@@ -3,14 +3,14 @@
   "provider": "espn",
   "league_id": null,
   "season": null,
-  "generated_at": "2026-09-12T19:26:10Z",
+  "generated_at": "2026-09-12T19:31:30Z",
   "data_as_of": null,
   "data_age_seconds": null,
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
   "data": {
-    "generated_at": "2026-09-12T19:26:10.869783Z",
+    "generated_at": "2026-09-12T19:31:30.553519Z",
     "complete": false,
     "credentials": [
       {

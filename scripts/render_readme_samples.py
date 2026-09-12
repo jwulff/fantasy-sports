@@ -655,43 +655,38 @@ def live_samples(recorder: Recorder) -> None:
 
 
 def _pipe_sample(recorder: Recorder) -> None:
-    """``fantasy-sports standings | head -4``, run as a real two-process pipeline.
+    """``fantasy-sports standings | head -4``: no ``--output``, stdout a pipe.
 
-    The parent gives ``head`` the read end and closes its own copy, so once
-    ``head`` has its four lines the producer sees EPIPE rather than blocking
-    on a pipe nobody drains; ``communicate()`` then collects the producer's
-    stderr and waits. The sample is refused unless the producer exited 0
-    with nothing on stderr and the captured text is the start of an
-    envelope — this one cannot be regenerated offline, so a broken capture
-    must fail here rather than be spliced into the docs.
+    The producer runs first with its stdout captured — which is a pipe, and is
+    all the format detector looks at — and is refused unless it exited 0
+    with nothing on stderr and an envelope on stdout. Only then is the
+    captured payload handed to ``head -4`` for the four lines the docs show.
+    Two steps rather than one live pipeline on purpose: with ``head`` reading
+    directly, a payload larger than the pipe buffer ends the producer with
+    EPIPE, which is indistinguishable by exit status from a real failure —
+    and this is one of the six samples the offline regeneration cannot
+    re-check, so a broken capture has to fail here, not reach the docs.
     """
     script = console_script()
     env = {**os.environ, **recorder.sandbox.env()}
-    producer = subprocess.Popen(
-        [str(script), "standings"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env
+    producer = subprocess.run(
+        [str(script), "standings"], capture_output=True, text=True, env=env, check=False
     )
-    consumer = subprocess.Popen(
-        ["head", "-4"], stdin=producer.stdout, stdout=subprocess.PIPE, text=True
+    if producer.returncode != 0 or producer.stderr:
+        raise SystemExit(f"pipe: producer exited {producer.returncode}\nstderr: {producer.stderr}")
+    if f'"schema": "{SCHEMA}"' not in producer.stdout:
+        raise SystemExit(f"pipe: expected an envelope, got {producer.stdout[:200]!r}")
+    head = subprocess.run(
+        ["head", "-4"], input=producer.stdout, capture_output=True, text=True, check=True
     )
-    assert producer.stdout is not None
-    producer.stdout.close()
-    head_out, _ = consumer.communicate()
-    _, producer_err = producer.communicate()
-    if producer.returncode != 0 or producer_err or consumer.returncode != 0:
-        raise SystemExit(
-            f"pipe: producer exited {producer.returncode}, head exited {consumer.returncode}"
-            f"\nstderr: {producer_err.decode(errors='replace')}"
-        )
-    if f'"schema": "{SCHEMA}"' not in head_out:
-        raise SystemExit(f"pipe: expected the start of an envelope, got {head_out!r}")
     recorder.add(
         "pipe",
         ["standings"],
         "live",
         PUBLIC_LEAGUE,
-        consumer.returncode,
+        producer.returncode,
         "stdout",
-        head_out,
+        head.stdout,
         "No --output given; stdout is a pipe, so the renderer chose JSON",
         {},
         command="fantasy-sports standings | head -4",

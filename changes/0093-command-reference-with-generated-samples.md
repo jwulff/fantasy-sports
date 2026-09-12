@@ -89,8 +89,10 @@ because a hand-typed sample is a sample that is wrong by the second release.
   into a buffer is exactly what a pipe looks like to the format detector —
   so a sample with no `--output` emits JSON for the same reason it would
   under `| jq`. Two things use the real console script: `--help`, which
-  lives on the fast path, and the pipe demonstration, which pipes for real
-  into `head`. `sys.argv[0]` is set to `fantasy-sports` for the duration so
+  lives on the fast path, and the pipe demonstration, whose producer runs
+  with a captured stdout — a pipe, which is all the detector looks at — and
+  is validated before `head -4` trims it, so an EPIPE from `head` exiting
+  early can never be mistaken for a producer failure. `sys.argv[0]` is set to `fantasy-sports` for the duration so
   typer's usage lines name the right program, and the rendered command line
   is `shlex.join`ed so an argument with a space or a JSON filter copies back
   as the call that was captured.

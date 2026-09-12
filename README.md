@@ -211,31 +211,31 @@ fantasy-sports standings
   "provider": "espn",
   "league_id": "1234",
   "season": 2018,
-  "generated_at": "2026-09-12T19:26:07Z",
-  "data_as_of": "2026-09-12T19:26:06Z",
+  "generated_at": "2026-09-12T19:31:26Z",
+  "data_as_of": "2026-09-12T19:31:25Z",
   "data_age_seconds": 0,
   "sources": [
     {
       "name": "mTeam+mRoster+mMatchup+mSettings+mStandings",
-      "fetched_at": "2026-09-12T19:26:06Z",
+      "fetched_at": "2026-09-12T19:31:25Z",
       "age_seconds": 0,
       "cached": true
     },
     {
       "name": "players_wl",
-      "fetched_at": "2026-09-12T19:26:06Z",
+      "fetched_at": "2026-09-12T19:31:25Z",
       "age_seconds": 0,
       "cached": true
     },
     {
       "name": "proTeamSchedules_wl",
-      "fetched_at": "2026-09-12T19:26:06Z",
+      "fetched_at": "2026-09-12T19:31:26Z",
       "age_seconds": 0,
       "cached": true
     },
     {
       "name": "mDraftDetail",
-      "fetched_at": "2026-09-12T19:26:06Z",
+      "fetched_at": "2026-09-12T19:31:26Z",
       "age_seconds": 0,
       "cached": true
     }
@@ -329,7 +329,7 @@ fantasy-sports box-scores --week 1
   "provider": null,
   "league_id": null,
   "season": null,
-  "generated_at": "2026-09-12T19:26:10Z",
+  "generated_at": "2026-09-12T19:31:30Z",
   "data_as_of": null,
   "data_age_seconds": null,
   "sources": [],
@@ -425,8 +425,8 @@ def fantasy(*args: str, attempts: int = 4) -> dict:
         )
         if run.returncode == 0:
             return json.loads(run.stdout)
-        if run.returncode == 2:
-            raise SystemExit(f"usage error: {run.stderr}")
+        if run.returncode in (1, 2):  # a crash or a usage error: prose, not an envelope
+            raise SystemExit(run.stderr)
         error = json.loads(run.stderr)["error"]
         if not error["retryable"] or attempt == attempts - 1:
             raise SystemExit(f"{error['code']}: {error['remediation'] or error['agent_action']}")
