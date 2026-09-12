@@ -1,6 +1,6 @@
 {
   "name": "p12-other-team-swap",
-  "note": "Same-shaped swap against team 11 (not First2232's); expect rejection",
+  "note": "Same-shaped swap against team 11 (another manager's team, not the probing member's); expected a rejection",
   "redactions": [
     "league id in every URL replaced with 99, the repository's invented synthetic league (docs/testing.md section 6)",
     "the probing member's SWID replaced with {SWID-REDACTED} rather than a salted pseudonym, so it is not a confirmable mapping",
