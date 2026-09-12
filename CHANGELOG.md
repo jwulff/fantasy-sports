@@ -50,6 +50,12 @@ football API, distributed via `uv tool install fantasy-sports`.
 
 ### Fixed
 
+- **`auth logout` exits nonzero when it could not reach a link.** A locked
+  Keychain or an unwritable `config.toml` used to warn inside a success
+  envelope; now it is `CONFIG_INVALID` (`kind: credential_store`) with the
+  per-link report in `details.report`, because a leaked value may still be on
+  the machine. Raised by u/kantorcodes1 on the launch thread (#89).
+
 - **`box-scores` lost every `pro_opponent`** for a league whose
   `mPositionalRatings` view ESPN served without its `positionAgainstOpponent`
   key — two of three leagues on opening night 2026. `espn-api` gates the
