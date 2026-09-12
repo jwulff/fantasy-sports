@@ -1,0 +1,24 @@
+{
+  "schema": "fantasy-sports/v1",
+  "provider": null,
+  "league_id": null,
+  "season": null,
+  "generated_at": "2026-09-12T18:57:59Z",
+  "data_as_of": null,
+  "data_age_seconds": null,
+  "sources": [],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": null,
+  "error": {
+    "code": "CONFIG_INVALID",
+    "message": "~/.config/fantasy-sports/config.toml is not valid TOML: Expected ']' at the end of a table declaration (at line 2, column 16)",
+    "retryable": false,
+    "agent_action": "Ask the human to fix the input named in the message \u2014 a config value or a command argument. Retrying unchanged cannot work.",
+    "remediation": null,
+    "details": {
+      "kind": "config"
+    },
+    "health": null
+  }
+}

@@ -1,6 +1,7 @@
-"""README examples must resolve against the live command registry.
+"""README and reference examples must resolve against the live command registry.
 
-Every fenced ``bash``/``console`` block in ``README.md`` is scanned for lines
+Every fenced ``bash``/``console`` block in ``README.md`` and
+``docs/commands.md`` is scanned for lines
 that invoke the CLI (``fantasy-sports ...``). For each one, this asserts the
 command (and subcommand, for a grouped command like ``auth login``) exists in
 :data:`fantasy_sports.commands.REGISTRY`, and every long option
@@ -24,7 +25,8 @@ import pytest
 
 from fantasy_sports.commands import REGISTRY, CommandSpec
 
-README = Path(__file__).resolve().parents[2] / "README.md"
+_ROOT = Path(__file__).resolve().parents[2]
+DOCS = (_ROOT / "README.md", _ROOT / "docs" / "commands.md")
 
 # Global flags typer accepts at the very front, ahead of any command name,
 # that name no registered command at all.
@@ -34,8 +36,13 @@ _FENCE_RE = re.compile(r"```(?:bash|console)\n(.*?)```", re.DOTALL)
 
 
 def _command_lines() -> list[str]:
-    """Every ``fantasy-sports ...`` line inside a fenced bash/console block."""
-    text = README.read_text()
+    """Every ``fantasy-sports ...`` line inside a fenced bash/console block.
+
+    The command reference (``docs/commands.md``) is scanned alongside the
+    README: its sample blocks are generated, but the command line at the top
+    of each one is what a reader copies, so it is held to the same check.
+    """
+    text = "\n".join(doc.read_text() for doc in DOCS)
     lines = []
     for body in _FENCE_RE.findall(text):
         for raw_line in body.splitlines():

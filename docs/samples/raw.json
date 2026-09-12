@@ -1,0 +1,61 @@
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "espn",
+  "league_id": "1234",
+  "season": 2018,
+  "generated_at": "2026-09-12T18:57:56Z",
+  "data_as_of": "2026-09-12T18:57:56Z",
+  "data_age_seconds": 0,
+  "sources": [
+    {
+      "name": "mSettings",
+      "fetched_at": "2026-09-12T18:57:56Z",
+      "age_seconds": 0,
+      "cached": false
+    }
+  ],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": {
+    "mSettings": {
+      "view": "mSettings",
+      "filtered": false,
+      "complete": true,
+      "warning": null,
+      "payload": {
+        "draftDetail": {
+          "drafted": true,
+          "inProgress": false
+        },
+        "gameId": 1,
+        "id": 1234,
+        "scoringPeriodId": 18,
+        "seasonId": 2018,
+        "segmentId": 0,
+        "settings": {
+          "acquisitionSettings": "… 13 keys",
+          "draftSettings": "… 12 keys",
+          "financeSettings": "… 8 keys",
+          "isAutoReactivate": false,
+          "isCustomizable": false,
+          "isPublic": true,
+          "name": "Arizona 1234",
+          "restrictionType": "NONE",
+          "…": "… 5 more keys"
+        },
+        "status": {
+          "activatedDate": 1524748380340,
+          "createdAsLeagueType": 0,
+          "currentLeagueType": 1,
+          "currentMatchupPeriod": 15,
+          "finalScoringPeriod": 17,
+          "firstScoringPeriod": 1,
+          "isActive": true,
+          "isExpired": false,
+          "…": "… 12 more keys"
+        }
+      }
+    }
+  },
+  "error": null
+}

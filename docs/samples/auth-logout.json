@@ -1,0 +1,40 @@
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "espn",
+  "league_id": null,
+  "season": null,
+  "generated_at": "2026-09-12T18:57:59Z",
+  "data_as_of": null,
+  "data_age_seconds": null,
+  "sources": [],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": {
+    "removed": [
+      "espn_s2",
+      "swid"
+    ],
+    "still_set": [],
+    "unavailable": [],
+    "credentials": [
+      {
+        "name": "espn_s2",
+        "env": "absent",
+        "env_vars": [],
+        "keychain": "removed",
+        "config": "absent"
+      },
+      {
+        "name": "swid",
+        "env": "absent",
+        "env_vars": [],
+        "keychain": "removed",
+        "config": "absent"
+      }
+    ],
+    "keychain_service": "fantasy-sports",
+    "config_path": "~/.config/fantasy-sports/config.toml",
+    "warnings": []
+  },
+  "error": null
+}

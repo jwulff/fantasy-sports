@@ -1,0 +1,25 @@
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "espn",
+  "league_id": "1234",
+  "season": 2018,
+  "generated_at": "2026-09-12T18:57:59Z",
+  "data_as_of": null,
+  "data_age_seconds": null,
+  "sources": [],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": null,
+  "error": {
+    "code": "PROVIDER_UNAVAILABLE",
+    "message": "ESPN request failed during fetch_league: HTTPSConnectionPool(host='lm-api-reads.fantasy.espn.com', port=443): Read timed out. (read timeout=30)",
+    "retryable": true,
+    "agent_action": "Retry with bounded exponential backoff.",
+    "remediation": null,
+    "details": {
+      "view": "mTeam",
+      "cause": "ReadTimeout"
+    },
+    "health": null
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "schema": "fantasy-sports/v1",
+  "provider": null,
+  "league_id": null,
+  "season": null,
+  "generated_at": "2026-09-12T18:57:59Z",
+  "data_as_of": null,
+  "data_age_seconds": null,
+  "sources": [],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": null,
+  "error": {
+    "code": "LEAGUE_NOT_FOUND",
+    "message": "--team 'Team' matches more than one team: 'Team 1' (id 1), 'Team 10' (id 10), 'Team 2' (id 2), 'Team 5' (id 5), 'Team 7' (id 7), 'Team 8' (id 8), 'Team Mizrachi' (id 9), 'Team Viking Queen' (id 6).",
+    "retryable": false,
+    "agent_action": "Ask the human to confirm the league id and their access.",
+    "remediation": "Pass the team id, or a name fragment that matches one team.",
+    "details": {
+      "team": "Team",
+      "matches": 8
+    },
+    "health": null
+  }
+}

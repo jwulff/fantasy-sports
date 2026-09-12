@@ -1,0 +1,119 @@
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "espn",
+  "league_id": "1234",
+  "season": 2018,
+  "generated_at": "2026-09-12T18:57:55Z",
+  "data_as_of": "2026-09-12T18:57:54Z",
+  "data_age_seconds": 0,
+  "sources": [
+    {
+      "name": "mTeam+mRoster+mMatchup+mSettings+mStandings",
+      "fetched_at": "2026-09-12T18:57:54Z",
+      "age_seconds": 0,
+      "cached": true
+    },
+    {
+      "name": "players_wl",
+      "fetched_at": "2026-09-12T18:57:54Z",
+      "age_seconds": 0,
+      "cached": true
+    },
+    {
+      "name": "proTeamSchedules_wl",
+      "fetched_at": "2026-09-12T18:57:54Z",
+      "age_seconds": 0,
+      "cached": true
+    },
+    {
+      "name": "mDraftDetail",
+      "fetched_at": "2026-09-12T18:57:54Z",
+      "age_seconds": 0,
+      "cached": true
+    }
+  ],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": [
+    {
+      "provider": "espn",
+      "provider_id": "15847",
+      "player": {
+        "provider": "espn",
+        "provider_id": "15847",
+        "name": "Travis Kelce",
+        "position": "TE",
+        "raw": {
+          "acquisitionDate": 1524783436194,
+          "acquisitionType": "DRAFT",
+          "injuryStatus": "NORMAL",
+          "…": "… 5 more keys"
+        },
+        "eligible_slots": [
+          "WR/TE",
+          "TE",
+          "OP",
+          "BE",
+          "IR",
+          "RB/WR/TE"
+        ],
+        "status": "active",
+        "injury_status": "ACTIVE",
+        "pro_team": "KC",
+        "opponent": "LV",
+        "projected_points": 13.85,
+        "kickoff": "2018-12-30T21:25:00Z"
+      },
+      "slot": "TE",
+      "is_starter": true,
+      "raw": {
+        "acquisitionDate": 1524783436194,
+        "acquisitionType": "DRAFT",
+        "injuryStatus": "NORMAL",
+        "…": "… 5 more keys"
+      },
+      "is_locked": true
+    },
+    {
+      "provider": "espn",
+      "provider_id": "15835",
+      "player": {
+        "provider": "espn",
+        "provider_id": "15835",
+        "name": "Zach Ertz",
+        "position": "TE",
+        "raw": {
+          "acquisitionDate": 1524783436194,
+          "acquisitionType": "DRAFT",
+          "injuryStatus": "NORMAL",
+          "…": "… 5 more keys"
+        },
+        "eligible_slots": [
+          "WR/TE",
+          "TE",
+          "OP",
+          "BE",
+          "IR",
+          "RB/WR/TE"
+        ],
+        "status": "active",
+        "injury_status": "ACTIVE",
+        "pro_team": "PHI",
+        "opponent": "WSH",
+        "projected_points": 9.17,
+        "kickoff": "2018-12-30T21:25:00Z"
+      },
+      "slot": "RB/WR/TE",
+      "is_starter": true,
+      "raw": {
+        "acquisitionDate": 1524783436194,
+        "acquisitionType": "DRAFT",
+        "injuryStatus": "NORMAL",
+        "…": "… 5 more keys"
+      },
+      "is_locked": true
+    },
+    "… 14 more items"
+  ],
+  "error": null
+}

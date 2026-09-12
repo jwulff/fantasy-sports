@@ -1,0 +1,85 @@
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "espn",
+  "league_id": "1234",
+  "season": 2018,
+  "generated_at": "2026-09-12T18:57:55Z",
+  "data_as_of": "2026-09-12T18:57:54Z",
+  "data_age_seconds": 1,
+  "sources": [
+    {
+      "name": "mTeam+mRoster+mMatchup+mSettings+mStandings",
+      "fetched_at": "2026-09-12T18:57:54Z",
+      "age_seconds": 1,
+      "cached": true
+    },
+    {
+      "name": "players_wl",
+      "fetched_at": "2026-09-12T18:57:54Z",
+      "age_seconds": 1,
+      "cached": true
+    },
+    {
+      "name": "proTeamSchedules_wl",
+      "fetched_at": "2026-09-12T18:57:54Z",
+      "age_seconds": 1,
+      "cached": true
+    },
+    {
+      "name": "mDraftDetail",
+      "fetched_at": "2026-09-12T18:57:54Z",
+      "age_seconds": 0,
+      "cached": true
+    },
+    {
+      "name": "mMatchupScore",
+      "fetched_at": "2026-09-12T18:57:55Z",
+      "age_seconds": 0,
+      "cached": false
+    }
+  ],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": [
+    {
+      "provider": "espn",
+      "provider_id": "0",
+      "week": 1,
+      "team_a_provider_id": "5",
+      "team_a_score": 82.34,
+      "team_b_provider_id": "9",
+      "team_b_score": 120.12,
+      "is_playoff": false,
+      "raw": {
+        "away": "… 6 keys",
+        "home": "… 6 keys",
+        "id": 0,
+        "matchupPeriodId": 1,
+        "…": "… 2 more keys"
+      },
+      "scoring_period_id": 1,
+      "matchup_period_id": 1
+    },
+    {
+      "provider": "espn",
+      "provider_id": "1",
+      "week": 1,
+      "team_a_provider_id": "2",
+      "team_a_score": 85.56,
+      "team_b_provider_id": "3",
+      "team_b_score": 76.24,
+      "is_playoff": false,
+      "raw": {
+        "away": "… 6 keys",
+        "home": "… 6 keys",
+        "id": 1,
+        "matchupPeriodId": 1,
+        "…": "… 2 more keys"
+      },
+      "scoring_period_id": 1,
+      "matchup_period_id": 1
+    },
+    "… 3 more items"
+  ],
+  "error": null
+}
