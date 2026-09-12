@@ -1,6 +1,6 @@
 {
   "name": "p8-locked-player-move",
-  "note": "Charbonnet (SEA, locked) BE->RB, Montgomery RB->BE; expect roster-lock rejection",
+  "note": "Player 9000007 (locked: its game was played Thursday) BE->RB, Player 9000005 RB->BE; expect roster-lock rejection",
   "redactions": [
     "league id in every URL replaced with 99, the repository's invented synthetic league (docs/testing.md section 6)",
     "the probing member's SWID replaced with {SWID-REDACTED} rather than a salted pseudonym, so it is not a confirmable mapping",

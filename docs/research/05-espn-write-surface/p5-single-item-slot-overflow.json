@@ -1,6 +1,6 @@
 {
   "name": "p5-single-item-slot-overflow",
-  "note": "Burden BE->WR alone: a 3rd WR into 2 WR slots; expect position-limit rejection",
+  "note": "Player 9000012 BE->WR alone: a 3rd WR into 2 WR slots; expect a slot-limit rejection",
   "redactions": [
     "league id in every URL replaced with 99, the repository's invented synthetic league (docs/testing.md section 6)",
     "the probing member's SWID replaced with {SWID-REDACTED} rather than a salted pseudonym, so it is not a confirmable mapping",

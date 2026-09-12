@@ -1,6 +1,6 @@
 {
   "name": "p3-swap-execute",
-  "note": "McMillan WR(4)->BE(20), Burden BE(20)->WR(4), full headers, EXECUTE",
+  "note": "Player 9000013 WR(4)->BE(20), Player 9000012 BE(20)->WR(4), full headers, EXECUTE",
   "redactions": [
     "league id in every URL replaced with 99, the repository's invented synthetic league (docs/testing.md section 6)",
     "the probing member's SWID replaced with {SWID-REDACTED} rather than a salted pseudonym, so it is not a confirmable mapping",

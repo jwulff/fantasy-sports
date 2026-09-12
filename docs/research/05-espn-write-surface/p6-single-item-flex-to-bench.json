@@ -1,6 +1,6 @@
 {
   "name": "p6-single-item-flex-to-bench",
-  "note": "McConkey FLEX(23)->BE(20) alone, leaving FLEX empty; one-item transaction",
+  "note": "Player 9000011 FLEX(23)->BE(20) alone, leaving FLEX empty; one-item transaction",
   "redactions": [
     "league id in every URL replaced with 99, the repository's invented synthetic league (docs/testing.md section 6)",
     "the probing member's SWID replaced with {SWID-REDACTED} rather than a salted pseudonym, so it is not a confirmable mapping",
