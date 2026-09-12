@@ -65,6 +65,10 @@ SAMPLES_DIR = REPO / "docs" / "samples"
 INDEX_FILE = SAMPLES_DIR / "index.json"
 DOCS = (REPO / "README.md", REPO / "docs" / "commands.md")
 
+SCHEMA = "fantasy-sports/v1"
+"""Mirrors ``fantasy_sports.output.SCHEMA`` without importing the package at
+module scope; ``test_readme_samples.py`` asserts the two agree."""
+
 PUBLIC_LEAGUE = "ESPN public league 1234, season 2018"
 SYNTHETIC_LEAGUE = "synthetic league 99, season 2026"
 
@@ -651,21 +655,43 @@ def live_samples(recorder: Recorder) -> None:
 
 
 def _pipe_sample(recorder: Recorder) -> None:
+    """``fantasy-sports standings | head -4``, run as a real two-process pipeline.
+
+    The parent gives ``head`` the read end and closes its own copy, so once
+    ``head`` has its four lines the producer sees EPIPE rather than blocking
+    on a pipe nobody drains; ``communicate()`` then collects the producer's
+    stderr and waits. The sample is refused unless the producer exited 0
+    with nothing on stderr and the captured text is the start of an
+    envelope — this one cannot be regenerated offline, so a broken capture
+    must fail here rather than be spliced into the docs.
+    """
     script = console_script()
     env = {**os.environ, **recorder.sandbox.env()}
-    producer = subprocess.Popen([str(script), "standings"], stdout=subprocess.PIPE, env=env)
-    consumer = subprocess.run(
-        ["head", "-4"], stdin=producer.stdout, capture_output=True, text=True, check=True
+    producer = subprocess.Popen(
+        [str(script), "standings"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env
     )
-    producer.wait()
+    consumer = subprocess.Popen(
+        ["head", "-4"], stdin=producer.stdout, stdout=subprocess.PIPE, text=True
+    )
+    assert producer.stdout is not None
+    producer.stdout.close()
+    head_out, _ = consumer.communicate()
+    _, producer_err = producer.communicate()
+    if producer.returncode != 0 or producer_err or consumer.returncode != 0:
+        raise SystemExit(
+            f"pipe: producer exited {producer.returncode}, head exited {consumer.returncode}"
+            f"\nstderr: {producer_err.decode(errors='replace')}"
+        )
+    if f'"schema": "{SCHEMA}"' not in head_out:
+        raise SystemExit(f"pipe: expected the start of an envelope, got {head_out!r}")
     recorder.add(
         "pipe",
         ["standings"],
         "live",
         PUBLIC_LEAGUE,
-        producer.returncode,
+        consumer.returncode,
         "stdout",
-        consumer.stdout,
+        head_out,
         "No --output given; stdout is a pipe, so the renderer chose JSON",
         {},
         command="fantasy-sports standings | head -4",

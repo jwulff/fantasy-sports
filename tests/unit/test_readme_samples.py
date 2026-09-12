@@ -89,6 +89,12 @@ def test_every_sample_file_is_indexed_and_every_index_entry_has_a_file():
     assert on_disk == indexed
 
 
+def test_the_generator_checks_against_the_real_schema_string():
+    from scripts.render_readme_samples import SCHEMA as GENERATOR_SCHEMA
+
+    assert GENERATOR_SCHEMA == SCHEMA
+
+
 def test_every_sample_names_its_source_and_league():
     for name, entry in INDEX.items():
         assert entry["source"] in {"live", "replayed", "synthetic"}, name
