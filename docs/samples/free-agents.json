@@ -1,0 +1,91 @@
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "espn",
+  "league_id": "99",
+  "season": 2026,
+  "generated_at": "2026-09-12T18:57:59Z",
+  "data_as_of": "2026-09-12T18:57:59Z",
+  "data_age_seconds": 0,
+  "sources": [
+    {
+      "name": "mTeam+mRoster+mMatchup+mSettings+mStandings",
+      "fetched_at": "2026-09-12T18:57:59Z",
+      "age_seconds": 0,
+      "cached": true
+    },
+    {
+      "name": "players_wl",
+      "fetched_at": "2026-09-12T18:57:59Z",
+      "age_seconds": 0,
+      "cached": true
+    },
+    {
+      "name": "proTeamSchedules_wl",
+      "fetched_at": "2026-09-12T18:57:59Z",
+      "age_seconds": 0,
+      "cached": true
+    },
+    {
+      "name": "mDraftDetail",
+      "fetched_at": "2026-09-12T18:57:59Z",
+      "age_seconds": 0,
+      "cached": true
+    },
+    {
+      "name": "kona_player_info",
+      "fetched_at": "2026-09-12T18:57:59Z",
+      "age_seconds": 0,
+      "cached": false
+    },
+    {
+      "name": "mPositionalRatings",
+      "fetched_at": "2026-09-12T18:57:59Z",
+      "age_seconds": 0,
+      "cached": false
+    }
+  ],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": [
+    {
+      "provider": "espn",
+      "provider_id": "3001",
+      "player": {
+        "provider": "espn",
+        "provider_id": "3001",
+        "name": "Barbara Liskov",
+        "position": "WR",
+        "raw": {
+          "draftAuctionValue": 0,
+          "id": 3001,
+          "keeperValue": 0,
+          "lineupLocked": false,
+          "…": "… 6 more keys"
+        },
+        "eligible_slots": [
+          "RB/WR",
+          "WR",
+          "WR/TE",
+          "RB/WR/TE",
+          "BE",
+          "IR"
+        ],
+        "status": "active",
+        "injury_status": "ACTIVE",
+        "pro_team": "SEA",
+        "opponent": "KC",
+        "projected_points": 8.4,
+        "kickoff": "2026-09-13T20:15:00Z"
+      },
+      "raw": {
+        "draftAuctionValue": 0,
+        "id": 3001,
+        "keeperValue": 0,
+        "lineupLocked": false,
+        "…": "… 6 more keys"
+      },
+      "percent_owned": 61.5
+    }
+  ],
+  "error": null
+}

@@ -1,0 +1,22 @@
+{
+  "schema": "fantasy-sports/v1",
+  "provider": null,
+  "league_id": null,
+  "season": null,
+  "generated_at": "2026-09-12T18:57:59Z",
+  "data_as_of": null,
+  "data_age_seconds": null,
+  "sources": [],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": null,
+  "error": {
+    "code": "AUTH_MISSING",
+    "message": "No credentials configured for: espn_s2, swid.",
+    "retryable": false,
+    "agent_action": "Ask the human to run `fantasy-sports auth login`.",
+    "remediation": "Run `fantasy-sports auth login`, or set FANTASY_SPORTS_ESPN_S2 and FANTASY_SPORTS_SWID in the environment.",
+    "details": null,
+    "health": null
+  }
+}

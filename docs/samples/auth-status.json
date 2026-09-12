@@ -1,0 +1,46 @@
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "espn",
+  "league_id": null,
+  "season": null,
+  "generated_at": "2026-09-12T18:57:59Z",
+  "data_as_of": null,
+  "data_age_seconds": null,
+  "sources": [],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": {
+    "generated_at": "2026-09-12T18:57:59.349114Z",
+    "complete": true,
+    "credentials": [
+      {
+        "name": "espn_s2",
+        "present": true,
+        "source": "keychain",
+        "age_days": 0.0,
+        "age_basis": "stored_at",
+        "stored_at": "2026-09-12T18:57:59.347818Z",
+        "last_success_at": null,
+        "freshness": "fresh"
+      },
+      {
+        "name": "swid",
+        "present": true,
+        "source": "keychain",
+        "age_days": 0.0,
+        "age_basis": "stored_at",
+        "stored_at": "2026-09-12T18:57:59.347818Z",
+        "last_success_at": null,
+        "freshness": "fresh"
+      }
+    ],
+    "staleness_threshold": {
+      "days": 30.0,
+      "source": "default",
+      "verified": false,
+      "note": "Unverified heuristic, not a known ESPN cookie lifetime. ESPN publishes no expiry, and no library source or community report reviewed states a concrete one. Override with FANTASY_SPORTS_STALE_AFTER_DAYS."
+    },
+    "warnings": []
+  },
+  "error": null
+}

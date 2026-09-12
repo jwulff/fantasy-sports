@@ -1,0 +1,89 @@
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "espn",
+  "league_id": "1234",
+  "season": 2018,
+  "generated_at": "2026-09-12T18:57:56Z",
+  "data_as_of": "2026-09-12T18:57:54Z",
+  "data_age_seconds": 1,
+  "sources": [
+    {
+      "name": "mTeam+mRoster+mMatchup+mSettings+mStandings",
+      "fetched_at": "2026-09-12T18:57:54Z",
+      "age_seconds": 1,
+      "cached": true
+    },
+    {
+      "name": "players_wl",
+      "fetched_at": "2026-09-12T18:57:54Z",
+      "age_seconds": 1,
+      "cached": true
+    },
+    {
+      "name": "proTeamSchedules_wl",
+      "fetched_at": "2026-09-12T18:57:54Z",
+      "age_seconds": 1,
+      "cached": true
+    },
+    {
+      "name": "mDraftDetail",
+      "fetched_at": "2026-09-12T18:57:54Z",
+      "age_seconds": 1,
+      "cached": true
+    },
+    {
+      "name": "mTransactions2",
+      "fetched_at": "2026-09-12T18:57:56Z",
+      "age_seconds": 0,
+      "cached": false
+    }
+  ],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": [
+    {
+      "provider": "espn",
+      "provider_id": "FREEAGENT-17",
+      "type": "add",
+      "raw": {
+        "type": "FREEAGENT",
+        "status": "EXECUTED",
+        "scoringPeriodId": 17,
+        "bidAmount": 0,
+        "…": "… 2 more keys"
+      },
+      "team_provider_id": "8",
+      "players_in": [
+        "3059722"
+      ],
+      "players_out": [
+        "3116721"
+      ],
+      "faab_spent": 0,
+      "timestamp": "2018-12-27T14:11:34Z"
+    },
+    {
+      "provider": "espn",
+      "provider_id": "FREEAGENT-17",
+      "type": "add",
+      "raw": {
+        "type": "FREEAGENT",
+        "status": "EXECUTED",
+        "scoringPeriodId": 17,
+        "bidAmount": 0,
+        "…": "… 2 more keys"
+      },
+      "team_provider_id": "8",
+      "players_in": [
+        "3068939"
+      ],
+      "players_out": [
+        "2473037"
+      ],
+      "faab_spent": 0,
+      "timestamp": "2018-12-27T14:11:04Z"
+    },
+    "… 3 more items"
+  ],
+  "error": null
+}

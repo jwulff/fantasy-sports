@@ -1,0 +1,11 @@
+provider,provider_id,name,owner_names,wins,losses,ties,points_for,points_against,standing
+espn,8,Team 8,[],9,4,0,1402.7200000000003,1191.54,1
+espn,4,THE KING,[],8,5,0,1058.88,1075.06,2
+espn,7,Team 7,[],10,3,0,1344.8000000000002,1071.9,3
+espn,1,Team 1,[],10,3,0,1276.88,1038.22,4
+espn,6,Team Viking Queen,[],5,8,0,1139.74,1252.62,5
+espn,2,Team 2,[],6,7,0,1019.5999999999999,1028.58,6
+espn,3,FANTASY GOD,[],2,11,0,884.1800000000002,1151.84,7
+espn,9,Team Mizrachi,[],6,7,0,1070.94,1281.2,8
+espn,10,Team 10,[],5,8,0,1278.9199999999998,1243.14,9
+espn,5,Team 5,[],4,9,0,1006.9400000000002,1149.5,10

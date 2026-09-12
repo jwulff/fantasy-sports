@@ -1,0 +1,4 @@
+Usage: fantasy-sports standings [OPTIONS]
+Try 'fantasy-sports standings --help' for help.
+
+Error: Invalid value for --output: Unknown output format 'yaml'; expected one of json, table, csv

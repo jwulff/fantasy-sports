@@ -1,0 +1,66 @@
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "espn",
+  "league_id": "1234",
+  "season": 2018,
+  "generated_at": "2026-09-12T18:57:54Z",
+  "data_as_of": "2026-09-12T18:57:54Z",
+  "data_age_seconds": 0,
+  "sources": [
+    {
+      "name": "mTeam+mRoster+mMatchup+mSettings+mStandings",
+      "fetched_at": "2026-09-12T18:57:54Z",
+      "age_seconds": 0,
+      "cached": false
+    },
+    {
+      "name": "players_wl",
+      "fetched_at": "2026-09-12T18:57:54Z",
+      "age_seconds": 0,
+      "cached": false
+    },
+    {
+      "name": "proTeamSchedules_wl",
+      "fetched_at": "2026-09-12T18:57:54Z",
+      "age_seconds": 0,
+      "cached": false
+    },
+    {
+      "name": "mDraftDetail",
+      "fetched_at": "2026-09-12T18:57:54Z",
+      "age_seconds": 0,
+      "cached": false
+    }
+  ],
+  "untrusted": {
+    "name": "Arizona 1234"
+  },
+  "raw_omitted": false,
+  "data": {
+    "provider": "espn",
+    "provider_id": "1234",
+    "name": "Arizona 1234",
+    "season": 2018,
+    "sport": "nfl",
+    "team_count": 10,
+    "current_week": 17,
+    "raw": {
+      "draftDetail": "… 2 keys",
+      "gameId": 1,
+      "id": 1234,
+      "members": "… 10 items",
+      "…": "… 5 more keys"
+    },
+    "roster_slots": {
+      "QB": 1,
+      "RB": 2,
+      "WR": 2,
+      "TE": 1,
+      "D/ST": 1,
+      "K": 1,
+      "BE": 7,
+      "RB/WR/TE": 1
+    }
+  },
+  "error": null
+}

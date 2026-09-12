@@ -1,0 +1,151 @@
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "espn",
+  "league_id": "99",
+  "season": 2026,
+  "generated_at": "2026-09-12T18:57:59Z",
+  "data_as_of": "2026-09-12T18:57:59Z",
+  "data_age_seconds": 0,
+  "sources": [
+    {
+      "name": "mTeam+mRoster+mMatchup+mSettings+mStandings",
+      "fetched_at": "2026-09-12T18:57:59Z",
+      "age_seconds": 0,
+      "cached": false
+    },
+    {
+      "name": "players_wl",
+      "fetched_at": "2026-09-12T18:57:59Z",
+      "age_seconds": 0,
+      "cached": false
+    },
+    {
+      "name": "proTeamSchedules_wl",
+      "fetched_at": "2026-09-12T18:57:59Z",
+      "age_seconds": 0,
+      "cached": true
+    },
+    {
+      "name": "mDraftDetail",
+      "fetched_at": "2026-09-12T18:57:59Z",
+      "age_seconds": 0,
+      "cached": false
+    },
+    {
+      "name": "mMatchupScore+mScoreboard",
+      "fetched_at": "2026-09-12T18:57:59Z",
+      "age_seconds": 0,
+      "cached": false
+    },
+    {
+      "name": "mPositionalRatings",
+      "fetched_at": "2026-09-12T18:57:59Z",
+      "age_seconds": 0,
+      "cached": false
+    }
+  ],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": [
+    {
+      "provider": "espn",
+      "provider_id": "1-0",
+      "raw": {
+        "matchup_type": "NONE"
+      },
+      "week": 1,
+      "team_a_provider_id": "1",
+      "team_a_score": 151.8,
+      "team_a_lineup": [
+        {
+          "provider": "espn",
+          "provider_id": "2976316",
+          "raw": {},
+          "slot": "WR",
+          "player_name": "Michael Thomas",
+          "position": "WR",
+          "pro_team": "NO",
+          "pro_opponent": null,
+          "projected_points": 0.0,
+          "actual_points": 0.0,
+          "started": true
+        },
+        {
+          "provider": "espn",
+          "provider_id": "3117251",
+          "raw": {},
+          "slot": "RB",
+          "player_name": "Christian McCaffrey",
+          "position": "RB",
+          "pro_team": "CAR",
+          "pro_opponent": null,
+          "projected_points": 0.0,
+          "actual_points": 0.0,
+          "started": true
+        },
+        {
+          "provider": "espn",
+          "provider_id": "16799",
+          "raw": {},
+          "slot": "BE",
+          "player_name": "Allen Robinson",
+          "position": "WR",
+          "pro_team": "CHI",
+          "pro_opponent": null,
+          "projected_points": 0.0,
+          "actual_points": 0.0,
+          "started": false
+        },
+        "… 12 more items"
+      ],
+      "team_b_provider_id": "2",
+      "team_b_score": 128.0,
+      "team_b_lineup": [
+        {
+          "provider": "espn",
+          "provider_id": "2576434",
+          "raw": {},
+          "slot": "BE",
+          "player_name": "Melvin Gordon",
+          "position": "RB",
+          "pro_team": "LAC",
+          "pro_opponent": null,
+          "projected_points": 0.0,
+          "actual_points": 0.0,
+          "started": false
+        },
+        {
+          "provider": "espn",
+          "provider_id": "13982",
+          "raw": {},
+          "slot": "WR",
+          "player_name": "Julio Jones",
+          "position": "WR",
+          "pro_team": "ATL",
+          "pro_opponent": null,
+          "projected_points": 0.0,
+          "actual_points": 0.0,
+          "started": true
+        },
+        {
+          "provider": "espn",
+          "provider_id": "3116385",
+          "raw": {},
+          "slot": "RB",
+          "player_name": "Joe Mixon",
+          "position": "RB",
+          "pro_team": "CIN",
+          "pro_opponent": null,
+          "projected_points": 0.0,
+          "actual_points": 0.0,
+          "started": true
+        },
+        "… 12 more items"
+      ],
+      "is_playoff": false,
+      "scoring_period_id": 1,
+      "matchup_period_id": 1
+    }
+  ],
+  "error": null
+}

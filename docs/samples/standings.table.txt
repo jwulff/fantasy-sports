@@ -1,0 +1,20 @@
+espn · league 1234 · season 2018 · generated 2026-09-12T18:57:55Z · data age 0s
+provider   provider…   name        owner_n…   wins   losses   ties   points_f…   points_…   standing
+────────────────────────────────────────────────────────────────────────────────────────────────────
+espn       8           Team 8      []         9      4        0      1402.720…   1191.54    1       
+espn       4           THE KING    []         8      5        0      1058.88     1075.06    2       
+espn       7           Team 7      []         10     3        0      1344.800…   1071.9     3       
+espn       1           Team 1      []         10     3        0      1276.88     1038.22    4       
+espn       6           Team        []         5      8        0      1139.74     1252.62    5       
+                       Viking                                                                       
+                       Queen                                                                        
+espn       2           Team 2      []         6      7        0      1019.599…   1028.58    6       
+espn       3           FANTASY     []         2      11       0      884.1800…   1151.84    7       
+                       GOD                                                                          
+espn       9           Team        []         6      7        0      1070.94     1281.2     8       
+                       Mizrachi                                                                     
+espn       10          Team 10     []         5      8        0      1278.919…   1243.14    9       
+espn       5           Team 5      []         4      9        0      1006.940…   1149.5     10      
+`raw` omitted from this table; use --output json for the provider payload.
+sources: mTeam+mRoster+mMatchup+mSettings+mStandings 0s (cached), players_wl 0s (cached), 
+proTeamSchedules_wl 0s (cached), mDraftDetail 0s (cached)

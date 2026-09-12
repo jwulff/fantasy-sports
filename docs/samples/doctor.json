@@ -1,0 +1,120 @@
+{
+  "schema": "fantasy-sports/v1",
+  "provider": null,
+  "league_id": null,
+  "season": null,
+  "generated_at": "2026-09-12T18:57:56Z",
+  "data_as_of": null,
+  "data_age_seconds": null,
+  "sources": [],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": {
+    "status": "warn",
+    "ok": false,
+    "checks": [
+      {
+        "name": "python",
+        "status": "ok",
+        "summary": "fantasy-sports 0.1.0.dev0 on Python 3.12.13.",
+        "details": {
+          "fantasy_sports_version": "0.1.0.dev0",
+          "python_version": "3.12.13",
+          "platform": "darwin",
+          "dependencies": {
+            "espn-api": "0.46.0",
+            "typer": "0.27.2",
+            "requests": "2.34.2",
+            "keyring": "25.7.0",
+            "tomli-w": "1.2.0"
+          }
+        }
+      },
+      {
+        "name": "config",
+        "status": "ok",
+        "summary": "1 league(s) configured in ~/.config/fantasy-sports/config.toml.",
+        "details": {
+          "path": "~/.config/fantasy-sports/config.toml",
+          "leagues": [
+            "public"
+          ],
+          "default": "public"
+        }
+      },
+      {
+        "name": "credentials",
+        "status": "ok",
+        "summary": "ESPN credentials are configured.",
+        "details": {
+          "generated_at": "2026-09-12T18:57:56.784279Z",
+          "complete": true,
+          "credentials": [
+            {
+              "name": "espn_s2",
+              "present": true,
+              "source": "env",
+              "age_days": null,
+              "age_basis": "not-tracked:env",
+              "stored_at": null,
+              "last_success_at": null,
+              "freshness": "unknown"
+            },
+            {
+              "name": "swid",
+              "present": true,
+              "source": "env",
+              "age_days": null,
+              "age_basis": "not-tracked:env",
+              "stored_at": null,
+              "last_success_at": null,
+              "freshness": "unknown"
+            }
+          ],
+          "staleness_threshold": {
+            "days": 30.0,
+            "source": "default",
+            "verified": false,
+            "note": "Unverified heuristic, not a known ESPN cookie lifetime. ESPN publishes no expiry, and no library source or community report reviewed states a concrete one. Override with FANTASY_SPORTS_STALE_AFTER_DAYS."
+          },
+          "warnings": []
+        }
+      },
+      {
+        "name": "cache",
+        "status": "ok",
+        "summary": "Cache reachable: 10 entrie(s), 2,482,176 byte(s) at ~/.cache/fantasy-sports/http-cache.sqlite3.",
+        "details": {
+          "path": "~/.cache/fantasy-sports/http-cache.sqlite3",
+          "entries": 10,
+          "size_bytes": 2482176
+        }
+      },
+      {
+        "name": "version",
+        "status": "warn",
+        "summary": "Could not reach the health manifest (offline, GitHub unreachable, or not yet published).",
+        "details": {
+          "your_version": "0.1.0.dev0"
+        }
+      },
+      {
+        "name": "provider_status",
+        "status": "warn",
+        "summary": "Could not reach the health manifest (offline, GitHub unreachable, or not yet published).",
+        "details": {}
+      },
+      {
+        "name": "leagues_reachable",
+        "status": "skipped",
+        "summary": "1 league(s) configured; pass --live to check reachability.",
+        "details": {
+          "leagues": [
+            "public"
+          ]
+        }
+      }
+    ]
+  },
+  "error": null
+}
