@@ -46,16 +46,21 @@ taken before the first request — through the raw view and through the CLI's ow
 - **`espn_s2` is the whole credential.** The SWID cookie and the body's
   `memberId` are optional; ESPN derives the member from the session. The write
   layer never has to reveal the SWID.
-- **ESPN executed a lineup change on a team the caller does not own.** The
-  same swap sent with another manager's `teamId` returned `200 EXECUTED`,
-  with the caller's own member id recorded against that team in the league's
-  transaction log. The caller is not an owner, co-manager, or commissioner of
-  that team by any record ESPN exposes. Reversed on the next request; the
-  team read back identical. "Only my team" is therefore a client-side guard,
-  and the brief makes it a precondition for #15 and, with more force, #18.
-- **`isLeagueManager` is not in `mTeam`.** It is in `mNav` (with
-  `isLeagueCreator`) and `mLeagueManager`. In this league the commissioner is
-  another member, which corrects an assumption in #18's body.
+- **The commissioner's cookie moved another team's lineup without being
+  asked to act as LM.** The same swap sent with another manager's `teamId`
+  and `isLeagueManager: false` returned `200 EXECUTED`, recorded under the
+  caller's member id. The first draft read this as "any member can edit any
+  lineup"; John's correction — he is the league's founding commissioner and
+  has granted a second LM — sent the research back to the payloads, where
+  `mNav` has him `isLeagueCreator: true` and `isLeagueManager: false`, and
+  `fan.api` has `groupManager: true`. The write is consistent with
+  commissioner authority; what an ordinary member's cookie can do is
+  unverified and untestable in this league. "Only my team" is a client-side
+  guard regardless of role, and LM-scoped actions are a separately gated
+  capability — a precondition for #15 and, with more force, #18.
+- **`isLeagueManager` alone does not identify the commissioner.** It marks a
+  *granted* LM; the founder carries `isLeagueCreator` only, and neither is in
+  `mTeam`. Authority is `isLeagueCreator OR isLeagueManager` from `mNav`.
 
 ## What was deliberately not done
 
@@ -87,6 +92,7 @@ recorded for a write, by design.
 
 ## Memory
 
-Two notes in `docs/memory/`: the ownership finding and where the commissioner
-flag lives, both of which are the kind of thing the next implementer would
-otherwise rediscover by sending a request they should not.
+Two notes in `docs/memory/`: the commissioner cookie's cross-team reach and
+where the two authority flags live — the second written by getting it wrong
+first, which is the kind of thing the next implementer would otherwise
+rediscover by sending a request they should not.
