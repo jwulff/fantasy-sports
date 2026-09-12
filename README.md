@@ -375,17 +375,19 @@ The CLI is built to be called by a program that has to decide what to do
 next from what came back. The rules it holds, in the order an agent hits
 them:
 
-1. **Parse stdout as JSON; parse stderr as JSON only when the exit status is
-   non-zero.** A success is one JSON document on stdout and nothing on
-   stderr — except `auth login`, which is interactive and writes its prompts
-   and cookie guidance to stderr on the way to a successful envelope. A
-   failure is one JSON document on stderr, an empty stdout, and the exit
-   status from the table above; when stderr is a terminal, and only then,
-   a `PROVIDER_UNAVAILABLE` or `SCHEMA_DRIFT` failure may be followed by a
-   prose paragraph of upgrade or outage guidance for the human watching.
-   Exit `2` is the other exception: a usage error is prose on stderr with
-   no envelope, because the argument parser refused the call before the
-   CLI ran. Pass `--output json` if you cannot be sure stdout is a pipe.
+1. **Parse stdout as JSON on exit `0`; parse stderr as JSON on exits `3`
+   through `10`, and treat anything else as prose.** A success is one JSON
+   document on stdout and nothing on stderr. A taxonomy failure is one JSON
+   document on stderr, an empty stdout, and the exit status from the table
+   above; when stderr is a terminal, and only then, a `PROVIDER_UNAVAILABLE`
+   or `SCHEMA_DRIFT` failure may be followed by a prose paragraph of upgrade
+   or outage guidance for the human watching. Outside `0` and `3`–`10` there
+   is no envelope: `1` is a crash with a traceback, `2` is the argument
+   parser's own usage error, `130` is an interrupt. `auth login` is the one
+   command not built for a program: it is interactive and writes its prompts
+   and cookie guidance to stderr before its envelope, on success and on
+   failure alike. Pass `--output json` if you cannot be sure stdout is a
+   pipe.
 2. **Branch on `error.code`, then read `remediation`.** `retryable` says
    whether trying again unchanged can work; `agent_action` is the standing
    instruction for that code; `remediation`, when present, is the concrete
@@ -427,8 +429,8 @@ def fantasy(*args: str, attempts: int = 4) -> dict:
         )
         if run.returncode == 0:
             return json.loads(run.stdout)
-        if run.returncode in (1, 2):  # a crash or a usage error: prose, not an envelope
-            raise SystemExit(run.stderr)
+        if not 3 <= run.returncode <= 10:  # crash, usage error, interrupt: prose, no envelope
+            raise SystemExit(run.stderr or f"exit {run.returncode}")
         error = json.loads(run.stderr)["error"]
         if not error["retryable"] or attempt == attempts - 1:
             raise SystemExit(f"{error['code']}: {error['remediation'] or error['agent_action']}")

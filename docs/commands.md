@@ -2095,7 +2095,10 @@ fantasy-sports auth status
 
 Prompts for `espn_s2` and `SWID` without echoing them and stores both in the
 Keychain. The prompt guidance goes to stderr so stdout is still only the
-envelope. Nothing is written until both values validate; a SWID pasted
+envelope — which also means a *failed* login's stderr is guidance followed
+by the error envelope, not one JSON document; this is the one command not
+meant to be driven by a program. Nothing is written until both values
+validate; a SWID pasted
 without its braces is repaired and reported under `repaired`. No value ever
 reaches the output. This sample answered the prompts itself and stored into
 an in-memory Keychain:
