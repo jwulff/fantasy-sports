@@ -61,6 +61,12 @@ football API, distributed via `uv tool install fantasy-sports`.
   schedule at all; it now takes its opponent from the same
   `proTeamSchedules_wl` map the box-score path uses, a bye is `null`, and a
   player with no club (`"None"`) has neither a team nor an opponent (#86).
+- **`leagues.save()` dropped every table it did not own** — on a host using
+  the plaintext `[credentials]` fallback, any rewrite of `config.toml` would
+  have silently discarded the stored cookies. It now reads the document
+  back, replaces only `default` and `[leagues]`, and writes atomically
+  through the same mode-preserving helper `auth logout` uses; a file it
+  cannot parse is refused rather than overwritten (#85).
 
 ### Out of scope for v0.1
 

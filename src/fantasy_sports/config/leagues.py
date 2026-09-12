@@ -17,8 +17,16 @@ John runs several leagues, so a single implicit league is useless by week two.
     season    = 2026
     sport     = "football"
 
-Reading is stdlib ``tomllib``; writing is ``tomli-w``, imported inside
-:func:`save` so the read path never pays for it.
+Reading is stdlib ``tomllib``; writing goes through
+``config/document.py``, which imports ``tomli-w`` inside the call so the
+read path never pays for it.
+
+:func:`save` owns exactly two keys of that file — ``default`` and
+``[leagues]`` — and rewrites only those. ``config.toml`` is a shared
+namespace: on a host without a Keychain the ``[credentials]`` table sits in
+the same file, and a save that rebuilt the document from the profiles alone
+silently discarded the stored cookies (jwulff/fantasy-sports#85). Every
+table this module does not own is read back and carried through.
 
 This module deliberately exposes *functions*, not CLI plumbing. ``--league``
 and ``--season`` are global options, but the typer wiring lands with the
@@ -43,6 +51,7 @@ from types import MappingProxyType
 from typing import Any
 
 from fantasy_sports.config import paths
+from fantasy_sports.config.document import write_atomically
 from fantasy_sports.core.errors import ConfigInvalidError, LeagueNotFoundError
 
 DEFAULT_SPORT = "football"
@@ -121,15 +130,7 @@ class LeagueConfig:
 def load(path: Path | None = None) -> LeagueConfig:
     """Parse ``path`` (default: the XDG config file). A missing file is empty, not an error."""
     path = path or paths.config_file()
-    try:
-        raw = tomllib.loads(path.read_text(encoding="utf-8"))
-    except FileNotFoundError:
-        return LeagueConfig(path=path)
-    except tomllib.TOMLDecodeError as exc:
-        raise ConfigInvalidError(f"{path} is not valid TOML: {exc}") from exc
-    except OSError as exc:
-        raise ConfigInvalidError(f"{path} could not be read: {exc}") from exc
-    return _parse(raw, path)
+    return _parse(_read_document(path), path)
 
 
 def list_leagues(path: Path | None = None) -> list[LeagueProfile]:
@@ -147,11 +148,27 @@ def resolve_league(
 
 
 def save(config: LeagueConfig, path: Path | None = None) -> Path:
-    """Write ``config`` as TOML, creating the config directory. Returns the path written."""
-    import tomli_w
+    """Write ``config``'s ``default`` and ``[leagues]`` into the file, keeping the rest.
 
-    path = path or config.path
-    document: dict[str, Any] = {}
+    Creates the config directory. Every other top-level table in the existing
+    document — ``[credentials]`` above all — survives untouched; an unset
+    ``default`` or an empty profile set removes that key rather than leaving
+    a stale one. The rewrite is atomic and keeps the file's mode.
+
+    Comments and hand formatting do not survive: ``tomli-w`` cannot keep
+    them, and the same trade is documented on ``remove_credentials``.
+
+    :raises ConfigInvalidError: if the file exists but cannot be parsed or
+        read — the other tables cannot be carried through a document that
+        cannot be read, and overwriting it would turn a syntax error into
+        data loss. Returns the path written.
+    """
+    # Resolved once, so the document read and the document written are the
+    # same file even if a symlinked config is retargeted mid-save.
+    path = (path or config.path).resolve()
+    document = _read_document(path)
+    document.pop("default", None)
+    document.pop("leagues", None)
     if config.default is not None:
         document["default"] = config.default
     if config.profiles_by_name:
@@ -164,9 +181,20 @@ def save(config: LeagueConfig, path: Path | None = None) -> Path:
             }
             for profile in config.profiles()
         }
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(tomli_w.dumps(document), encoding="utf-8")
+    write_atomically(path, document)
     return path
+
+
+def _read_document(path: Path) -> dict[str, Any]:
+    """The whole file as parsed TOML; a missing file is an empty document."""
+    try:
+        return tomllib.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return {}
+    except tomllib.TOMLDecodeError as exc:
+        raise ConfigInvalidError(f"{path} is not valid TOML: {exc}") from exc
+    except OSError as exc:
+        raise ConfigInvalidError(f"{path} could not be read: {exc}") from exc
 
 
 def _parse(raw: dict[str, Any], path: Path) -> LeagueConfig:
