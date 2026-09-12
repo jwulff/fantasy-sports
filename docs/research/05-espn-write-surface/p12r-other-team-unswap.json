@@ -1,10 +1,17 @@
 {
   "name": "p12r-other-team-unswap",
   "note": "Immediate reverse of p12 on team 11",
+  "redactions": [
+    "league id in every URL replaced with 99, the repository's invented synthetic league (docs/testing.md section 6)",
+    "the probing member's SWID replaced with {SWID-REDACTED} rather than a salted pseudonym, so it is not a confirmable mapping",
+    "ESPN transaction ids replaced with <uuid>; they were distinct per transaction",
+    "CloudFront request ids dropped",
+    "both playerId values replaced with 0: they are another league member's roster choices (docs/testing.md section 6). Slot ids are as sent: a WR(4) <-> BE(20) swap of two WR-eligible, unlocked players"
+  ],
   "captured_at": "2026-09-12T18:31:12+00:00",
   "request": {
     "method": "POST",
-    "url": "https://lm-api-writes.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/segments/0/leagues/713073439/transactions/",
+    "url": "https://lm-api-writes.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/segments/0/leagues/99/transactions/",
     "headers": {
       "User-Agent": "python-requests/2.34.2",
       "Accept-Encoding": "gzip, deflate",
@@ -24,18 +31,18 @@
       "isLeagueManager": false,
       "teamId": 11,
       "type": "ROSTER",
-      "memberId": "{00000000-DCBA-FDFE-2D27-7ED8CC01C371}",
+      "memberId": "{SWID-REDACTED}",
       "scoringPeriodId": 1,
       "executionType": "EXECUTE",
       "items": [
         {
-          "playerId": 4567750,
+          "playerId": 0,
           "type": "LINEUP",
           "fromLineupSlotId": 20,
           "toLineupSlotId": 4
         },
         {
-          "playerId": 4701936,
+          "playerId": 0,
           "type": "LINEUP",
           "fromLineupSlotId": 4,
           "toLineupSlotId": 20
@@ -64,15 +71,12 @@
       "Access-Control-Expose-Headers": "location,content-length,etag,if-none-match,X-Fantasy-Filter-Player-Count,X-Fantasy-Filter-Communication-Count,X-Fantasy-Filter-Schedule-Count,X-Fantasy-Filter-Transaction-Count,X-Fantasy-Role,X-Fantasy-Last-Update-League,X-Fantasy-Server-Time,X-Fantasy-Filter-TopicType-NOTE-Count,X-Fantasy-Filter-TopicType-POLL-Count,X-Fantasy-Filter-TopicType-MSG_BOARD-Count,X-Fantasy-Filter-TopicType-CHAT-Count,X-Fantasy-Filter-TopicType-EMAIL-Count,X-Fantasy-Filter-TopicType-OTHER-Count,X-Fantasy-Filter-TopicType-ACTIVITY_TRANSACTIONS-Count,X-Fantasy-Filter-TopicType-ACTIVITY_SETTINGS-Count,X-Fantasy-Filter-TopicType-ACTIVITY_STATUS-Count,X-Fantasy-Filter-TopicType-ACTIVITY_SCHEDULE-Count,X-Fantasy-Filter-TopicType-MSG_BOARD_GROUP-Count,X-Fantasy-Filter-TopicType-MSG_BOARD_MATCHUP-Count,X-Fantasy-Filter-TopicType-REMINDER_ACTIVATE-Count,X-Fantasy-Filter-TopicType-REMINDER_SCHEDULE-Count,X-Fantasy-Filter-TopicType-CHAT_ALL_MEMBERS-Count,X-Fantasy-Filter-TopicType-CHAT_DIRECT_MESSAGE-Count,Polling-Interval",
       "X-Content-Type-Options": "nosniff",
       "X-XSS-Protection": "0",
-      "X-Cache": "Miss from cloudfront",
-      "Via": "1.1 111b614404cc93298217c6be97987b7c.cloudfront.net (CloudFront)",
-      "X-Amz-Cf-Pop": "SEA900-P13",
-      "X-Amz-Cf-Id": "M25eNX4M4se7SxXt7ObmC35MjGVw8bB7c5strgtgo0FNbpJanR7txg=="
+      "X-Cache": "Miss from cloudfront"
     },
     "body": {
       "bidAmount": 0,
       "executionType": "EXECUTE",
-      "id": "df7c3d3e-bed3-4be9-92d5-9efa38e61232",
+      "id": "<uuid>",
       "isActingAsTeamOwner": false,
       "isLeagueManager": false,
       "isPending": false,
@@ -82,7 +86,7 @@
           "fromTeamId": 0,
           "isKeeper": false,
           "overallPickNumber": 0,
-          "playerId": 4567750,
+          "playerId": 0,
           "toLineupSlotId": 4,
           "toTeamId": 0,
           "type": "LINEUP"
@@ -92,13 +96,13 @@
           "fromTeamId": 0,
           "isKeeper": false,
           "overallPickNumber": 0,
-          "playerId": 4701936,
+          "playerId": 0,
           "toLineupSlotId": 20,
           "toTeamId": 0,
           "type": "LINEUP"
         }
       ],
-      "memberId": "{00000000-DCBA-FDFE-2D27-7ED8CC01C371}",
+      "memberId": "{SWID-REDACTED}",
       "proposedDate": 1789237872378,
       "rating": 0,
       "scoringPeriodId": 1,

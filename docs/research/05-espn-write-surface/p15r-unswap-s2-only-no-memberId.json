@@ -1,10 +1,16 @@
 {
   "name": "p15r-unswap-s2-only-no-memberId",
   "note": "Reverse of p15: espn_s2 cookie only, no SWID anywhere (no cookie, no memberId), Content-Type only",
+  "redactions": [
+    "league id in every URL replaced with 99, the repository's invented synthetic league (docs/testing.md section 6)",
+    "the probing member's SWID replaced with {SWID-REDACTED} rather than a salted pseudonym, so it is not a confirmable mapping",
+    "ESPN transaction ids replaced with <uuid>; they were distinct per transaction",
+    "CloudFront request ids dropped"
+  ],
   "captured_at": "2026-09-12T18:34:31+00:00",
   "request": {
     "method": "POST",
-    "url": "https://lm-api-writes.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/segments/0/leagues/713073439/transactions/",
+    "url": "https://lm-api-writes.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/segments/0/leagues/99/transactions/",
     "headers": {
       "User-Agent": "python-requests/2.34.2",
       "Accept-Encoding": "gzip, deflate",
@@ -60,15 +66,12 @@
       "Access-Control-Expose-Headers": "location,content-length,etag,if-none-match,X-Fantasy-Filter-Player-Count,X-Fantasy-Filter-Communication-Count,X-Fantasy-Filter-Schedule-Count,X-Fantasy-Filter-Transaction-Count,X-Fantasy-Role,X-Fantasy-Last-Update-League,X-Fantasy-Server-Time,X-Fantasy-Filter-TopicType-NOTE-Count,X-Fantasy-Filter-TopicType-POLL-Count,X-Fantasy-Filter-TopicType-MSG_BOARD-Count,X-Fantasy-Filter-TopicType-CHAT-Count,X-Fantasy-Filter-TopicType-EMAIL-Count,X-Fantasy-Filter-TopicType-OTHER-Count,X-Fantasy-Filter-TopicType-ACTIVITY_TRANSACTIONS-Count,X-Fantasy-Filter-TopicType-ACTIVITY_SETTINGS-Count,X-Fantasy-Filter-TopicType-ACTIVITY_STATUS-Count,X-Fantasy-Filter-TopicType-ACTIVITY_SCHEDULE-Count,X-Fantasy-Filter-TopicType-MSG_BOARD_GROUP-Count,X-Fantasy-Filter-TopicType-MSG_BOARD_MATCHUP-Count,X-Fantasy-Filter-TopicType-REMINDER_ACTIVATE-Count,X-Fantasy-Filter-TopicType-REMINDER_SCHEDULE-Count,X-Fantasy-Filter-TopicType-CHAT_ALL_MEMBERS-Count,X-Fantasy-Filter-TopicType-CHAT_DIRECT_MESSAGE-Count,Polling-Interval",
       "X-Content-Type-Options": "nosniff",
       "X-XSS-Protection": "0",
-      "X-Cache": "Miss from cloudfront",
-      "Via": "1.1 9c9c09a5a36babffd66079677a170b90.cloudfront.net (CloudFront)",
-      "X-Amz-Cf-Pop": "SEA900-P13",
-      "X-Amz-Cf-Id": "r6SLwqJ3yCi8jVmYkWCXy7CMq0-9mqhAIjZySRIFga9WA0CBryq_5g=="
+      "X-Cache": "Miss from cloudfront"
     },
     "body": {
       "bidAmount": 0,
       "executionType": "EXECUTE",
-      "id": "51910469-133a-4d1f-930f-cc5587f5bffa",
+      "id": "<uuid>",
       "isActingAsTeamOwner": false,
       "isLeagueManager": false,
       "isPending": false,
@@ -94,7 +97,7 @@
           "type": "LINEUP"
         }
       ],
-      "memberId": "{00000000-DCBA-FDFE-2D27-7ED8CC01C371}",
+      "memberId": "{SWID-REDACTED}",
       "proposedDate": 1789238071601,
       "rating": 0,
       "scoringPeriodId": 1,

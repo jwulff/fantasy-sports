@@ -20,10 +20,21 @@ what was observed.
 response status/headers/body), plus `roster-readbacks.json` (the
 `{playerId: lineupSlotId}` snapshot before the first probe and after every one)
 and `audit-trail-mTransactions2.json` (how ESPN itself recorded the executed
-transactions). Cookie values are redacted, every SWID is the repo's per-GUID
-cassette pseudonym (`docs/memory/swid-pseudonyms.md`), and member/team names
-are replaced. Player ids and NFL player names are ESPN's public identifiers and
-are left as captured.
+transactions). `docs/testing.md` §6 forbids committing a recording of a real
+private league even after scrubbing, so the committed files are rewritten
+until they are not one — each carries a `redactions` list saying exactly what
+was substituted: the cookie line is redacted; **the league id in every URL is
+replaced with `99`**, the repo's invented synthetic league; the probing
+member's SWID is `{SWID-REDACTED}` rather than a salted pseudonym, so it is
+not a confirmable mapping; ESPN's transaction UUIDs are `<uuid>`; and the
+other manager's roster (§6) is withheld — their player ids are `0` in the two
+captures that touched their team and their `mRoster` snapshots are replaced by
+equality facts. Member and team names never appear. The probing member's own
+roster player ids are kept (they are the repository owner's own choices), and
+NFL player names in ESPN's messages are public identifiers. A test now asserts
+no committed `.json`/`.yaml` anywhere in the tree names a league outside the
+public set (`tests/unit/test_cassette_harness.py`). The unredacted captures
+were retained locally by the author and are not in git.
 
 ---
 
@@ -52,8 +63,11 @@ property inherited from the provider.
 ### 1.1 Confirmed
 
 ```
-POST https://lm-api-writes.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/segments/0/leagues/713073439/transactions/
+POST https://lm-api-writes.fantasy.espn.com/apis/v3/games/ffl/seasons/{season}/segments/0/leagues/{league_id}/transactions/
 ```
+
+(The committed captures show `/leagues/99/`; the real id was substituted, see
+the Evidence note above.)
 
 - Same `/apis/v3/games/{sport}/seasons/{year}/segments/0/leagues/{id}` prefix as
   the read host, plus `/transactions/` (trailing slash, as the web client sends
@@ -96,7 +110,7 @@ is `GET`-only. There is no library to lean on; the write layer is ours.
 ### 2.1 Request — captured verbatim (`p3-swap-execute.json`)
 
 ```http
-POST /apis/v3/games/ffl/seasons/2026/segments/0/leagues/713073439/transactions/ HTTP/1.1
+POST /apis/v3/games/ffl/seasons/2026/segments/0/leagues/{league_id}/transactions/ HTTP/1.1
 Host: lm-api-writes.fantasy.espn.com
 Content-Type: application/json
 x-fantasy-source: kona
@@ -117,7 +131,8 @@ Cookie: espn_s2=<redacted>; SWID=<redacted>
 }
 ```
 
-Slot ids are ESPN's `lineupSlotId` integers exactly as the read side's `raw`
+(`memberId` is optional — §2.2 — and appears as `{SWID-REDACTED}` in the
+captures.) Slot ids are ESPN's `lineupSlotId` integers exactly as the read side's `raw`
 carries them per roster entry (`4` = WR, `20` = BE, `23` = RB/WR/TE, `2` = RB,
 `0` = QB, `6` = TE, `16` = D/ST, `17` = K, `21` = IR in this league). The
 league's slot configuration is `settings.rosterSettings.lineupSlotCounts`
@@ -152,7 +167,7 @@ no body interpolation, so nothing for a caller-formatted message to catch.
 {
   "bidAmount": 0,
   "executionType": "EXECUTE",
-  "id": "bfc30cbc-579e-4589-b528-2c4848a30590",
+  "id": "<uuid>",
   "isActingAsTeamOwner": false,
   "isLeagueManager": false,
   "isPending": false,
@@ -174,7 +189,7 @@ no body interpolation, so nothing for a caller-formatted message to catch.
 }
 ```
 
-- `id` is a UUID, unique per transaction. It is the join key into
+- `id` is a UUID, unique per transaction (redacted in the captures). It is the join key into
   `mTransactions2`, where the same record appears (without `proposedDate`
   being renamed — note `03-espn-api-surface.md` §3.4's finding that
   `processDate` is often absent applies here too: the recorded row carries

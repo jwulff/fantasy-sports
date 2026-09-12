@@ -1,10 +1,16 @@
 {
   "name": "p2-executionType-VALIDATE",
   "note": "Legal swap with executionType=VALIDATE; probing for a non-executing mode",
+  "redactions": [
+    "league id in every URL replaced with 99, the repository's invented synthetic league (docs/testing.md section 6)",
+    "the probing member's SWID replaced with {SWID-REDACTED} rather than a salted pseudonym, so it is not a confirmable mapping",
+    "ESPN transaction ids replaced with <uuid>; they were distinct per transaction",
+    "CloudFront request ids dropped"
+  ],
   "captured_at": "2026-09-12T18:29:15+00:00",
   "request": {
     "method": "POST",
-    "url": "https://lm-api-writes.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/segments/0/leagues/713073439/transactions/",
+    "url": "https://lm-api-writes.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/segments/0/leagues/99/transactions/",
     "headers": {
       "User-Agent": "python-requests/2.34.2",
       "Accept-Encoding": "gzip, deflate",
@@ -24,7 +30,7 @@
       "isLeagueManager": false,
       "teamId": 1,
       "type": "ROSTER",
-      "memberId": "{00000000-DCBA-FDFE-2D27-7ED8CC01C371}",
+      "memberId": "{SWID-REDACTED}",
       "scoringPeriodId": 1,
       "executionType": "VALIDATE",
       "items": [
@@ -55,10 +61,7 @@
       "X-Content-Type-Options": "nosniff",
       "X-XSS-Protection": "0",
       "X-Frame-Options": "DENY",
-      "X-Cache": "Error from cloudfront",
-      "Via": "1.1 8805351b3406afecf897b798fe858f18.cloudfront.net (CloudFront)",
-      "X-Amz-Cf-Pop": "SEA900-P13",
-      "X-Amz-Cf-Id": "pbfBJBq4YCULOy8tlslnae23XYy8nZ9uHMSEaXVvPBvTW1RMyi049w=="
+      "X-Cache": "Error from cloudfront"
     },
     "body": {
       "messages": [
