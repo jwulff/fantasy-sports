@@ -553,8 +553,10 @@ shared with `lineup set` in `commands/writes.py`). What differs:
   journaled instead of discarded.
 - **The preflight reads the free-agent pool.** `--player` must be in this
   week's 500-player pool, so an add can never take another team's player by
-  id; ESPN's pool status refuses an add of a player on waivers and a claim of
-  a free agent before anything is sent, naming the command to use instead.
+  id. The pool's status refuses an add of a player on waivers and a claim of
+  a free agent before anything is sent, as `CONFIG_INVALID` naming the command
+  to use instead; `player_on_waivers` and `player_unavailable` reach an agent
+  only when the pool moved after the read and ESPN refused.
   Status is ESPN's acquisition state read from `raw`, used only to refuse.
 - **The FAAB preflight.** `claim --bid` reads
   `settings.acquisitionSettings.isUsingAcquisitionBudget` from the league the

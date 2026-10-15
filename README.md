@@ -507,10 +507,14 @@ irreversible ones add one step. The design is in
   whether ESPN would accept them, because ESPN has no validate-only mode, and
   the output says so. It carries the credential age too, so a preflight shows
   it.
-- **Every write is journaled before it is sent and read back after.** A
-  mismatch is `WRITE_DIVERGED`: do not retry, read the roster and reconcile.
-  `read_back.verified` is `true` on a clean success, `false` when the
-  read-back could not be made, and `null` for a claim ESPN has not yet shown.
+- **Every write is journaled before it is sent and read back after.** For a
+  lineup, an add, or a drop, a mismatch is `WRITE_DIVERGED`: do not retry,
+  read the roster and reconcile. `read_back.verified` is `true` on a clean
+  success, `false` when the read-back could not be made, and `null` for a
+  claim ESPN has not yet shown. `cancel-claim` is the exception: if ESPN
+  accepted the cancel but the claim is still queued, the result is a success
+  with `verified: false`, the claim id in `diverged`, and a warning to run
+  `claims` before acting again. It does not raise.
 - **Never retry an unknown outcome.** A timeout, a 5xx, or a response that
   cannot be read arrives with `details.transaction_state: "unknown"`. The
   write may have applied. Read `transactions` and `claims` first, because a
@@ -576,8 +580,11 @@ fantasy-sports add --team "My Team" --player "Player C" --drop "Player A" --ackn
   the owner some other way.
 - **Players must be where the command expects them.** `--player` is resolved
   against this week's free-agent pool, and `--drop` against the team's roster.
-  An add of a player on waivers is refused with `kind` `player_on_waivers`
-  (claim instead), and a claim of a free agent is refused too (add instead).
+  An add of a player the pool shows on waivers is refused locally as
+  `CONFIG_INVALID` naming `claim`, and a claim of a free agent is refused the
+  same way, naming `add`. Nothing is sent. The `WRITE_REJECTED` kinds
+  `player_on_waivers` and `player_unavailable` appear only when the pool moved
+  after the read, so ESPN itself refused.
 - **`claim --bid` is for FAAB leagues only.** A league without an acquisition
   budget rejects every bid, so a bid there is refused before sending. Omit
   `--bid` for a bidless claim. A bid of 0 is a real bid in a FAAB league.
@@ -689,7 +696,7 @@ before sending, and nothing applied. Branch on `details.kind`, then read
 | `position_limit` | The roster position cap would be passed | Drop a player at that position |
 | `already_dropped` | The player is not on the team | Re-read the roster |
 | `roster_full` | No open spot | Add a `--drop` |
-| `player_on_waivers` | Not a free agent | `claim` instead of `add` |
+| `player_on_waivers` | ESPN says not a free agent; the pool moved after the read | `claim` instead of `add` |
 | `player_unavailable` | On another team's roster | Pick someone else |
 | `not_owned` | The tool's own guard: `--team` is not yours | Use a team the session owns |
 | `auth` | The write host rejected the cookie | `auth status`, then `auth login` |

@@ -50,6 +50,18 @@ This pass makes the docs describe the one design that shipped.
   missing transaction id), and the typer shadowing rule sits in a code comment
   next to the registration it governs.
 
+## Review fixes (Codex on PR #125)
+
+- **`cancel-claim` does not raise on a read-back mismatch.** The README had
+  said every mismatch is `WRITE_DIVERGED`. A cancel ESPN accepted whose claim
+  is still queued returns a success with `verified: false` and a warning, so
+  the README now names it as the exception.
+- **Availability refusals are `CONFIG_INVALID` in the normal case.** The
+  preflight refuses an add of a waiver player and a claim of a free agent
+  locally. The `player_on_waivers` and `player_unavailable` kinds reach an
+  agent only when the pool moved after the read. The README and ARCHITECTURE
+  §9 now say so.
+
 ## Validation
 
 - `uv run pytest`: 2045 passed, 19 skipped, including the README and sample
