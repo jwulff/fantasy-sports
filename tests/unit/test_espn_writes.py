@@ -1416,3 +1416,14 @@ def test_every_captured_add_drop_rejection_maps_to_its_kind(capture, provider_ty
     assert caught.value.provider_type == provider_type
     assert caught.value.kind == kind
     assert caught.value.remediation == response.body["messages"][0]
+
+
+def test_the_writing_fake_records_the_waiver_flag():
+    """A command that forgets ``waiver=True`` must fail a forwarding assertion."""
+    from _fake_provider import WritingFake
+
+    fake = WritingFake()
+    fake.move_players("99", 2026, "1", adds=[RosterMove("5")], drops=[], waiver=True)
+    fake.move_players("99", 2026, "1", adds=[RosterMove("5")], drops=[])
+    assert fake.calls[-2][1]["waiver"] is True
+    assert fake.calls[-1][1]["waiver"] is False

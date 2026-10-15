@@ -153,6 +153,7 @@ class WritingFake(_Base):
             adds=list(adds),
             drops=list(drops),
             bid=bid,
+            waiver=waiver,
             kind="WAIVER" if claim else "FREEAGENT" if adds else "ROSTER",
         )
 
