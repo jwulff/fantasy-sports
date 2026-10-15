@@ -190,7 +190,7 @@ WRITE_CAPTURES = Path(__file__).resolve().parents[1] / "docs" / "research" / "05
 
 #: Fixed so a write's success payload is byte-stable across runs.
 TRANSACTION_ID = "5d0c6e2a-7f41-4b9e-a3c8-1e6f2b9d4a70"
-PROPOSED_DATE_MS = 1789560000000
+PROPOSED_DATE_MS = 1789041601000  # 2026-09-10T12:00:01Z, a second after UNLOCKED_AT
 
 
 def writable_nav(swid: str = FAKE_SWID) -> dict[str, Any]:
