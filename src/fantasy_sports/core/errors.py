@@ -344,8 +344,9 @@ class WriteRejectedError(FantasySportsError):
     ``docs/memory/espn-401-tells-you-nothing.md``).
 
     ``provider_type`` carries ESPN's ``details[0].type`` verbatim and is
-    ``None`` when ESPN sent none. ``transaction_applied`` is ``False`` for any
-    rejection, because a ``409`` never applies (brief §3); it is a field so a
+    ``None`` when ESPN sent none. ``transaction_applied`` is always ``False``,
+    because a rejection never applies (a ``409`` does not, brief §3). It is not a
+    parameter, so no raise site can claim otherwise; it is in ``details`` so a
     consumer never has to infer it.
 
     ``kind`` defaults to ``"unknown"``, the honest answer when a raise site has
@@ -366,7 +367,6 @@ class WriteRejectedError(FantasySportsError):
         provider_type: str | None = None,
         http_status: int | None = None,
         team_id: str | int | None = None,
-        transaction_applied: bool = False,
         remediation: str | None = None,
         details: Mapping[str, Any] | None = None,
     ) -> None:
@@ -376,16 +376,21 @@ class WriteRejectedError(FantasySportsError):
             )
         super().__init__(message, remediation=remediation, details=details)
         self.kind = kind
-        self.provider_type = provider_type
+        # Attributes hold the scrubbed value, not the original: `vars(exc)` and a
+        # captured-locals traceback repr read them, not `details`
+        # (docs/memory/credential-leak-channels.md, channel 1).
+        self.provider_type = None if provider_type is None else redact(provider_type)
         self.http_status = http_status
-        self.team_id = None if team_id is None else str(team_id)
-        self.transaction_applied = transaction_applied
+        self.team_id = None if team_id is None else redact(str(team_id))
+        # A rejection never applied (a 409 does not apply, brief §3), so this is
+        # a constant, not an argument a raise site could get wrong.
+        self.transaction_applied = False
         # All five, always, so the payload shape does not depend on the reason.
         self._record_detail("kind", kind)
-        self._record_detail("provider_type", provider_type)
+        self._record_detail("provider_type", self.provider_type)
         self._record_detail("http_status", http_status)
         self._record_detail("team_id", self.team_id)
-        self._record_detail("transaction_applied", transaction_applied)
+        self._record_detail("transaction_applied", False)
 
 
 class WriteDivergedError(FantasySportsError):
@@ -418,8 +423,13 @@ class WriteDivergedError(FantasySportsError):
         super().__init__(message, remediation=remediation, details=details)
         # `scrub` walks values but not mapping keys, and these maps are keyed by
         # caller-supplied ids, so the keys are redacted here.
-        self.expected: dict[str, Any] = {redact(str(k)): v for k, v in dict(expected or {}).items()}
-        self.observed: dict[str, Any] = {redact(str(k)): v for k, v in dict(observed or {}).items()}
+        # The attributes hold the scrubbed maps for the same reason `details` does.
+        self.expected: dict[str, Any] = {
+            redact(str(k)): scrub(v) for k, v in dict(expected or {}).items()
+        }
+        self.observed: dict[str, Any] = {
+            redact(str(k)): scrub(v) for k, v in dict(observed or {}).items()
+        }
         self._record_detail("expected", self.expected)
         self._record_detail("observed", self.observed)
 

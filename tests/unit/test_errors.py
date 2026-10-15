@@ -440,10 +440,21 @@ def test_write_rejected_scrubs_a_credential_in_every_field():
         remediation=f"Use {spec}",
         details={"url": f"https://x/y?espn_s2={spec}&swid={swid}"},
     )
-    rendered = json.dumps(exc.to_dict()) + str(exc) + repr(exc)
+    rendered = json.dumps(exc.to_dict()) + str(exc) + repr(exc) + repr(vars(exc))
     assert spec not in rendered
     assert swid not in rendered
     assert REDACTED in exc.message
+    # The public attributes are what `vars()` and a captured-locals traceback read.
+    assert spec not in exc.provider_type
+    assert swid not in exc.team_id
+    assert exc.provider_type == f"TRAN_{REDACTED}"
+    assert exc.team_id == REDACTED
+
+
+def test_write_rejected_cannot_be_told_a_rejection_applied():
+    with pytest.raises(TypeError):
+        WriteRejectedError("x", kind="unknown", transaction_applied=True)  # type: ignore[call-arg]
+    assert WriteRejectedError("x").transaction_applied is False
 
 
 def test_write_diverged_carries_expected_and_observed():
@@ -478,6 +489,8 @@ def test_write_diverged_scrubs_its_maps():
     remember_secret(SECRET)
     exc = WriteDivergedError("moved", expected={"1": SECRET}, observed={SECRET: "RB"})
     assert SECRET not in json.dumps(exc.to_dict())
+    assert SECRET not in json.dumps(exc.expected) + json.dumps(exc.observed)
+    assert SECRET not in repr(vars(exc))
 
 
 def test_a_rejection_and_a_divergence_are_distinguishable():

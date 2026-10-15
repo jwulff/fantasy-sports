@@ -36,7 +36,7 @@ own:** `roster_lock`, `slot_limit`, `same_slot`, `not_current_period`,
 `budget_exceeded`, `position_limit`, `already_dropped`, `roster_full`,
 `not_owned`, `auth`, `unknown`. Its `details` always hold five keys: `kind`,
 `provider_type` (ESPN's string verbatim, or `null`), `http_status`, `team_id`
-(a string), and `transaction_applied` (default `false`). The vocabulary is a
+(a string), and `transaction_applied` (always `false`, and not a constructor argument, because a rejection never applies). The vocabulary is a
 `Final` tuple exported from `core/errors.py`. A `kind` outside it raises
 `ValueError`: it is a bug in the raise site, not a failure to report.
 `kind` defaults to `unknown`, as `ConfigInvalidError.kind` defaults to
