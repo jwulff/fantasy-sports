@@ -183,12 +183,21 @@ class Recorder:
             raise Refused("only espn_s2 may be sent")
         state = _state()
         _wait_for_gap(state)
-        started = time.monotonic()
+        # Reserve the name and record the attempt BEFORE sending. A write that
+        # times out may still have applied, so its name must never be reusable
+        # and the gap must count from it; reconcile by read-back, not re-send.
+        reservation = PRIVATE / f"{self.name}.attempt"
+        try:
+            with reservation.open("x") as handle:
+                handle.write(datetime.now(UTC).isoformat())
+        except FileExistsError as exc:
+            raise Refused(f"{self.name} was already attempted; read back, do not re-send") from exc
         sent_at = datetime.now(UTC)
-        response = requests.post(url, json=json, headers=headers, cookies=cookies, timeout=timeout)
-        elapsed = int((time.monotonic() - started) * 1000)
         state["writes"].append({"at": sent_at.isoformat(), "name": self.name})
         _save_state(state)
+        started = time.monotonic()
+        response = requests.post(url, json=json, headers=headers, cookies=cookies, timeout=timeout)
+        elapsed = int((time.monotonic() - started) * 1000)
         prepared = dict(response.request.headers)
         prepared["Cookie"] = "<redacted>"
         self.capture = {
@@ -369,8 +378,8 @@ def _send(name: str, note: str, league, season, others, call) -> int:
     from fantasy_sports.core.errors import FantasySportsError
 
     PRIVATE.mkdir(parents=True, exist_ok=True)
-    if (PRIVATE / f"{name}.json").exists():
-        raise Refused(f"{name} was already sent; probes are not re-run")
+    if (PRIVATE / f"{name}.json").exists() or (PRIVATE / f"{name}.attempt").exists():
+        raise Refused(f"{name} was already sent or attempted; probes are not re-run")
     reader = _provider()
     role = _role(reader, league, season)
     recorder = Recorder(name, note, league, others, role.owned_team_ids)
