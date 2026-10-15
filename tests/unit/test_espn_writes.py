@@ -1059,3 +1059,54 @@ def test_a_write_result_round_trips_through_to_dict():
         "member_id",
     }
     assert isinstance(payload["items"], list)
+
+
+# --------------------------------------------------------------------------- #
+# Edges of the helpers
+# --------------------------------------------------------------------------- #
+
+
+def test_malformed_teams_in_mnav_are_skipped_not_fatal():
+    teams = [
+        "junk",
+        {"id": "x", "owners": [SWID]},
+        {"id": 4, "owners": "nope"},
+        {"id": 1, "owners": [SWID]},
+    ]
+    assert _provider(nav=_nav(teams=teams)).session_role(*LEAGUE).owned_team_ids == ("1",)
+
+
+@pytest.mark.parametrize("value", ["{}", "", "   ", 5, None])
+def test_an_empty_or_non_string_member_id_never_matches(value):
+    from fantasy_sports.providers.espn import _guid_key
+
+    assert _guid_key(value) is None
+
+
+@pytest.mark.parametrize("name", ["", "  ", None, 20])
+def test_a_blank_or_non_string_slot_name_has_no_id(name):
+    from fantasy_sports.providers.espn import _slot_id
+
+    assert _slot_id(name) is None
+    assert _slot_id(" be ") == 20
+
+
+def test_a_rejection_body_with_no_typed_detail_has_no_provider_type():
+    from fantasy_sports.providers.espn import _first_detail
+
+    assert _first_detail({"details": [{"type": 3}, "x"], "messages": [7]}) == (None, None)
+    assert _first_detail("not a mapping") == (None, None)
+
+
+def test_a_player_who_publishes_no_eligibility_is_not_refused_on_it():
+    from fantasy_sports.providers.espn import _eligible_slot_ids
+
+    assert _eligible_slot_ids({"lineupSlotId": 2}) is None
+    assert _eligible_slot_ids({"playerPoolEntry": {"player": {"eligibleSlots": [2, "x"]}}}) == {2}
+
+
+def test_a_success_without_an_echoed_member_records_none():
+    post = FakePost(FakeResponse(body={"id": "t", "status": "EXECUTED", "teamId": 1}))
+    provider = _provider(post)
+    assert provider.set_lineup(*LEAGUE, "1", {"2002": "BE"}).member_id is None
+    assert LEAGUE not in provider._echoed_members

@@ -2499,10 +2499,9 @@ def _write_outcome(
 
 
 def _header(headers: Mapping[str, str], name: str) -> str | None:
-    getter = getattr(headers, "get", None)
-    if getter is None:
-        return None
-    found = getter(name)
+    """One header, case-insensitively whether or not ``headers`` is ``requests``'
+    own case-insensitive mapping."""
+    found = headers.get(name)
     if found is None:
         found = next(
             (value for key, value in headers.items() if str(key).lower() == name.lower()), None
