@@ -40,7 +40,7 @@ from _harness import (
 )
 
 from fantasy_sports.commands import REGISTRY, DataShape
-from fantasy_sports.commands.moves import NOT_IN_QUEUE_NOTE, PENDING_NOTE
+from fantasy_sports.commands.moves import NOT_IN_QUEUE_NOTE
 from fantasy_sports.core.errors import (
     ConfigInvalidError,
     NotAvailableError,
@@ -486,8 +486,13 @@ def test_a_claim_espn_does_not_list_is_unverified_not_verified(monkeypatch: pyte
     install_writable_espn(monkeypatch, show_pending=False)
     data = _claim(acknowledge_irreversible=WHY)["data"]
     read_back = data["read_back"]
-    assert read_back == {"verified": None, "diverged": [], "queue_size": 0, "note": PENDING_NOTE}
-    assert "unverified" in read_back["note"] and "`fantasy-sports claims`" in read_back["note"]
+    assert read_back == {
+        "verified": None,
+        "diverged": [],
+        "queue_size": 0,
+        "note": NOT_IN_QUEUE_NOTE.format(claim_id=TRANSACTION_ID, team_id="1"),
+    }
+    assert "`fantasy-sports claims --team 1`" in read_back["note"]
     assert "warnings" not in data
 
 
@@ -530,7 +535,7 @@ def test_an_older_pending_claim_does_not_verify_a_different_new_one(
         "verified": None,
         "diverged": [],
         "queue_size": 1,
-        "note": NOT_IN_QUEUE_NOTE.format(size=1),
+        "note": NOT_IN_QUEUE_NOTE.format(claim_id=TRANSACTION_ID, team_id="1"),
     }
 
 
@@ -571,7 +576,7 @@ def test_a_stale_cancelled_claim_in_transactions_never_verifies_a_new_one(
         "verified": None,
         "diverged": [],
         "queue_size": 0,
-        "note": PENDING_NOTE,
+        "note": NOT_IN_QUEUE_NOTE.format(claim_id=data["provider_transaction_id"], team_id="1"),
     }
 
 

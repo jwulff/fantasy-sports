@@ -81,17 +81,9 @@ DRY_RUN_NOTE = (
     f"checked. A real run needs {ACKNOWLEDGE_FLAG}."
 )
 
-PENDING_NOTE = (
-    "ESPN queued the claim and answered with its id, but the waiver queue read back was "
-    "empty, so the claim is unverified rather than missing. `transactions` is not consulted: "
-    "a cancelled claim's own row there keeps reading PENDING, so an earlier identical claim "
-    "could pass for this one. Run `fantasy-sports claims` before submitting it again."
-)
-
 NOT_IN_QUEUE_NOTE = (
-    "ESPN queued the claim and answered with its id, but the waiver queue read back lists "
-    "{size} other claim(s) for this team and not this one. It is unverified rather than "
-    "missing; run `fantasy-sports claims` before submitting it again."
+    "{claim_id} was accepted as PENDING but is not in the waiver queue yet; run "
+    "`fantasy-sports claims --team {team_id}` to confirm."
 )
 
 _POOL_FREE_AGENT = "FREEAGENT"
@@ -749,9 +741,10 @@ def _claim_read_back(ctx: ReadContext, team_id: str, transaction_id: str) -> dic
     The waiver queue (``view=mPendingTransactions``) carries ESPN's
     transaction ids, so a listed id is ``verified: true`` with ``matched_by:
     ["provider_transaction_id"]`` -- an exact join, which an earlier identical
-    claim cannot satisfy. Not listed is ``verified: null`` with a note, never
-    ``true``; a queue that cannot be read is ``verified: false`` with the
-    error code.
+    claim cannot satisfy. Not listed -- the queue empty, or holding other
+    claims -- is ``verified: null`` with a note, never ``true``: right after a
+    ``PENDING`` answer that is lag, not doubt about the queue. A queue that
+    cannot be read is ``verified: false`` with the error code.
 
     There is deliberately no fallback to matching the claim's details in
     ``transactions`` (#18's read-back). A cancelled claim's own
@@ -765,9 +758,12 @@ def _claim_read_back(ctx: ReadContext, team_id: str, transaction_id: str) -> dic
     found = pending_read_back(ctx, team_id, transaction_id, gone=False)
     if found["verified"] or found.get("error") is not None:
         return found
-    size = found["queue_size"]
-    note = PENDING_NOTE if size == 0 else NOT_IN_QUEUE_NOTE.format(size=size)
-    return {"verified": None, "diverged": [], "queue_size": size, "note": note}
+    return {
+        "verified": None,
+        "diverged": [],
+        "queue_size": found["queue_size"],
+        "note": NOT_IN_QUEUE_NOTE.format(claim_id=transaction_id, team_id=team_id),
+    }
 
 
 def _announce(journal: Any, entry_id: str) -> dict[str, Any]:

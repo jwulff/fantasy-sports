@@ -75,11 +75,14 @@ the shared write helpers).
 - **`claim`'s read-back joins on the id now, and the details match is
   removed.** The claim's id in the queue is `verified: true` with
   `matched_by: ["provider_transaction_id"]`. That join is exact, so two
-  identical claims no longer make each other unverifiable. Not listed is
-  `verified: null` with a note, and `read_back.queue_size` says whether the
-  queue was empty. The first push of this PR kept #18's details match against
-  `transactions` as a fallback for an empty queue. Codex's post-merge finding
-  on #122 showed why that is unsafe: a claim cancelled earlier keeps an
+  identical claims no longer make each other unverifiable. Not listed, with
+  the queue empty or holding other claims, is `verified: null` with a note
+  naming the claim id and the `claims --team` command to confirm it.
+  `read_back.queue_size` says whether the queue was empty. Right after a
+  `PENDING` answer, absence from the queue is lag, not doubt about the queue. The first push of this PR kept #18's details match against
+  `transactions` as a fallback for an empty queue. Codex's post-merge P2
+  finding on [#122](https://github.com/jwulff/fantasy-sports/pull/122)
+  showed why that is unsafe: a claim cancelled earlier keeps an
   identical `PENDING` row in `mTransactions2` forever. With the new claim not
   yet visible, that ghost was the single match and verified a claim ESPN had
   not shown. Folding cancelled rows out needs the cancel's
