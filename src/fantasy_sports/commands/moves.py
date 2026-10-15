@@ -743,9 +743,7 @@ def _roster_read_back(
     return {"verified": not diverged, "diverged": diverged}, observed, expected
 
 
-def _claim_read_back(
-    ctx: ReadContext, team_id: str, transaction_id: str
-) -> dict[str, Any]:
+def _claim_read_back(ctx: ReadContext, team_id: str, transaction_id: str) -> dict[str, Any]:
     """Look for the queued claim by the id ESPN answered with (#109).
 
     The waiver queue (``view=mPendingTransactions``) carries ESPN's
