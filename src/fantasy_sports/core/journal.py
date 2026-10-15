@@ -357,16 +357,23 @@ class Journal:
     exist return empty; the first :meth:`begin` creates it.
     """
 
-    def __init__(self, path: Path | str | None = None) -> None:
+    def __init__(self, path: Path | str | None = None, *, swid_salt: str | None = None) -> None:
         self.path = Path(path) if path is not None else journal_path()
         self._rw: sqlite3.Connection | None = None
         self._ro: sqlite3.Connection | None = None
         self._salt: str | None = None
+        self._seed_salt = swid_salt
 
     @classmethod
-    def open(cls, path: Path | str | None = None) -> Journal:
-        """A journal at ``path``, or at the XDG state directory by default."""
-        return cls(path)
+    def open(cls, path: Path | str | None = None, *, swid_salt: str | None = None) -> Journal:
+        """A journal at ``path``, or at the XDG state directory by default.
+
+        ``swid_salt`` is for reproducible fixtures only (the doc samples): it
+        becomes the file's pseudonym salt when the file has none yet, and is
+        ignored when it already has one. Production callers never pass it, and
+        the file's own random salt is what keeps pseudonyms unconfirmable.
+        """
+        return cls(path, swid_salt=swid_salt)
 
     def close(self) -> None:
         for connection in (self._rw, self._ro):
@@ -659,7 +666,7 @@ class Journal:
         with connection:
             connection.execute(
                 "INSERT INTO journal_meta (name, value) VALUES (?, ?) ON CONFLICT(name) DO NOTHING",
-                (_SALT_KEY, new_swid_salt()),
+                (_SALT_KEY, self._seed_salt or new_swid_salt()),
             )
         row = connection.execute(
             "SELECT value FROM journal_meta WHERE name = ?", (_SALT_KEY,)

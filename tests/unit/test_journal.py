@@ -289,6 +289,25 @@ def test_the_same_member_gets_the_same_attribution_every_time(path: Path):
     assert ids[0] == ids[1] != ids[2]
 
 
+def test_a_seeded_salt_makes_pseudonyms_reproducible_and_an_existing_salt_wins(tmp_path: Path):
+    def attribution(where: Path, salt: str | None) -> str | None:
+        journal = Journal.open(where, swid_salt=salt)
+        entry = journal.begin(make())
+        return journal.complete(
+            entry.id,
+            member_id=MEMBER_GUID,
+            provider_transaction_id=None,
+            proposed_at=None,
+            applied_state=None,
+        ).member_id
+
+    first = attribution(tmp_path / "a.sqlite", "fixture-salt")
+    assert first == attribution(tmp_path / "b.sqlite", "fixture-salt")
+    assert first != attribution(tmp_path / "c.sqlite", None)
+    # A file that already has a salt keeps it, whatever a later opener passes.
+    assert first == attribution(tmp_path / "a.sqlite", "a-different-salt")
+
+
 def test_a_guid_in_a_request_agrees_with_the_member_pseudonym(path: Path):
     """A body that echoes ``memberId`` joins to the ``member_id`` column."""
     journal = Journal.open(path)
@@ -301,6 +320,20 @@ def test_a_guid_in_a_request_agrees_with_the_member_pseudonym(path: Path):
         applied_state=None,
     )
     assert closed.request["memberId"] == closed.member_id
+
+
+def test_a_member_id_that_is_not_a_guid_is_kept_but_still_redacted(path: Path):
+    remember_secret("opaque-member-token-0123456789")
+    journal = Journal.open(path)
+    entry = journal.begin(make())
+    closed = journal.complete(
+        entry.id,
+        member_id="opaque-member-token-0123456789",
+        provider_transaction_id=None,
+        proposed_at=None,
+        applied_state=None,
+    )
+    assert closed.member_id == "***redacted***"
 
 
 def test_reject_records_the_error_and_nothing_applied(path: Path):
@@ -534,6 +567,24 @@ def test_a_begin_that_cannot_write_raises_and_names_the_path(tmp_path: Path):
     assert str(target) in error.message
     assert error.remediation is not None and str(target.parent) in error.remediation
     assert error.details["path"] == str(target)
+
+
+@posix_only
+@pytest.mark.skipif(hasattr(os, "geteuid") and os.geteuid() == 0, reason="root ignores modes")
+def test_a_begin_against_a_read_only_file_raises_instead_of_dropping_the_entry(path: Path):
+    with Journal.open(path) as journal:
+        journal.begin(make())
+    path.chmod(0o400)
+    try:
+        # chmod happens on open, so the owner can always tighten it again; make
+        # the *directory* unwritable too, which is what stops a journal file.
+        path.parent.chmod(0o500)
+        with pytest.raises(ConfigInvalidError, match="not writable"):
+            Journal.open(path).begin(make())
+    finally:
+        path.parent.chmod(0o700)
+        path.chmod(0o600)
+    assert Journal.open(path).count() == 1
 
 
 def test_a_begin_into_a_corrupt_file_raises_rather_than_overwriting(path: Path):
