@@ -563,7 +563,7 @@ def test_a_begin_that_cannot_write_raises_and_names_the_path(tmp_path: Path):
     with pytest.raises(ConfigInvalidError) as caught:
         Journal.open(target).begin(make())
     error = caught.value
-    assert error.kind == "journal_store"
+    assert error.kind == "config"
     assert str(target) in error.message
     assert error.remediation is not None and str(target.parent) in error.remediation
     assert error.details["path"] == str(target)
@@ -662,3 +662,59 @@ def test_importing_the_journal_pulls_in_no_cli_stack_and_no_sqlite():
     proc = subprocess.run([sys.executable, "-c", probe], capture_output=True, text=True, check=True)
     loaded = set(json.loads(proc.stdout.strip().splitlines()[-1]))
     assert not loaded & {"typer", "click", "rich", "espn_api", "requests", "keyring", "sqlite3"}
+
+
+# --------------------------------------------------------------------------- #
+# Attribution comes from the response; a damaged file is never "empty"
+# --------------------------------------------------------------------------- #
+
+
+def test_begin_drops_a_member_id_and_only_complete_supplies_one(path: Path):
+    journal = Journal.open(path)
+    stored = journal.begin(make(member_id=MEMBER_GUID))
+    assert stored.member_id is None
+    assert Journal.open(path).get(stored.id).member_id is None  # type: ignore[union-attr]
+
+    closed = journal.complete(
+        stored.id,
+        member_id=MEMBER_GUID,
+        provider_transaction_id=None,
+        proposed_at=None,
+        applied_state=None,
+    )
+    assert closed.member_id is not None and closed.member_id != MEMBER_GUID
+
+    rejected = journal.begin(make(member_id=MEMBER_GUID))
+    assert journal.reject(rejected.id, ConfigInvalidError("no")).member_id is None
+
+
+def _journal_without_its_table(path: Path) -> None:
+    import sqlite3
+
+    path.parent.mkdir(parents=True)
+    connection = sqlite3.connect(path)
+    connection.execute("CREATE TABLE something_else (x INTEGER)")
+    connection.commit()
+    connection.close()
+
+
+def test_a_sqlite_file_that_lost_its_journal_table_is_a_failure_not_an_empty_list(path: Path):
+    _journal_without_its_table(path)
+    journal = Journal.open(path)
+    for call in (journal.list, journal.count, journal.pending):
+        with pytest.raises(ConfigInvalidError, match="Refusing to report it as empty"):
+            call()
+    health = journal.health()
+    assert health.error is not None and health.entries is None
+
+
+def test_begin_refuses_to_recreate_the_schema_over_a_damaged_file(path: Path):
+    import sqlite3
+
+    _journal_without_its_table(path)
+    with pytest.raises(ConfigInvalidError, match="not writable"):
+        Journal.open(path).begin(make())
+    connection = sqlite3.connect(path)
+    tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master")}
+    connection.close()
+    assert tables == {"something_else"}

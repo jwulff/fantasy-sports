@@ -48,14 +48,21 @@ is not here: it needs the write transport from #107.
   transaction `id` and `proposedDate`, which are stored verbatim. If John
   wants the raw GUID after all, it is one line in `Journal._clean_member`, and
   it would contradict the acceptance criterion.
-- **Absent is empty; unreadable is loud.** A missing file reads as an empty
-  journal. A file that exists but cannot be read raises `CONFIG_INVALID`
-  (`kind: "journal_store"`) from every read, because "no entries" about a
+- **Absent is empty; unreadable is loud.** A missing file, or a zero-byte one
+  that was never given a schema, reads as an empty journal. A file with
+  content that cannot be read, or that has lost its `journal` table, raises `CONFIG_INVALID`
+  (`kind: "config"`, `details.path`; no new `kind`, per ADR-0009) from every read, because "no entries" about a
   corrupt audit trail would be false. `doctor` is the one caller that turns it
   into a finding (`Journal.health()` never raises). This is the opposite of
   the response cache, which degrades to a live fetch: a write that cannot be
   journaled must not proceed, so `begin()` raises with a remediation naming
-  the path.
+  the path. It also refuses to recreate the schema over a populated file
+  that lost its table, so damage is never turned into a healthy empty journal.
+- **Attribution comes only from the response.** `begin()` resets `member_id`
+  along with the other result fields, so a pending or rejected row never
+  carries an identity taken from the request. The pseudonym exists because the
+  SWID is a secret (CLAUDE.md rule 5) and ESPN's transaction `id` is the ledger
+  join.
 - **State dir, not data dir.** #16 says the XDG *state* directory, so
   `state_home()` is new; `data_home()` was reserved for this and stays unused.
 - **No new error code.** An entry closes once; closing it twice is a

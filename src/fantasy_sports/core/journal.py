@@ -393,8 +393,9 @@ class Journal:
         """Record the intent, with prior state and request, before anything is sent.
 
         The entry is stored with status ``pending`` whatever it arrived with, and
-        any result fields it carried (applied state, transaction id, error) are
-        dropped: a row that has not been sent has no result. Returns the entry as
+        any result fields it carried (member id, applied state, transaction id,
+        error) are dropped: a row that has not been sent has no result, and the
+        acting member comes only from the response, via :meth:`complete`. Returns the entry as
         stored — redacted — so the caller holds what the file holds.
 
         :raises ConfigInvalidError: if the journal cannot be written. The caller
@@ -404,6 +405,7 @@ class Journal:
         fresh = replace(
             entry,
             status="pending",
+            member_id=None,
             applied_state=None,
             provider_transaction_id=None,
             proposed_at=None,
@@ -602,11 +604,21 @@ class Journal:
 
         try:
             _ensure_private_directory(self.path.parent)
+            existed = self.path.exists()
             descriptor = os.open(self.path, os.O_RDWR | os.O_CREAT, FILE_MODE)
             os.close(descriptor)
             _chmod(self.path, FILE_MODE)
             connection = sqlite3.connect(self.path, timeout=5.0)
             try:
+                if existed and not _is_uninitialised(self.path):
+                    # A populated file that has lost its table is an audit trail
+                    # someone damaged. Recreating the schema would turn that into
+                    # a quiet, empty, healthy-looking journal.
+                    found = connection.execute(
+                        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'journal'"
+                    ).fetchone()
+                    if found is None:
+                        raise sqlite3.DatabaseError("the file has no journal table")
                 connection.executescript(_SCHEMA)
                 connection.execute(f"PRAGMA user_version = {_SCHEMA_VERSION}")
                 self._salt = self._load_or_mint_salt(connection)
@@ -643,8 +655,8 @@ class Journal:
         try:
             return connection.execute(sql, params).fetchall()
         except sqlite3.OperationalError as exc:
-            if "no such table" in str(exc):
-                return []  # a zero-byte or schema-less file holds no entries
+            if "no such table" in str(exc) and _is_uninitialised(self.path):
+                return []  # a zero-byte file holds no entries and nothing to lose
             raise self._read_failure(exc) from exc
         except sqlite3.Error as exc:
             raise self._read_failure(exc) from exc
@@ -677,7 +689,7 @@ class Journal:
         return ConfigInvalidError(
             f"Cannot {doing}: the mutation journal at {self.path} is not writable "
             f"({type(exc).__name__}). Nothing was sent to the provider.",
-            kind="journal_store",
+            kind="config",
             remediation=(
                 f"Make {self.path.parent} writable by you (mode 0700) and {self.path} "
                 "a SQLite file you own, or move a corrupt file aside, then retry. "
@@ -690,7 +702,7 @@ class Journal:
         return ConfigInvalidError(
             f"The mutation journal at {self.path} exists but cannot be read "
             f"({type(exc).__name__}). Refusing to report it as empty.",
-            kind="journal_store",
+            kind="config",
             remediation=(
                 f"Check the permissions on {self.path}, or move a corrupt file aside "
                 "(keep it: it is the audit trail) and run `fantasy-sports doctor`."
@@ -811,6 +823,14 @@ def _ensure_private_directory(directory: Path) -> None:
 def _chmod(path: Path, mode: int) -> None:
     if os.name == "posix":
         os.chmod(path, mode)
+
+
+def _is_uninitialised(path: Path) -> bool:
+    """A zero-byte file: created, never given a schema. The only empty file."""
+    try:
+        return path.stat().st_size == 0
+    except OSError:
+        return False
 
 
 def _mode(path: Path) -> int | None:
