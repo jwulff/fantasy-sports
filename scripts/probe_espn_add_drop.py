@@ -340,6 +340,30 @@ def cmd_readback(args, league, season, others) -> int:
     return 0
 
 
+def cmd_pool(args, league, season, others) -> int:
+    """Read-only: how many unrostered players are FREEAGENT vs WAIVERS."""
+    provider = _provider()
+    period = json.loads((PRIVATE / "readbacks" / "p0.json").read_text())["scoringPeriodId"]
+    counts = {}
+    for status in ("FREEAGENT", "WAIVERS"):
+        data = provider.fetch_raw(
+            league,
+            season,
+            view="kona_player_info",
+            scoringPeriodId=period,
+            x_fantasy_filter={
+                "players": {
+                    "filterStatus": {"value": [status]},
+                    "limit": 3000,
+                    "sortPercOwned": {"sortAsc": False, "sortPriority": 1},
+                }
+            },
+        )
+        counts[status] = len(data.get("players", []))
+    print(json.dumps(counts))
+    return 0
+
+
 def _send(name: str, note: str, league, season, others, call) -> int:
     from fantasy_sports.core.errors import FantasySportsError
 
@@ -671,6 +695,7 @@ def main(argv: list[str] | None = None) -> int:
     rw.add_argument("--body", required=True, help="envelope JSON: type, executionType, items...")
     rw.add_argument("--note", required=True)
     sub.add_parser("redact")
+    sub.add_parser("pool")
     args = parser.parse_args(argv)
 
     league, season, others = league_ids(args.league)
@@ -681,6 +706,7 @@ def main(argv: list[str] | None = None) -> int:
         "cancel": cmd_cancel,
         "raw": cmd_raw,
         "redact": cmd_redact,
+        "pool": cmd_pool,
     }[args.command]
     return handler(args, league, season, others)
 
