@@ -709,7 +709,10 @@ register(
 register(
     CommandSpec(
         name="claim",
-        summary="Submit a waiver claim with a bid, optionally dropping a player. Irreversible.",
+        summary=(
+            "Submit a waiver claim, with a bid where the league uses FAAB; can drop a player. "
+            "Irreversible."
+        ),
         handler="fantasy_sports.commands.moves:claim_player",
         shape=DataShape.OBJECT,
         params=(

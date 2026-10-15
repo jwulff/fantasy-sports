@@ -683,7 +683,7 @@ Commands:
   add           Add a free agent to your own team, optionally dropping a player. Irreversible.
   auth          3 subcommands: login, logout, status
   box-scores    List both lineups for a week's matchups, player by player, with projections.
-  claim         Submit a waiver claim with a bid, optionally dropping a player. Irreversible.
+  claim         Submit a waiver claim, with a bid where the league uses FAAB; can drop a player. Irreversible.
   doctor        Run every health check: config, credentials, cache, journal, version, provider.
   drop          Release a player from your own team to waivers. Irreversible.
   free-agents   List unrostered players, optionally filtered to one position.
