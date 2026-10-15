@@ -1210,3 +1210,61 @@ def test_a_mismatch_in_one_league_does_not_block_another():
     provider = _provider(FakePost(_captured_response("p3-swap-execute")))
     provider._identity_mismatches[("100", 2026)] = ("a", "b")
     assert provider.set_lineup(*LEAGUE, "1", {"2002": "BE"}).status == "EXECUTED"
+
+
+def test_the_lineup_diff_reads_the_roster_live_even_when_it_is_cached(tmp_path):
+    """A current-period mRoster under its 5-minute TTL must not be the diff's
+    source: the slot could have moved since, on another device."""
+    from fantasy_sports.cache.store import CacheStore
+
+    store = CacheStore(tmp_path / "cache.sqlite3")
+    http = ReplayHttp({"mNav": _nav()})
+    live = http.bootstrap  # 2002 is at RB (slot 2) now
+    stale = json.loads(json.dumps(live))
+    for team in stale["teams"]:
+        for entry in team["roster"]["entries"]:
+            if entry["playerId"] == 2002:
+                entry["lineupSlotId"] = 20  # on the bench, as of the earlier read
+    served = {"body": stale}
+    http.overrides["mRoster"] = lambda params: served["body"]
+
+    def _read_roster(provider: EspnProvider) -> Any:
+        league = provider._league(*LEAGUE)
+        league.espn_request.league_get(params={"view": "mRoster", "scoringPeriodId": 2})
+        return provider._transport(*LEAGUE).responses["mRoster@2"]
+
+    _read_roster(EspnProvider(CREDENTIALS, http=http, cache=store))  # caches the stale roster
+    served["body"] = live
+
+    # An ordinary read is still served the stale entry from the cache...
+    hit = _read_roster(EspnProvider(CREDENTIALS, http=http, cache=store))
+    assert hit.cached is True
+    assert _team_slot(hit.payload, 2002) == 20
+
+    # ...but the write diffs against the live roster.
+    post = FakePost(_captured_response("p3-swap-execute"))
+    writer = EspnProvider(CREDENTIALS, http=http, cache=store, http_post=post)
+    writer.set_lineup(*LEAGUE, "1", {"2002": "BE"})
+    assert post.body["items"] == [
+        {"playerId": 2002, "type": "LINEUP", "fromLineupSlotId": 2, "toLineupSlotId": 20}
+    ]
+    assert writer._cache_mode is None, "the provider's own cache mode is untouched"
+
+
+def _team_slot(payload: Any, player_id: int) -> int | None:
+    for team in payload["teams"]:
+        for entry in team["roster"]["entries"]:
+            if entry["playerId"] == player_id:
+                return entry["lineupSlotId"]
+    return None
+
+
+def test_a_per_call_mode_is_restored_even_when_the_call_fails():
+    from fantasy_sports.cache.store import CacheMode
+
+    provider = _provider()
+    provider._league(*LEAGUE)
+    transport = provider._transport(*LEAGUE)
+    with pytest.raises(RuntimeError), transport.mode_for_call(CacheMode.BYPASS):
+        raise RuntimeError("boom")
+    assert transport._call_mode is None

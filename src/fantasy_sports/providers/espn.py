@@ -528,6 +528,9 @@ class _Transport:
         self._league_id = league_id
         self._store = store
         self._mode = mode
+        self._call_mode: CacheMode | None = None
+        """A mode for the requests inside :meth:`mode_for_call`, overriding
+        :attr:`_mode` without changing what the provider was configured with."""
         self._http = http
         self._now = now
         self._on_auth_reason = on_auth_reason
@@ -692,12 +695,13 @@ class _Transport:
 
         from fantasy_sports.cache.store import CachingFetcher
 
+        mode = self._call_mode if self._call_mode is not None else self._mode
         fetcher = CachingFetcher(
             lambda fetch_url, fetch_params: self._live(
                 fetch_url, fetch_params, headers, extend=extend, view=view
             ),
             self._store,
-            **({} if self._mode is None else {"mode": self._mode}),
+            **({} if mode is None else {"mode": mode}),
         )
         result = fetcher.fetch(
             url,
@@ -711,6 +715,21 @@ class _Transport:
             else None
         )
         return result.body, result.cached, result.stored, fetched_at
+
+    @contextmanager
+    def mode_for_call(self, mode: CacheMode) -> Iterator[None]:
+        """Use ``mode`` for the requests made inside this block, then restore.
+
+        Per call, not per provider: the write path needs one guaranteed-live
+        read (the roster it diffs against) without turning every other read
+        on the instance into a bypass. The store still scrubs the body.
+        """
+        previous = self._call_mode
+        self._call_mode = mode
+        try:
+            yield
+        finally:
+            self._call_mode = previous
 
     def _context(self, view: str, params: Mapping[str, Any] | None) -> RequestContext:
         """What the cache needs to know about this request.
@@ -1604,8 +1623,8 @@ class EspnProvider:
     def _lineup_items(self, write: _Write, target: Mapping[str, str]) -> list[dict[str, Any]]:
         """The diff between ``target`` and the **current** roster.
 
-        The roster is fetched here, explicitly, for the period the write will
-        be sent for. Reusing whatever ``mRoster`` this instance last recorded
+        The roster is fetched here, explicitly and bypassing the cache, for the
+        period the write will be sent for. Reusing whatever ``mRoster`` this instance last recorded
         would diff against a historical week after a ``fetch_roster(week=N)``
         on the same provider (PR #118 review), and every item would carry the
         wrong ``fromLineupSlotId``.
@@ -1617,11 +1636,18 @@ class EspnProvider:
                 kind="argument",
                 remediation="Map at least one player id to the slot it should occupy.",
             )
+        from fantasy_sports.cache.store import CacheMode
+
         with _mapped(view="mRoster", operation="set_lineup", provider=self):
             league = self._league(write.league_id, write.season)
-            current = league.espn_request.league_get(
-                params={"view": "mRoster", "scoringPeriodId": write.scoring_period}
-            )
+            # Live, whatever the provider's cache mode: a roster up to five
+            # minutes old is exactly the stale `fromLineupSlotId` this read
+            # exists to avoid. BYPASS neither reads nor writes the store, and
+            # the store still scrubs the body.
+            with self._transport(write.league_id, write.season).mode_for_call(CacheMode.BYPASS):
+                current = league.espn_request.league_get(
+                    params={"view": "mRoster", "scoringPeriodId": write.scoring_period}
+                )
         entries = _team_entries(current, team_id) or {}
         items: list[dict[str, Any]] = []
         for player, slot in target.items():

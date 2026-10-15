@@ -57,7 +57,7 @@ is coherent after a success.
     directly.
   - `http_post` is a new constructor seam. It is resolved at call time, so
     the default is `requests.post`, imported inside the method.
-- **`tests/unit/test_espn_writes.py`** adds 126 offline tests. Every write
+- **`tests/unit/test_espn_writes.py`** adds 128 offline tests. Every write
   response is a capture body from `docs/research/05-espn-write-surface/`
   against league `99`.
 - **`tests/_fake_provider.py`** gains `WritingFake` for #15, #16, and #18.
@@ -137,10 +137,18 @@ is coherent after a success.
   week after a `fetch_roster(week=N)`. It now fetches `view=mRoster` for the
   write's current `scoringPeriodId` and diffs against that response. A test
   loads week 1 and then sets the lineup to prove it.
+- **That roster read bypasses the cache.** It is still a cache-mode
+  question even when the fetch is explicit, because a current-period roster
+  under its 5-minute TTL would come back from the store. The read runs under
+  a per-call `CacheMode.BYPASS` override on the transport. That override
+  neither reads nor writes the store, and the store still scrubs the body.
+  The provider's own mode is untouched. A test caches a stale roster, shows
+  an ordinary read still serves it, and proves the write diffs against the
+  live one.
 
 ## Validation
 
-- `uv run pytest -m "not live" --cov`: 1685 passed, 16 deselected, after
+- `uv run pytest -m "not live" --cov`: 1687 passed, 16 deselected, after
   merging `origin/main`. Coverage is 99.06% total, `providers/espn.py` is 97%, and `base.py` and
   `models.py` are 100%.
 - `ruff check` and `ruff format --check` pass.
