@@ -49,11 +49,30 @@ leaves the transaction in an unknown state. The transport reports
 its own; the remediation says to read `transactions` first. Harmless for a
 lineup (a replay hits `TRAN_ROSTER_SAME_SLOT`), a double-spend for a claim.
 
-**The sanity gate is an acknowledgement flag.** ADR-0006's fourth gate survives
-for the irreversible class, and a CLI cannot invoke `/sanity-gate`. The
-enforcement point is `--acknowledge-irreversible`: without it the command
-refuses and states what cannot be undone. The README says an autonomous agent
-clears the gate before passing the flag. `--dry-run` reports cost.
+**The sanity gate is an acknowledgement flag with a journaled justification,
+and the plan says plainly what that does and does not enforce.** ADR-0006's
+fourth gate survives for the irreversible class, and a CLI cannot invoke
+`/sanity-gate` or verify that a caller did. What the tool *can* do: refuse an
+irreversible write unless `--acknowledge-irreversible "<why>"` is passed with a
+non-empty justification, state exactly what cannot be undone in the refusal,
+and record the justification verbatim in the journal entry so a write made
+without a real gate is visible to John after the fact rather than invisible.
+The gate itself is enforced where it can be: in the agent's standing
+instructions (README "Writing" section, and the `/sanity-gate` rule in John's
+global `CLAUDE.md`). `--dry-run` reports cost and needs no flag.
+
+**Irreversible writes are surfaced before the irreversible commands ship.**
+R7a says John learns about a drop or claim without going to look. The journal
+records it; something has to push it. #113 moves into the epic as a dependency
+of `add`/`drop`/`claim`: the minimal mechanism (a `journal digest --since`
+command plus the delivery hook John already reads — a daily Project Events
+entry or a Cotrugli task) lands before the first irreversible command can.
+
+**Credential age rides on every write result.** R12a: an agent should learn
+its cookies are old *before* a deadline-bound write fails, not from the 401.
+Every write envelope's `data` carries `credentials: {espn_s2_age_seconds,
+warning}` from the auth chain's staleness reporting, and `--dry-run` carries it
+too, so a pre-flight shows it.
 
 **Shapes are captured before they are trusted.** The add/drop/waiver item shapes
 are community-attested only. John creates a throwaway ESPN league; #108
@@ -72,13 +91,13 @@ of the guard (`docs/memory/espn-lineup-write-authority-is-broader-than-team-owne
 |---|---|
 | R6 explicit target state | #15 `lineup set --set PLAYER=SLOT` computes a diff, one POST |
 | R7 journal with prior state, identity, command | #16 two-phase entry, member id as ESPN echoes it, role from `mNav` |
-| R7a surface irreversible writes | #113 (follow-on) |
-| R8 reversibility recorded; irreversible identified before firing | #16 `reversible`; #18 `--acknowledge-irreversible` |
-| R8a calibration check | acknowledgement flag + README rule; `/sanity-gate` is the agent's step |
+| R7a surface irreversible writes | #113, in the epic, blocks #18: `journal digest --since` + a delivery hook |
+| R8 reversibility recorded; irreversible identified before firing | #16 `reversible` per kind; #18 `--acknowledge-irreversible "<why>"` |
+| R8a calibration check | acknowledgement + journaled justification + README rule; `/sanity-gate` is the agent's step and the tool cannot verify it |
 | R9 `--dry-run`, opt-in, no provider validation | every write command |
 | R9a provider rejection as a machine code | #106 `WRITE_REJECTED` + `kind` |
 | R10 purge by league and scoring-period tag | #107, on every 200 |
-| R12a credential staleness before a write | `auth status` already reports age; the transport's 401 handling keeps it honest |
+| R12a credential staleness before a write | #107: every write result and dry-run carries `credentials.espn_s2_age_seconds` and a `warning` |
 
 ---
 
@@ -87,17 +106,19 @@ of the guard (`docs/memory/espn-lineup-write-authority-is-broader-than-team-owne
 | Unit | Issue | Track | Size | Depends on |
 |---|---|---|---|---|
 | W1 Error codes `WRITE_REJECTED`, `WRITE_DIVERGED`, ADR-0010 | #106 | core | s | — |
-| W2 Journal store, `list`, `show` (reversal deferred to W5) | #16 | core | m | W1 |
-| W3 Write transport, `WritingProvider`, ownership guard, role, purge | #107 | espn | m | W1 |
+| W2 Journal store, `list`, `show` (reversal deferred to W5) | #16 | core | m | — (takes any `FantasySportsError`; no W1 type needed) |
+| W3 Write transport, `WritingProvider`, ownership guard, role, purge, credential age | #107 | espn | m | W1 |
 | W4 `lineup set` | #15 | espn | m | W2, W3 |
 | W5 `journal reverse` | #16 | core | s | W3, W4 |
 | W6 Test-league capture brief 06 | #108 | espn | s | John's league; W3 |
-| W7 `add`, `drop`, `claim` | #18 | espn | m | W4 live-proven, W6 |
-| W8 `claims`, `claim cancel` | #109 | espn | s | W6, W7 |
-| W9 Docs pass | #110 | cli | s | all |
+| W7 Surface irreversible writes: `journal digest`, delivery hook | #113 | reports | s | W2 |
+| W8 `add`, `drop`, `claim` | #18 | espn | m | W4 live-proven, W6, W7 |
+| W9 `claims`, `claim cancel` | #109 | espn | s | W8 |
+| W10 Docs pass | #110 | cli | s | all |
 
-Waves: **1** = W1 ‖ W2. **2** = W3. **3** = W4 ‖ W5(store half done). **4** = W6
-as soon as the league exists, then W7 ‖ W8. **5** = W9.
+Waves, each gated on the previous wave's PRs merging: **1** = W1 ‖ W2.
+**2** = W3 ‖ W7. **3** = W4. **4** = W5 ‖ W6 (W6 as soon as the league exists).
+**5** = W8. **6** = W9. **7** = W10.
 
 Every unit is one PR with its own `changes/` file, TDD against injected
 responses and the synthetic cassette, budgets green (ADR-0008), no cassette of
@@ -119,20 +140,28 @@ a private league.
 `CANCEL`: `executionType: "CANCEL"`, `relatedTransactionId`, no items
 (community shape; #108 confirms).
 
-**Success `data`** for every write command (OBJECT):
+**Success `data`** for every write command (OBJECT). `reversible` is per
+kind, decided by the command, never a constant: `true` only for `lineup` while
+the slots are unlocked; `false` for `add`, `drop`, `claim`; a `cancel`
+withdraws a pending claim and is reported `reversible: false` too (you cannot
+un-cancel; you resubmit). The example is a lineup set:
 
 ```json
-{"team_id": "1", "kind": "lineup|add|drop|claim|cancel",
+{"team_id": "1", "kind": "lineup",
  "provider_transaction_id": "<uuid>", "status": "EXECUTED", "is_pending": false,
  "proposed_at": "2026-10-14T18:00:00Z", "items": [...],
- "journal_entry_id": "...", "reversible": true, "irreversible": false,
+ "journal_entry_id": "...", "reversible": true,
+ "acknowledged_irreversible": null,
  "cost": {"bid_amount": null, "displaced_player_id": null},
+ "credentials": {"espn_s2_age_seconds": 86400, "warning": null},
  "read_back": {"verified": true, "diverged": []},
  "dry_run": false}
 ```
 
-`--dry-run` returns the same object with `dry_run: true`, no transaction id, no
-journal id, and a `note` that provider acceptance was not validated.
+A `drop` reports `"reversible": false` and `"acknowledged_irreversible":
+"<the justification passed on the flag>"`. `--dry-run` returns the same object
+with `dry_run: true`, no transaction id, no journal id, `credentials` filled,
+and a `note` that provider acceptance was not validated.
 
 **`WRITE_REJECTED` payload** (brief §5.3):
 
