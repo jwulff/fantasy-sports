@@ -29,5 +29,10 @@ after a cancel. The cancel is a **new** transaction with
 `status: "CANCELED"` and `relatedTransactionId` naming the claim. So a
 `PENDING` row there does not mean the claim is still live.
 
+**Done in #109.** `EspnProvider.fetch_pending_claims` reads
+`mPendingTransactions` and puts the id on `PendingClaim.provider_id`. `claim`'s
+read-back now joins on it, and keeps the details match above only as the
+fallback for a queue that reads empty right after the write.
+
 Related: [[espn-api-is-a-shape-reader-not-a-client]],
 [[a-cancelled-claim-still-reads-pending]]
