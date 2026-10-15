@@ -114,9 +114,7 @@ def notify_irreversible(
     try:
         payload = (json.dumps(entry.to_dict(), ensure_ascii=False) + "\n").encode("utf-8")
         if runner is None:
-            import subprocess
-
-            runner = subprocess.run
+            runner = _run_grouped
         completed = runner(
             command,
             shell=True,  # noqa: S602 - the owner's own configured command line
@@ -136,6 +134,51 @@ def notify_irreversible(
         exit_status=status,
         error=f"notify command exited with status {status}",
     )
+
+
+def _run_grouped(
+    command: str,
+    *,
+    shell: bool,
+    input: bytes,  # noqa: A002 - mirrors subprocess.run
+    capture_output: bool,
+    timeout: float,
+    killpg: Callable[[int, int], None] | None = None,
+) -> Any:
+    """:func:`subprocess.run`, except a timeout kills the whole process group.
+
+    ``subprocess.run`` kills only the shell it started, so a delivery script
+    that spawned a child could fire after we reported a timeout. The command
+    gets its own session, and on timeout the group is sent SIGKILL and reaped
+    before :class:`subprocess.TimeoutExpired` is re-raised. Where there are no
+    process groups (not POSIX) it falls back to plain ``subprocess.run``.
+    """
+    import contextlib
+    import os
+    import signal
+    import subprocess
+
+    if not hasattr(os, "killpg"):  # pragma: no cover - non-POSIX
+        return subprocess.run(
+            command, shell=shell, input=input, capture_output=capture_output, timeout=timeout
+        )
+    kill = killpg or os.killpg
+    with subprocess.Popen(
+        command,
+        shell=shell,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE if capture_output else None,
+        stderr=subprocess.PIPE if capture_output else None,
+        start_new_session=True,
+    ) as proc:
+        try:
+            stdout, stderr = proc.communicate(input, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            with contextlib.suppress(ProcessLookupError):  # it may have just exited
+                kill(proc.pid, signal.SIGKILL)
+            proc.communicate()
+            raise
+    return subprocess.CompletedProcess(command, proc.returncode, stdout, stderr)
 
 
 def _describe(exc: BaseException) -> str:

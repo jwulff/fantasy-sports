@@ -18,6 +18,9 @@
 # The entry on stdin is already redacted; do not add credentials to what you log.
 set -eu
 
+# The log is an audit trail: keep it (and its directory) private to the owner.
+umask 077
+
 state="${XDG_STATE_HOME:-$HOME/.local/state}/fantasy-sports"
 mkdir -p "$state"
 

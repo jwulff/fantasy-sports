@@ -156,6 +156,16 @@ def test_digest_accepts_an_offset_timestamp_and_normalizes_it_to_utc():
     assert early.id not in {row["id"] for row in data}
 
 
+def test_digest_cutoff_rounds_up_to_the_stored_millisecond():
+    """The file keeps milliseconds; a cutoff between two must not admit the earlier one."""
+    (entry,) = _seed_at("2026-10-14T08:00:00.000Z")
+    ids = lambda since: [r["id"] for r in _call("journal digest", since=since).data]  # noqa: E731
+    assert ids("2026-10-14T08:00:00.000999Z") == []
+    assert ids("2026-10-14T08:00:00.000001Z") == []
+    assert ids("2026-10-14T08:00:00.000Z") == [entry.id]
+    assert ids("2026-10-14T07:59:59.999001Z") == [entry.id]
+
+
 def test_digest_a_duration_counts_back_from_now():
     now = datetime.now(UTC)
     stale, fresh = _seed(

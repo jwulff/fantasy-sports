@@ -294,3 +294,47 @@ def test_the_example_script_appends_one_summary_line_per_write(
     cost = '{"bid_amount":7,"displaced_player_id":"9000012"}'
     expected = f"{entry.to_dict()['recorded_at']} claim 1 99 {cost}"
     assert lines == [expected, expected]
+
+
+def test_a_timeout_kills_the_whole_process_group(tmp_path: Path):
+    """``subprocess.run`` would kill only the shell; the child must die too."""
+    import os
+    import time
+
+    from fantasy_sports.reports.notify import _run_grouped
+
+    marker = tmp_path / "fired-late"
+    killed: list[int] = []
+
+    def recording_killpg(pgid: int, sig: int) -> None:
+        killed.append(pgid)
+        os.killpg(pgid, sig)
+
+    with pytest.raises(subprocess.TimeoutExpired):
+        _run_grouped(
+            f"(sleep 1; touch '{marker}') & sleep 30",
+            shell=True,
+            input=b"{}\n",
+            capture_output=True,
+            timeout=0.3,
+            killpg=recording_killpg,
+        )
+    assert len(killed) == 1
+    time.sleep(1.5)
+    assert not marker.exists(), "the grandchild survived the timeout"
+
+
+def test_notify_reports_a_real_timeout_from_the_default_runner(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr("fantasy_sports.reports.notify.NOTIFY_TIMEOUT_SECONDS", 0.3)
+    result = notify_irreversible(_entry(), config=_config("sleep 30"))
+    assert result.ok is False and result.attempted is True
+    assert result.error == "notify command timed out after 0.3s"
+
+
+def test_the_example_script_keeps_its_log_private(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    script = Path(__file__).resolve().parents[2] / "scripts" / "notify-irreversible-example.sh"
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+    assert notify_irreversible(_entry(), config=_config(str(script))).ok is True
+    log = tmp_path / "state" / "fantasy-sports" / "irreversible.log"
+    assert log.stat().st_mode & 0o077 == 0
+    assert log.parent.stat().st_mode & 0o077 == 0

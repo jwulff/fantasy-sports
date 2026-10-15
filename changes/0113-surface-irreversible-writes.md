@@ -55,6 +55,14 @@ is blocked until something pushes these writes at him, so this lands first.
   tolerated. A table of the wrong type is `CONFIG_INVALID` on read and a `warn`
   in `doctor`, because silently ignoring it would leave John believing he would
   be told.
+- **A timeout kills the whole process group.** `subprocess.run(timeout=)`
+  kills only `/bin/sh`, so a hung delivery script's child could fire after we
+  had reported a timeout. The default runner is a `Popen` in its own session
+  that sends SIGKILL to the group on timeout and reaps it. The `runner` seam
+  keeps `subprocess.run`'s signature; only the default changed.
+- **The `--since` cutoff rounds up, never down,** to the stored millisecond,
+  so a cutoff of `.000999Z` cannot admit an entry at `.000Z`.
+- **The example hook sets `umask 077`** so its audit log is not world-readable.
 - **The `--since` window is on `recorded_at`**, when the entry was begun. A
   write begun before the window and closed inside it appears only in the
   earlier window. The help says to overlap windows and de-duplicate on `id`.
