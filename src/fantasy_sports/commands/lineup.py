@@ -47,11 +47,14 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from fantasy_sports.commands.context import open_read, success
+from fantasy_sports.commands.writes import close_entry as _close
+from fantasy_sports.commands.writes import credential_block
+from fantasy_sports.commands.writes import require_owned as _require_owned
+from fantasy_sports.commands.writes import settle as _settle
 from fantasy_sports.core.errors import (
     ConfigInvalidError,
     FantasySportsError,
     WriteDivergedError,
-    WriteRejectedError,
 )
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -65,11 +68,6 @@ DRY_RUN_NOTE = (
     "the roster just read; ESPN has no validate-only mode, so whether it would accept "
     "them was not checked."
 )
-
-_UNKNOWN_CREDENTIALS: Mapping[str, Any] = {
-    "espn_s2_age_seconds": None,
-    "warning": "credential age unknown",
-}
 
 
 def set_lineup(
@@ -330,8 +328,7 @@ def execute_lineup(
         data["reverses"] = reverses
 
     if dry_run:
-        report = getattr(provider, "credential_report", None)
-        data["credentials"] = dict(report() if callable(report) else _UNKNOWN_CREDENTIALS)
+        data["credentials"] = credential_block(provider)
         data["note"] = DRY_RUN_NOTE
         return data
 
@@ -440,29 +437,6 @@ def execute_lineup(
     return data
 
 
-def _require_owned(role: Any, team_id: str) -> None:
-    """The ownership rule, applied before a journal row or a dry-run plan exists.
-
-    The adapter's guard refuses the same write before building a body; this
-    copy stops a refused write from leaving a journal row, and stops
-    ``--dry-run`` from planning a change the tool would never send.
-    """
-    owned = tuple(str(t) for t in (getattr(role, "owned_team_ids", None) or ()))
-    if getattr(role, "member_id", None) is not None and str(team_id) in owned:
-        return
-    listed = ", ".join(owned) or "none"
-    raise WriteRejectedError(
-        f"Refusing to change team {team_id}: the configured session does not own it.",
-        kind="not_owned",
-        team_id=str(team_id),
-        remediation=(
-            f"Teams this session owns in this league: {listed}. Writes to any other team "
-            "are refused regardless of league-manager role."
-        ),
-        details={"owned_team_ids": list(owned)},
-    )
-
-
 def _read_back(
     ctx: ReadContext, team_id: str, target: Mapping[str, str]
 ) -> tuple[dict[str, str | None] | None, str | None]:
@@ -479,36 +453,6 @@ def _read_back(
         return None, exc.code.value
     slots = {str(slot.provider_id): slot.slot for slot in roster}
     return {pid: slots.get(pid) for pid in target}, None
-
-
-def _settle(outcome: FantasySportsError, close: Any, entry_id: str, *args: Any) -> None:
-    """Close the entry for a failed write without losing the write's own error.
-
-    A journal that fails here (a full disk, a lock) must not replace
-    ``outcome``: for a ``WRITE_DIVERGED`` that would hide a write that applied.
-    The journal's failure rides along in ``outcome.details.journal`` and the
-    entry stays ``pending``.
-    """
-    try:
-        close(entry_id, *args)
-    except Exception as exc:  # noqa: BLE001 - the write's outcome is the error to raise
-        outcome._record_detail(
-            "journal",
-            f"entry {entry_id} could not be closed ({type(exc).__name__}); it stays pending",
-        )
-
-
-def _close(
-    journal: Any, entry_id: str, warnings: list[str], *, status: str = "executed", **fields: Any
-) -> None:
-    """Close the journal entry; a failure to do so is a warning, not a lost write."""
-    try:
-        journal.complete(entry_id, status=status, **fields)
-    except Exception as exc:  # noqa: BLE001 - the write happened; say so either way
-        warnings.append(
-            f"The journal entry {entry_id} could not be completed ({type(exc).__name__}); "
-            "it stays 'pending'. ESPN's transaction id above is the record of what applied."
-        )
 
 
 def _argument(
