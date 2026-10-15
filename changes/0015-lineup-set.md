@@ -36,7 +36,7 @@ journal (#16), and the two write codes (#106). The irreversible commands
   league for reads and answers a POST as brief 05 captured ESPN answering.
   `apply` updates the rosters later reads see, `ignore` returns the same 200
   without applying, and `reject` returns p8's 409.
-- **`tests/unit/test_lineup_set.py`** adds 46 offline tests through the real
+- **`tests/unit/test_lineup_set.py`** adds 47 offline tests through the real
   adapter.
 - **`tests/live/test_lineup_set_live.py`** swaps a starter and a bench
   player on the session's own team, reverses the swap, and compares the
