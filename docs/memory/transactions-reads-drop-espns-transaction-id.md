@@ -31,8 +31,12 @@ after a cancel. The cancel is a **new** transaction with
 
 **Done in #109.** `EspnProvider.fetch_pending_claims` reads
 `mPendingTransactions` and puts the id on `PendingClaim.provider_id`. `claim`'s
-read-back now joins on it, and keeps the details match above only as the
-fallback for a queue that reads empty right after the write.
+read-back now joins on it, and the details match above is **gone**, not a
+fallback. Codex on #122 found that a claim cancelled earlier with identical
+details keeps a `PENDING` row in `mTransactions2` forever, so the match took
+that ghost for a new claim and reported `verified: true`. Folding it out
+needs the cancel's `relatedTransactionId` joined to the claim's id, and the
+`transactions` read has neither id. An empty queue is now `verified: null`.
 
 Related: [[espn-api-is-a-shape-reader-not-a-client]],
 [[a-cancelled-claim-still-reads-pending]]

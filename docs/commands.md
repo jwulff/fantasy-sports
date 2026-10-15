@@ -2916,19 +2916,13 @@ The flow is `add`'s, with two differences. ESPN answers a claim
 [`cancel-claim`](#cancel-claim) takes. The read-back therefore looks for that
 id in your team's waiver queue (`view=mPendingTransactions`). Listed is
 `verified: true` with `matched_by: ["provider_transaction_id"]`, an exact
-join that an earlier identical claim cannot satisfy. A queue that lists
-other claims but not this one is `verified: null` with a `note`.
-`read_back.queue_size` says how many claims the team has queued.
-
-Only when the queue reads **empty** right after ESPN answered `PENDING` does
-the read-back fall back to `transactions`. It looks there for a pending
-waiver claim by your team that matches everything you submitted: the player,
-the `--drop`, and the bid, which ESPN records as `0` when none was sent.
-Exactly one match is `verified: true` with `matched_by` naming those fields.
-Several identical pending claims are `verified: null`, because this one
-cannot be told apart from an earlier one. No match is `verified: null` with a
-`note`, never `true`. A timed-out claim is never re-sent, because a second
-claim is a second bid.
+join that an earlier identical claim cannot satisfy. Not listed, whether
+the queue is empty or holds other claims, is `verified: null` with a `note`,
+never `true`. `read_back.queue_size` says how many claims the team has
+queued. `transactions` is never consulted: a cancelled claim's own row there
+keeps reading `PENDING`, so an earlier identical claim, since cancelled,
+would pass for this one. A timed-out claim is never re-sent, because a
+second claim is a second bid.
 
 `cost.bid_amount` is the bid, `null` without one; `cost.displaced_player_id`
 is `--drop`.

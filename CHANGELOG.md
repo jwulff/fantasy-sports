@@ -20,8 +20,9 @@ football API, distributed via `uv tool install fantasy-sports`.
   needed because a cancel spends nothing. It is journaled as kind `cancel`
   with the cancel's own new id as `provider_transaction_id` and the claim's
   as `cancelled_claim_id`, read back against the queue, and not announced.
-  `claim`'s read-back now joins on the claim's id in the queue, falling back
-  to the details match in `transactions` only when the queue reads empty.
+  `claim`'s read-back now joins on the claim's id in the queue; the details
+  match against `transactions` is removed, because a cancelled claim's row
+  there reads `PENDING` forever and could verify a new identical claim.
   New model `PendingClaim`; `WritingProvider` gains `fetch_pending_claims`
   (#109).
 - **`add`, `drop`, and `claim`, the irreversible writes** — `add --team T

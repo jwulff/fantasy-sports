@@ -72,14 +72,20 @@ the shared write helpers).
   accept the cancel, and the captured queue dropped a cancelled claim
   immediately, so a lingering row is more likely lag than a cancel that did
   not apply.
-- **`claim`'s read-back joins on the id now.** The claim's id in the queue is
-  `verified: true` with `matched_by: ["provider_transaction_id"]`. That join
-  is exact, so two identical claims no longer make each other unverifiable.
-  A queue listing other claims but not this one is `verified: null` with a
-  note. The #18 details match against `transactions` is kept only as the
-  fallback for a queue that reads **empty** right after ESPN answered
-  `PENDING`. That is the one case where the queue itself is the doubtful
-  witness. `read_back.queue_size` says which path ran.
+- **`claim`'s read-back joins on the id now, and the details match is
+  removed.** The claim's id in the queue is `verified: true` with
+  `matched_by: ["provider_transaction_id"]`. That join is exact, so two
+  identical claims no longer make each other unverifiable. Not listed is
+  `verified: null` with a note, and `read_back.queue_size` says whether the
+  queue was empty. The first push of this PR kept #18's details match against
+  `transactions` as a fallback for an empty queue. Codex's post-merge finding
+  on #122 showed why that is unsafe: a claim cancelled earlier keeps an
+  identical `PENDING` row in `mTransactions2` forever. With the new claim not
+  yet visible, that ghost was the single match and verified a claim ESPN had
+  not shown. Folding cancelled rows out needs the cancel's
+  `relatedTransactionId` joined to the claim's id, and the `transactions`
+  read carries neither, so the fallback was removed rather than patched. A
+  regression test plays exactly that case.
 - **`claims --team` defaults to the session's own team.** It derives the team
   from `session_role().owned_team_ids`. With none, for example without a
   SWID, or with several, `--team` is required. Reading another team's queue
@@ -89,13 +95,16 @@ the shared write helpers).
   its own id and answers a `CANCEL` the way p5 was captured: a new id,
   `CANCELED`, the claim's items, and `relatedTransactionId`. It keeps the
   claim's `PENDING` row plus the `CANCELED` row in `mTransactions2`, as ESPN
-  did. `pending_view=False` empties only the queue, to drive the fallback.
+  did. `pending_view=False` empties only the queue, to play the stale
+  cancelled row with nothing queued.
 
 ## Validation
 
-- `uv run pytest`: 2050 passed, 19 skipped. Line and branch coverage is 100% on
-  `commands/claims.py` and `commands/moves.py`, and 99% overall. 40 new
-  tests are in `tests/unit/test_claims.py`, and `test_moves.py` gains 6.
+- `uv run pytest`: 2045 passed, 19 skipped. Line and branch coverage is 100%
+  on `commands/claims.py` and `commands/moves.py`, and 99% overall.
+  `tests/unit/test_claims.py` adds 40 tests. `test_moves.py` rewrites its
+  claim read-back tests for the id join and adds the stale-cancelled-row
+  regression from the #122 finding.
 - `ruff check`, `ruff format --check`, `check_budgets.py`,
   `check_startup.py`, and `render_readme_samples.py --check` are all clean.
   The `claims` and `claim-cancel` samples were generated offline through
