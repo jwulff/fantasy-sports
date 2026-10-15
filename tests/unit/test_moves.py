@@ -230,7 +230,14 @@ def test_dry_run_needs_no_flag_and_reports_items_cost_and_what_is_lost(
     espn: WritableEspn, isolated_home: Path
 ):
     data = _claim(drop="2003", bid=12, dry_run=True)["data"]
-    assert set(data) == SUCCESS_KEYS | {"note", "irreversible_because"}
+    assert set(data) == SUCCESS_KEYS | {
+        "note",
+        "irreversible_because",
+        "acquisition_type",
+        "uses_budget",
+    }
+    assert data["uses_budget"] is True
+    assert data["acquisition_type"] is None, "the synthetic league does not say"
     assert data["dry_run"] is True
     assert data["kind"] == "claim"
     assert data["reversible"] is False
@@ -345,7 +352,9 @@ def test_a_drop_sends_one_drop_item_and_the_player_lands_on_waivers(espn: Writab
     ]
     assert data["cost"] == {"bid_amount": None, "displaced_player_id": "2002"}
     assert data["read_back"] == {"verified": True, "diverged": []}
-    assert espn.posts[0]["type"] == "FREEAGENT"
+    # A FREEAGENT envelope must carry exactly one ADD (brief 06), so a drop
+    # alone goes as ROSTER.
+    assert espn.posts[0]["type"] == "ROSTER"
     assert espn.posts[0]["items"] == [{"playerId": 2002, "type": "DROP", "fromTeamId": 1}]
     assert "2002" not in espn.slots()
     (entry,) = _entries()
@@ -375,6 +384,86 @@ def test_a_claim_is_pending_carries_its_bid_and_is_seen_in_transactions(espn: Wr
     assert entry.prior_state == {"roster": {}, "pool": {"3002": "WAIVERS"}}
     assert entry.applied_state is not None and entry.applied_state["is_pending"] is True
     assert entry.request["bid"] == 7
+
+
+def test_a_claim_without_a_bid_sends_no_bid_amount(espn: WritableEspn):
+    """A league with no acquisition budget rejects every bid, even 1 (brief 06)."""
+    payload = _claim(bid=None, acknowledge_irreversible=WHY)
+    data = payload["data"]
+    (body,) = espn.posts
+    assert body["type"] == "WAIVER"
+    assert "bidAmount" not in body
+    assert body["items"] == [{"playerId": 3002, "type": "ADD", "toTeamId": 1}]
+    assert data["is_pending"] is True
+    assert data["cost"] == {"bid_amount": None, "displaced_player_id": None}
+    assert data["read_back"]["verified"] is True
+    (entry,) = _entries()
+    assert "--bid" not in entry.command
+    assert entry.cost["bid_amount"] is None
+
+
+def test_a_bidless_claim_still_needs_the_flag_and_says_what_it_spends(espn: WritableEspn):
+    with pytest.raises(ConfigInvalidError, match="consumes waiver priority"):
+        _claim(bid=None)
+    assert espn.posts == []
+
+
+def _without_budget(espn: WritableEspn) -> None:
+    espn.bootstrap["settings"]["acquisitionSettings"] = {
+        "acquisitionType": "WAIVERS_TRADITIONAL",
+        "isUsingAcquisitionBudget": False,
+    }
+    espn._publish(espn.bootstrap)
+
+
+@pytest.mark.parametrize("dry_run", [False, True])
+def test_a_bid_in_a_league_without_a_budget_is_refused_before_sending(
+    espn: WritableEspn, isolated_home: Path, dry_run: bool
+):
+    _without_budget(espn)
+    with pytest.raises(ConfigInvalidError) as caught:
+        _claim(bid=1, dry_run=dry_run, acknowledge_irreversible=WHY)
+    error = caught.value
+    assert error.message == "This league does not use an acquisition budget; omit --bid."
+    assert error.details["kind"] == "argument"
+    assert error.details["uses_budget"] is False
+    assert error.details["acquisition_type"] == "WAIVERS_TRADITIONAL"
+    assert espn.posts == []
+    assert not _journal_file(isolated_home).exists()
+
+
+def test_a_bidless_claim_in_a_league_without_a_budget_is_sent(espn: WritableEspn):
+    _without_budget(espn)
+    dry = _claim(bid=None, dry_run=True)["data"]
+    assert dry["uses_budget"] is False
+    assert dry["acquisition_type"] == "WAIVERS_TRADITIONAL"
+    _claim(bid=None, acknowledge_irreversible=WHY)
+    (body,) = espn.posts
+    assert body["type"] == "WAIVER" and "bidAmount" not in body
+
+
+def test_a_bid_in_a_league_with_a_budget_is_sent(espn: WritableEspn):
+    assert espn.bootstrap["settings"]["acquisitionSettings"]["isUsingAcquisitionBudget"]
+    _claim(bid=9, acknowledge_irreversible=WHY)
+    assert espn.posts[0]["bidAmount"] == 9
+
+
+def test_acquisition_settings_the_provider_does_not_publish_refuse_nothing():
+    from types import SimpleNamespace
+
+    from fantasy_sports.commands.moves import acquisition_settings
+
+    unknown = {"acquisition_type": None, "uses_budget": None}
+    assert acquisition_settings(SimpleNamespace(raw={})) == unknown
+    assert acquisition_settings(SimpleNamespace()) == unknown
+    assert acquisition_settings(SimpleNamespace(raw={"settings": []})) == unknown
+    odd = {"settings": {"acquisitionSettings": {"isUsingAcquisitionBudget": "no"}}}
+    assert acquisition_settings(SimpleNamespace(raw=odd)) == unknown
+
+
+def test_add_and_drop_dry_runs_do_not_report_acquisition_settings(espn: WritableEspn):
+    for data in (_add(dry_run=True)["data"], _drop(dry_run=True)["data"]):
+        assert "uses_budget" not in data and "acquisition_type" not in data
 
 
 def test_a_zero_bid_is_a_bid(espn: WritableEspn):
@@ -511,6 +600,8 @@ def test_a_team_the_session_does_not_own_is_refused_without_a_journal_row(
         ("TRAN_ROSTER_SLOT_LIMIT_EXCEEDED", "slot_limit"),
         ("TRAN_ROSTER_SAME_SLOT", "same_slot"),
         ("TRAN_INVALID_SCORINGPERIOD_NOT_CURRENT", "not_current_period"),
+        ("TRAN_ROSTER_LIMIT_EXCEEDED_ONE", "roster_full"),
+        ("TRAN_PLAYER_NOT_ON_TEAM", "already_dropped"),
     ],
 )
 def test_a_rejection_the_map_knows_passes_through_with_its_kind(
@@ -532,25 +623,58 @@ def test_a_rejection_the_map_knows_passes_through_with_its_kind(
 
 
 @pytest.mark.parametrize(
-    "provider_type",
+    ("capture", "call", "provider_type", "kind", "message"),
     [
-        # Inferred names for the four #108 is capturing; whatever ESPN really
-        # sends, an unmapped TRAN_* is `unknown` with the string kept verbatim.
-        "TRAN_ACQUISITION_BUDGET_EXCEEDED",
-        "TRAN_ROSTER_POSITION_LIMIT_EXCEEDED",
-        "TRAN_PLAYER_NOT_ON_TEAM",
-        "TRAN_ROSTER_FULL",
+        (
+            "p1-freeagent-add-no-drop",
+            lambda: _add(acknowledge_irreversible=WHY),
+            "TRAN_PLAYER_NOT_FREEAGENT",
+            "player_on_waivers",
+            "is not a free agent",
+        ),
+        (
+            "p2-waiver-claim-no-drop-full-roster",
+            lambda: _claim(acknowledge_irreversible=WHY),
+            "TRAN_ACQUISITION_BUDGET_NOT_SUPPORTED",
+            "unknown",
+            "does not support bids",
+        ),
+        (
+            "p3-waiver-claim-no-bid-no-drop",
+            lambda: _claim(bid=None, acknowledge_irreversible=WHY),
+            "TRAN_ROSTER_LIMIT_EXCEEDED_ONE",
+            "roster_full",
+            "Too many players on roster",
+        ),
+        (
+            "p6c-roster-drop-player-not-on-team",
+            lambda: _drop(acknowledge_irreversible=WHY),
+            "TRAN_PLAYER_NOT_ON_TEAM",
+            "already_dropped",
+            "is not on team",
+        ),
+        (
+            "p6d-freeagent-add-rostered-elsewhere",
+            lambda: _add(drop="2003", acknowledge_irreversible=WHY),
+            "TRAN_PLAYER_NOT_AVAILABLE",
+            "player_unavailable",
+            "is not available",
+        ),
     ],
 )
-def test_an_unmapped_rejection_is_unknown_with_espns_type_verbatim(
-    monkeypatch: pytest.MonkeyPatch, provider_type: str
+def test_a_captured_rejection_passes_through_with_espns_message(
+    monkeypatch: pytest.MonkeyPatch, capture, call, provider_type, kind, message
 ):
-    install_writable_espn(monkeypatch, mode="reject", reject_type=provider_type)
+    """Brief 06's real 409s, replayed. An unmapped type stays ``unknown`` with
+    ESPN's string verbatim; ESPN's message is the remediation, not re-mapped."""
+    install_writable_espn(monkeypatch, mode="reject", reject_capture=capture)
     with pytest.raises(WriteRejectedError) as caught:
-        _claim(acknowledge_irreversible=WHY)
-    assert caught.value.kind == "unknown"
-    assert caught.value.provider_type == provider_type
-    assert caught.value.details["provider_type"] == provider_type
+        call()
+    error = caught.value
+    assert error.kind == kind
+    assert error.provider_type == provider_type
+    assert error.details["provider_type"] == provider_type
+    assert message in (error.remediation or "")
     assert [entry.status for entry in _entries()] == ["rejected"]
 
 

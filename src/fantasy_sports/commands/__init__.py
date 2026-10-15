@@ -723,10 +723,10 @@ register(
             ),
             Param(
                 name="bid",
-                help="FAAB bid, a whole number of 0 or more. Spent only if the claim "
-                "processes; use 0 in a league without a budget.",
-                annotation=int,
-                required=True,
+                help="FAAB bid, a whole number of 0 or more, spent only if the claim "
+                "processes. Omit it in a league without an acquisition budget: ESPN "
+                "rejects any bid there.",
+                annotation=int | None,
             ),
             _DROP_PARAM,
             _ACKNOWLEDGE_PARAM,

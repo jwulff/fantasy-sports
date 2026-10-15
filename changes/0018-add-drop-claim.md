@@ -16,9 +16,10 @@ irreversible write without having to look (R7a). Part of #105.
 - **`commands/moves.py`** adds three top-level OBJECT commands.
   - `add --team T --player P [--drop D] [--slot S]` sends a `FREEAGENT`
     transaction with an `ADD` item, plus a `DROP` item with `--drop`.
-  - `drop --team T --player P` sends one `DROP` item.
-  - `claim --team T --player P --bid N [--drop D]` sends a `WAIVER`
-    transaction with `bidAmount`.
+  - `drop --team T --player P` sends a `ROSTER` transaction with one `DROP`
+    item.
+  - `claim --team T --player P [--bid N] [--drop D]` sends a `WAIVER`
+    transaction, with `bidAmount` only when `--bid` is given.
   - Each takes `--acknowledge-irreversible "<why>"` and `--dry-run`.
     `execute_move` mirrors `execute_lineup`.
 - **`commands/writes.py`** now holds the ownership pre-check and the two
@@ -62,18 +63,45 @@ irreversible write without having to look (R7a). Part of #105.
   this period's `transactions` for a pending waiver claim by the team for that
   player. The read side has no ESPN transaction id (see the memory note). A
   match is `verified: true` with `matched_by`. No match is `verified: null`
-  with a note, never `true`.
+  with a note, never `true`. A match proves only that the claim was queued:
+  a later cancel is a new transaction, and the claim's own `mTransactions2`
+  row keeps reading `PENDING`.
 - **Notify runs with the stored entry after it closes.** That covers
   `executed`, the read-back `diverged`, and the identity `diverged` raised by
   the adapter. On a `WRITE_DIVERGED` the result rides in `details.notified`,
   since there is no `data`. A rejected write is not announced. An entry whose
   `complete()` failed stays `pending` and is not announced: `notified` says so,
   and `doctor` reports the row.
-- **Rejections pass through unchanged.** `_TRAN_KINDS` is not amended here.
-  #108 is confirming the add/drop/claim kinds and may land that map
-  separately. The tests cover each of the four mapped kinds, and four inferred
-  names for the unconfirmed ones each come out `unknown` with ESPN's type
-  verbatim.
+- **Built against #108's captures (#121).** The first push used the
+  community shapes. After #121 merged, the follow-up commit aligns with what
+  the test league answered:
+  - `--bid` became optional, and `claim` calls `move_players(waiver=True)`.
+    A league without an acquisition budget rejects every bid, even `1`, as
+    `TRAN_ACQUISITION_BUDGET_NOT_SUPPORTED`, so a bidless claim sends no
+    `bidAmount`. `cost.bid_amount` is then `null`.
+  - A drop goes as `ROSTER`, because `FREEAGENT` requires exactly one `ADD`.
+    The adapter picks the envelope, and the tests assert the bodies.
+- **Two new `WRITE_REJECTED` kinds, decided for #18.** `TRAN_PLAYER_NOT_FREEAGENT`
+  is `player_on_waivers`: the re-plan is to claim instead.
+  `TRAN_PLAYER_NOT_AVAILABLE` is `player_unavailable`: the player is on
+  another roster, so pick someone else. Neither re-plan fits an existing
+  kind, so `unknown` would have hidden it. ADR-0010's Decision section is
+  amended with the date. By the ADR's own terms, a vocabulary edit is not an
+  API change.
+- **A FAAB preflight instead of a third kind.** `claim --bid` reads
+  `settings.acquisitionSettings.isUsingAcquisitionBudget` from the league
+  the read already memoised, so it costs no request. When the flag is
+  `false`, the bid is refused with `CONFIG_INVALID` before anything is sent,
+  in `--dry-run` too. `TRAN_ACQUISITION_BUDGET_NOT_SUPPORTED` therefore stays
+  `unknown`: it can only arrive if the setting changed between the read and
+  the write. A claim's dry run reports `acquisition_type` and `uses_budget`,
+  both `null` when ESPN omits them, and `null` refuses nothing.
+- **Rejections pass through unchanged.** `_TRAN_KINDS` comes from #121. Five
+  of its captured 409s are replayed verbatim. They map to `roster_full`,
+  `already_dropped`, `player_on_waivers`, `player_unavailable`, and
+  `unknown` for `TRAN_ACQUISITION_BUDGET_NOT_SUPPORTED`. ESPN's type and
+  message pass through verbatim. The other
+  mapped kinds are covered by relabelling p8's body.
 - **The helpers moved to `commands/writes.py` rather than being imported as
   private names from `lineup.py`.** One command importing another's
   underscored functions is a coupling that breaks quietly on rename.
@@ -85,13 +113,13 @@ irreversible write without having to look (R7a). Part of #105.
 
 ## Validation
 
-- `uv run pytest`: 1942 passed, 18 skipped. Line and branch coverage is 100%
+- `uv run pytest` (on the first push): 1942 passed, 18 skipped. Line and branch coverage is 100%
   on `commands/moves.py`, `commands/writes.py`, and `commands/lineup.py`, and
   99% overall.
 - `ruff check`, `ruff format --check`, `check_budgets.py`,
   `check_startup.py`, and `render_readme_samples.py --check` are all clean.
 - **No live write was sent.** The test league's pool is all on waivers until
-  Thursday league-hour 11, so a `FREEAGENT` add cannot execute yet. The #108
-  capture of the add/drop/claim shapes is still in progress. The request
-  bodies here are the community-attested shapes `move_players` already sends
-  (brief §10), and the harness answers them the same way. #108 replaces both.
+  Thursday league-hour 11, so a `FREEAGENT` add cannot execute yet. The
+  request bodies are the ones #121 captured, sent by the adapter #121
+  amended. The harness replays #121's rejection captures verbatim, but its
+  success answers are hand-built in the same shape.

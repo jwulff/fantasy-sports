@@ -252,7 +252,8 @@ tell them apart without a second exit status to branch on.
 **`WRITE_REJECTED` is one code with a closed `details.kind`, not one code per
 reason (ADR-0010).** `kind` is one of `roster_lock`, `slot_limit`, `same_slot`,
 `not_current_period`, `budget_exceeded`, `position_limit`, `already_dropped`,
-`roster_full`, `not_owned`, `auth`, `unknown`. The payload also carries
+`roster_full`, `player_on_waivers`, `player_unavailable`, `not_owned`, `auth`,
+`unknown`. The payload also carries
 `provider_type` (ESPN's `TRAN_*` string verbatim, so a reason we have not
 mapped is reported as `unknown` rather than lost), `http_status`, `team_id`,
 and `transaction_applied`. `not_owned` is ours, not ESPN's: the client-side

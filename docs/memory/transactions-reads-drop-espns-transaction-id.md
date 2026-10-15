@@ -18,10 +18,13 @@ player, and `raw.status == "PENDING"`**, reports `matched_by`, and returns
 same player by the same team would satisfy that match; an id join would not.
 
 **For #109:** a `claims` command that lists pending claims *by id*, which is
-what `claim cancel` takes, has to read `mTransactions2` itself (its `id` is in
-the body; the adapter's `raw` and `last_fetch` hold it) rather than go through
-`league.transactions()`. Do that inside the adapter, and normalize the id
-onto the row, so the command layer never parses ESPN's body. The `"PENDING"`
-status string is inferred, not captured; #108 confirms it.
+what `claim cancel` takes, has to read ESPN's body itself rather than go
+through `league.transactions()`. Do it inside the adapter, and normalize the
+id onto the row, so the command layer never parses ESPN's body. Prefer
+`view=mPendingTransactions` (#121 captured it): a cancelled claim leaves it
+at once. In `mTransactions2`, the claim's own row keeps reading `PENDING`
+after a cancel. The cancel is a **new** transaction with
+`status: "CANCELED"` and `relatedTransactionId` naming the claim. So a
+`PENDING` row there does not mean the claim is still live.
 
 Related: [[espn-api-is-a-shape-reader-not-a-client]]

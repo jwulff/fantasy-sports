@@ -23,6 +23,7 @@ rather than quietly reaching ESPN.
 from __future__ import annotations
 
 import json
+import json as json_module
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -187,6 +188,7 @@ def isolate_home(tmp_path: Path, monkeypatch: Any) -> Path:
 UNLOCKED_AT = "2026-09-10T12:00:00+00:00"
 
 WRITE_CAPTURES = Path(__file__).resolve().parents[1] / "docs" / "research" / "05-espn-write-surface"
+ADD_DROP_CAPTURES = WRITE_CAPTURES.parent / "06-espn-add-drop-surface"
 
 #: Fixed so a write's success payload is byte-stable across runs.
 TRANSACTION_ID = "5d0c6e2a-7f41-4b9e-a3c8-1e6f2b9d4a70"
@@ -225,12 +227,14 @@ class WritableEspn(RecordedEspn):
       roster does not change; a ``CANCEL`` withdraws the queued claim it names.
     * ``"ignore"`` — the same 200, but nothing changes, so a read-back diverges;
     * ``"reject"`` — a 409. By default ``p8-locked-player-move``'s
-      ``TRAN_LINEUP_LOCKED``; ``reject_type`` substitutes another ``TRAN_*``
-      type in the same body, for the rejections #108 has not captured yet.
+      ``TRAN_LINEUP_LOCKED``; ``reject_capture`` names a capture in
+      ``06-espn-add-drop-surface/`` to replay instead (#108), and
+      ``reject_type`` substitutes another ``TRAN_*`` type in the p8 body.
 
-    The ``FREEAGENT``/``WAIVER``/``CANCEL`` answers are this harness's reading
-    of the community-attested shapes (brief §10), not captures; #108 replaces
-    them. ``posts`` records every request body sent. ``echo_member`` replaces
+    A drops-only body arrives as ``ROSTER`` with ``DROP`` items and is applied
+    by item type, as ESPN does (brief 06). The success answers follow brief
+    06's captures in shape: a claim is ``PENDING`` with ``bidAmount`` echoed
+    (``0`` when none was sent). ``posts`` records every request body sent. ``echo_member`` replaces
     the ``memberId`` ESPN echoes, to play a write applied as another account.
     ``show_pending`` off hides queued claims from ``mTransactions2``, as an
     ESPN that did not list them would.
@@ -253,12 +257,14 @@ class WritableEspn(RecordedEspn):
         mode: str = "apply",
         echo_member: str | None = None,
         reject_type: str | None = None,
+        reject_capture: str | None = None,
         show_pending: bool = True,
     ) -> None:
         super().__init__()
         self.mode = mode
         self.echo_member = echo_member
         self.reject_type = reject_type
+        self.reject_capture = reject_capture
         self.show_pending = show_pending
         self.posts: list[dict[str, Any]] = []
         self.pending: list[dict[str, Any]] = []
@@ -323,6 +329,11 @@ class WritableEspn(RecordedEspn):
     def post(self, url: str, json: Any = None, **_: Any) -> FakeResponse:  # noqa: A002
         body = json if json is not None else {}
         self.posts.append(body)
+        if self.mode == "reject" and self.reject_capture is not None:
+            capture = json_module.loads(
+                (ADD_DROP_CAPTURES / f"{self.reject_capture}.json").read_text(encoding="utf-8")
+            )
+            return FakeResponse(capture["response"]["body"], status_code=409)
         if self.mode == "reject":
             capture = _load_capture("p8-locked-player-move")
             answer = _json_copy(capture["response"]["body"])

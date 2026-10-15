@@ -2547,7 +2547,10 @@ What happens, in order:
    player's slot, and the added player's pool status, **before** the request.
 6. One POST for the league's current scoring period. A rejection is
    `WRITE_REJECTED` with ESPN's `TRAN_*` type verbatim in
-   `details.provider_type`; a type this tool has not mapped yet is
+   `details.provider_type`. Two kinds carry their own re-plan:
+   `player_on_waivers` (claim instead) and `player_unavailable` (the player
+   is on another roster; pick someone else). A type this tool has not mapped
+   yet is
    `details.kind` `unknown`, never dropped. A timeout is
    `PROVIDER_UNAVAILABLE` with `details.transaction_state` `unknown`, is
    never retried, and leaves the entry `pending`: read `transactions` before
@@ -2783,8 +2786,8 @@ fantasy-sports add --team 1 --player 'Barbara Liskov' --drop 'Katherine Johnson'
 
 ### `drop`
 
-Releases a player from **your own team** (a `FREEAGENT` transaction with one
-`DROP` item). **Irreversible**: the player goes to waivers and can be claimed
+Releases a player from **your own team** (a `ROSTER` transaction with one
+`DROP` item; ESPN accepts `FREEAGENT` only with exactly one `ADD`). **Irreversible**: the player goes to waivers and can be claimed
 by any team; re-adding is a separate add, and only if nobody claims the player first.
 `--player` is a player id or a name unique on your roster.
 
@@ -2889,15 +2892,21 @@ Without `--acknowledge-irreversible` it sends nothing; the refusal is in
 
 ### `claim`
 
-Submits a waiver claim for a player on waivers, with a FAAB bid, optionally
-naming the player to drop if it processes (a `WAIVER` transaction with
-`bidAmount`). **Irreversible once processed**: a processed claim consumes
+Submits a waiver claim for a player on waivers, optionally with a FAAB bid
+and the player to drop if it processes (a `WAIVER` transaction, with
+`bidAmount` only when `--bid` is given). **Irreversible once processed**: a processed claim consumes
 waiver priority, and FAAB where the league uses it, and restoring the roster
 later gives neither back.
 
 `--player` must be in this week's pool with ESPN status on waivers; a free
-agent is refused (use `add`). `--bid` is a whole number of 0 or more. `--drop`
-is as for `add`.
+agent is refused (use `add`). `--bid` is a whole number of 0 or more. Omit it
+in a league without an acquisition budget: ESPN rejects any bid there, even
+`1`, as `TRAN_ACQUISITION_BUDGET_NOT_SUPPORTED`. The command reads the
+league's `acquisitionSettings` from the read it already made, and refuses a
+`--bid` in such a league with `CONFIG_INVALID` before anything is sent. A
+claim's `--dry-run` reports `acquisition_type` and `uses_budget`, `null` when
+ESPN does not say, so an agent learns the rule without a failed attempt.
+`--drop` is as for `add`.
 
 The flow is `add`'s, with two differences. ESPN answers a claim
 `is_pending: true`: nothing changes on the roster until waivers process, and
@@ -2906,16 +2915,19 @@ read-back therefore looks in this period's `transactions` for a pending
 waiver claim by your team for that player. Finding one is `verified: true`
 with `matched_by`. Not finding one is `verified: null` with a `note`, never
 `true`: `transactions` does not carry ESPN's transaction ids, so a claim it
-does not list is unverified, not missing. A timed-out claim is never re-sent,
+does not list is unverified, not missing. A match proves the claim was
+queued and nothing later: a cancel is a new transaction, and the claim's own
+row keeps reading `PENDING` after it. A timed-out claim is never re-sent,
 because a second claim is a second bid.
 
-`cost.bid_amount` is the bid; `cost.displaced_player_id` is `--drop`.
+`cost.bid_amount` is the bid, `null` without one; `cost.displaced_player_id`
+is `--drop`.
 
 | Option | |
 |---|---|
 | `--team` | Your team's id or name. Required |
 | `--player` | The player on waivers to claim. Required |
-| `--bid` | FAAB bid, 0 or more. Required |
+| `--bid` | FAAB bid, 0 or more. Omit in a league without a budget |
 | `--drop` | A player on your roster to release if the claim processes |
 | `--acknowledge-irreversible` | Why. Required to send; not needed with `--dry-run` |
 | `--dry-run` | Report items, cost, and what cannot be undone; send and journal nothing |
@@ -2931,50 +2943,50 @@ fantasy-sports claim --team 1 --player 'Radia Perlman' --bid 7 --dry-run
   "provider": "espn",
   "league_id": "99",
   "season": 2026,
-  "generated_at": "2026-10-15T07:03:29Z",
+  "generated_at": "2026-10-15T07:13:19Z",
   "data_as_of": "2026-09-10T12:00:00Z",
-  "data_age_seconds": 3006209,
+  "data_age_seconds": 3006799,
   "sources": [
     {
       "name": "mTeam+mRoster+mMatchup+mSettings+mStandings",
       "fetched_at": "2026-09-10T12:00:00Z",
-      "age_seconds": 3006209,
+      "age_seconds": 3006799,
       "cached": false
     },
     {
       "name": "players_wl",
       "fetched_at": "2026-09-10T12:00:00Z",
-      "age_seconds": 3006209,
+      "age_seconds": 3006799,
       "cached": false
     },
     {
       "name": "proTeamSchedules_wl",
       "fetched_at": "2026-09-10T12:00:00Z",
-      "age_seconds": 3006209,
+      "age_seconds": 3006799,
       "cached": false
     },
     {
       "name": "mDraftDetail",
       "fetched_at": "2026-09-10T12:00:00Z",
-      "age_seconds": 3006209,
+      "age_seconds": 3006799,
       "cached": false
     },
     {
       "name": "kona_player_info",
       "fetched_at": "2026-09-10T12:00:00Z",
-      "age_seconds": 3006209,
+      "age_seconds": 3006799,
       "cached": false
     },
     {
       "name": "mPositionalRatings",
       "fetched_at": "2026-09-10T12:00:00Z",
-      "age_seconds": 3006209,
+      "age_seconds": 3006799,
       "cached": false
     },
     {
       "name": "mNav",
       "fetched_at": "2026-09-10T12:00:00Z",
-      "age_seconds": 3006209,
+      "age_seconds": 3006799,
       "cached": false
     }
   ],
@@ -3010,6 +3022,8 @@ fantasy-sports claim --team 1 --player 'Radia Perlman' --bid 7 --dry-run
     "notified": null,
     "dry_run": true,
     "irreversible_because": "A processed claim for Radia Perlman (3002) consumes waiver priority (and FAAB where enabled), and restoring the roster later gives neither back.",
+    "acquisition_type": null,
+    "uses_budget": true,
     "note": "Dry run: nothing was sent and nothing was journaled. The items were computed from the roster and free-agent pool just read; ESPN has no validate-only mode, so whether it would accept them (roster size, position limits, budget, waiver order) was not checked. A real run needs --acknowledge-irreversible."
   },
   "error": null

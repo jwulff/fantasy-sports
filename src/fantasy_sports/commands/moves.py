@@ -172,7 +172,7 @@ def claim_player(
     *,
     team: str,
     player: str,
-    bid: int,
+    bid: int | None = None,
     acknowledge_irreversible: str | None = None,
     drop: str | None = None,
     dry_run: bool = False,
@@ -181,11 +181,15 @@ def claim_player(
     fresh: bool = False,
     no_cache: bool = False,
 ) -> Envelope:
-    """Submit a waiver claim with a bid, optionally naming the player to drop.
+    """Submit a waiver claim, with a FAAB bid where the league has a budget,
+    optionally naming the player to drop.
 
-    ``data`` has the same keys as :func:`add_player`, with ``kind`` ``"claim"``;
-    ``is_pending`` is true and ``provider_transaction_id`` is the id a later
-    ``claim cancel`` takes.
+    ``bid`` is omitted for a league without an acquisition budget: ESPN
+    rejects every bid there, even ``1``, as
+    ``TRAN_ACQUISITION_BUDGET_NOT_SUPPORTED``, so no ``bidAmount`` is sent.
+    ``data`` has the same keys as :func:`add_player`, with ``kind``
+    ``"claim"``; ``is_pending`` is true and ``provider_transaction_id`` is the
+    id a later ``claim cancel`` takes.
     """
     del fresh
     command = _argv("claim", team=team, player=player, drop=drop, bid=bid)
@@ -245,7 +249,8 @@ def _run(
 
     provider = ctx.provider
     team_id = resolve_team_id(provider.fetch_teams(*ctx.target), team)
-    period = getattr(provider.fetch_league(*ctx.target), "current_week", None)
+    league_info = provider.fetch_league(*ctx.target)
+    period = getattr(league_info, "current_week", None)
     roster = provider.fetch_roster(*ctx.target, team_id)
     pool = provider.fetch_free_agents(*ctx.target, period, None) if player is not None else []
     data = execute_move(
@@ -262,8 +267,28 @@ def _run(
         command=command,
         dry_run=dry_run,
         scoring_period=period,
+        acquisition=acquisition_settings(league_info),
     )
     return success(ctx, data, command=kind)
+
+
+def acquisition_settings(league: Any) -> dict[str, Any]:
+    """``{"acquisition_type", "uses_budget"}`` from the league the read already holds.
+
+    ESPN's ``settings.acquisitionSettings`` rides in the bootstrap, so this
+    costs no request. Either value is ``None`` when the provider does not say,
+    and ``None`` refuses nothing.
+    """
+    raw = getattr(league, "raw", None)
+    settings = raw.get("settings") if isinstance(raw, Mapping) else None
+    found = settings.get("acquisitionSettings") if isinstance(settings, Mapping) else None
+    found = found if isinstance(found, Mapping) else {}
+    uses = found.get("isUsingAcquisitionBudget")
+    kind = found.get("acquisitionType")
+    return {
+        "acquisition_type": kind if isinstance(kind, str) else None,
+        "uses_budget": uses if isinstance(uses, bool) else None,
+    }
 
 
 # --------------------------------------------------------------------------- #
@@ -495,6 +520,7 @@ def execute_move(
     command: Sequence[str],
     dry_run: bool,
     scoring_period: int | None = None,
+    acquisition: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Preflight, gate, journal, send, read back, and announce one irreversible move.
 
@@ -504,6 +530,17 @@ def execute_move(
     role = provider.session_role(*ctx.target)
     require_owned(role, team_id)
     plan = plan_move(kind, roster=roster, pool=pool, player=player, drop=drop, slot=slot, bid=bid)
+    acquisition = dict(acquisition or {"acquisition_type": None, "uses_budget": None})
+    if kind == "claim" and plan.bid is not None and acquisition.get("uses_budget") is False:
+        # ESPN rejects every bid in such a league, even 1, as
+        # TRAN_ACQUISITION_BUDGET_NOT_SUPPORTED (brief 06). Refused here, so
+        # the agent learns it without a rejected transaction on the record.
+        raise _argument(
+            "This league does not use an acquisition budget; omit --bid.",
+            "Run the claim again without --bid. The claim is decided by waiver order "
+            "alone in this league.",
+            details={"bid": plan.bid, **acquisition},
+        )
 
     data: dict[str, Any] = {
         "team_id": str(team_id),
@@ -525,6 +562,8 @@ def execute_move(
     if dry_run:
         data["credentials"] = credential_block(provider)
         data["irreversible_because"] = plan.irreversible_because
+        if kind == "claim":
+            data.update(acquisition)
         data["note"] = DRY_RUN_NOTE
         return data
 
@@ -574,7 +613,12 @@ def execute_move(
         data["journal_entry_id"] = entry.id
         try:
             result = provider.move_players(
-                *ctx.target, str(team_id), adds=plan.adds, drops=plan.drops, bid=plan.bid
+                *ctx.target,
+                str(team_id),
+                adds=plan.adds,
+                drops=plan.drops,
+                bid=plan.bid,
+                waiver=kind == "claim",
             )
         except WriteDivergedError as exc:
             # Applied, perhaps as another account: record what ESPN echoed,
@@ -688,7 +732,9 @@ def _pending_read_back(
 
     The normalized transaction carries no ESPN transaction id (``espn-api``
     drops it), so the match is a pending waiver claim by this team for the
-    claimed player. Seeing one is ``verified: true``; not seeing one is
+    claimed player. It proves the claim was queued, nothing later: a cancel
+    is a new transaction and the claim's own ``mTransactions2`` row keeps
+    reading ``PENDING`` after it. Seeing one is ``verified: true``; not seeing one is
     ``verified: null`` with a note, because a pending row ESPN does not show
     and a claim that is missing look the same from here.
     """
