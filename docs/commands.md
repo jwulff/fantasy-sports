@@ -2309,9 +2309,10 @@ What happens, in order:
    request. A journal that cannot be written stops the write.
 6. One POST for the league's current scoring period. There is no `--week`:
    ESPN accepts a lineup write only for the current period. A rejection is
-   `WRITE_REJECTED` (the entry closes `rejected`); a timeout is
-   `PROVIDER_UNAVAILABLE` with `details.transaction_state` of `unknown` and
-   the entry stays `pending`, because nobody knows whether it applied.
+   `WRITE_REJECTED`, and any failure known not to have sent closes the entry
+   `rejected`. A timeout is `PROVIDER_UNAVAILABLE` with
+   `details.transaction_state` of `unknown`, and the entry stays `pending`,
+   because nobody knows whether it applied.
 7. **Read-back**: the roster is re-read live and compared slot for slot for
    every named player. A mismatch is `WRITE_DIVERGED`, with the differing
    players in `details.diverged` and the transaction and journal ids

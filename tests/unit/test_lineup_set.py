@@ -384,6 +384,53 @@ def test_a_write_whose_outcome_is_unknown_leaves_the_entry_pending(
         assert [e.id for e in journal.pending()] == [entry.id]
 
 
+def test_a_roster_that_moved_before_the_adapter_reread_closes_the_entry_rejected(
+    espn: WritableEspn,
+):
+    """The adapter re-reads ``mRoster`` live and finds 2003 already in place,
+    so it refuses an empty diff before any POST. A known no-send is not an
+    unknown outcome: the entry closes ``rejected``, never ``pending``."""
+    import copy
+
+    moved = copy.deepcopy(espn.bootstrap)
+    team = next(t for t in moved["teams"] if t["id"] == 1)
+    next(e for e in team["roster"]["entries"] if e["playerId"] == 2003)["lineupSlotId"] = FLEX
+    espn.overrides["mRoster"] = moved
+    with pytest.raises(ConfigInvalidError, match="nothing to send"):
+        _set("2003=RB/WR/TE")
+    assert espn.posts == []
+    (entry,) = _entries()
+    assert entry.status == "rejected"
+    assert entry.error is not None and entry.error["code"] == "CONFIG_INVALID"
+    with Journal.open() as journal:
+        assert journal.pending() == []
+
+
+@pytest.mark.parametrize(
+    ("mode", "closer", "raised"),
+    [
+        ("reject", "reject", WriteRejectedError),
+        ("identity", "diverge", WriteDivergedError),
+    ],
+)
+def test_a_journal_that_fails_to_close_never_replaces_the_write_outcome(
+    monkeypatch: pytest.MonkeyPatch, mode: str, closer: str, raised: type
+):
+    if mode == "identity":
+        install_writable_espn(monkeypatch, echo_member="{9F8E7D6C-5B4A-3928-1706-F5E4D3C2B1A0}")
+    else:
+        install_writable_espn(monkeypatch, mode="reject")
+
+    def broken(self: Journal, *_: Any, **__: Any) -> Any:
+        raise OSError("database is locked")
+
+    monkeypatch.setattr(Journal, closer, broken)
+    with pytest.raises(raised) as caught:
+        _set("2003=RB/WR/TE")
+    assert "could not be closed (OSError)" in caught.value.details["journal"]
+    assert [entry.status for entry in _entries()] == ["pending"]
+
+
 def test_a_journal_that_cannot_be_written_stops_the_write(espn: WritableEspn, isolated_home: Path):
     state = isolated_home / "state" / "fantasy-sports"
     state.mkdir(parents=True)

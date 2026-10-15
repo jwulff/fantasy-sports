@@ -447,10 +447,14 @@ layer owns the flow; the adapter owns the wire:
    between surfaces there or in the read-back.
 3. Check ownership against `session_role` again, so a refused team leaves no
    journal row and `--dry-run` never plans for a team the tool will not write.
-4. `Journal.begin` with the prior slots, then one `set_lineup` call. A
-   `WRITE_REJECTED` closes the entry `rejected`; an identity
-   `WRITE_DIVERGED` closes it `diverged`; anything else leaves it `pending`,
-   because nothing says whether it applied.
+4. `Journal.begin` with the prior slots, then one `set_lineup` call. An
+   identity `WRITE_DIVERGED` closes the entry `diverged`. A failure the
+   adapter marks `transaction_state: "unknown"` (a timeout, a 5xx, an
+   unreadable 200), or one outside the taxonomy, leaves it `pending`, because
+   nothing says whether it applied. Any other taxonomy error, such as ESPN's
+   409 or the adapter's live re-read finding the roster moved, is a known
+   no-send and closes it `rejected`. A journal that fails to close never
+   replaces the write's own error; it rides along in `details.journal`.
 5. Read back live and compare slot for slot. A match closes the entry
    `executed` with ESPN's transaction id, `proposedDate`, and the echoed
    member. A mismatch closes it `diverged` with what was observed, and raises

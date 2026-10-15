@@ -36,7 +36,7 @@ journal (#16), and the two write codes (#106). The irreversible commands
   league for reads and answers a POST as brief 05 captured ESPN answering.
   `apply` updates the rosters later reads see, `ignore` returns the same 200
   without applying, and `reject` returns p8's 409.
-- **`tests/unit/test_lineup_set.py`** adds 47 offline tests through the real
+- **`tests/unit/test_lineup_set.py`** adds 50 offline tests through the real
   adapter.
 - **`tests/live/test_lineup_set_live.py`** swaps a starter and a bench
   player on the session's own team, reverses the swap, and compares the
@@ -70,13 +70,20 @@ journal (#16), and the two write codes (#106). The irreversible commands
 - **An identity divergence from the adapter uses `diverge()`.** Its applied
   state is `{"items": …}` verbatim from the error's details, because the
   command cannot name ESPN slot ids.
-- **Any other exception leaves the entry `pending`.** A timeout says nothing
-  about whether the write applied, and `rejected` would claim it did not.
+- **Only an unknown outcome leaves the entry `pending`.** The adapter marks
+  every failure that may have applied with `transaction_state: "unknown"`:
+  a timeout, a 5xx, or an unreadable 200. Those failures, and exceptions
+  outside the taxonomy, leave the row `pending`, because `rejected` would
+  claim nothing applied. Every other taxonomy error from the provider call
+  is a known no-send and closes the entry `rejected`. Examples are ESPN's
+  409, a 429, and the adapter's live re-read finding that the roster moved.
 - **A failed read-back is an unverified success.** ESPN executed the write,
   and the agent needs the transaction id. `read_back.verified` is false, and
   `warnings` says to read the roster.
 - **A journal that cannot be completed is a warning.** The write already
-  happened, and the entry stays `pending`, which `doctor` reports.
+  happened, and the entry stays `pending`, which `doctor` reports. A
+  journal that fails while recording a *failed* write never replaces that
+  write's error. Its failure is added to `details.journal` instead.
 - **`warnings` and `note` appear only when they apply.** Every key in the
   plan's success shape is always present.
 - **`journal reverse` reverses only executed or diverged lineup entries.**
@@ -92,9 +99,21 @@ journal (#16), and the two write codes (#106). The irreversible commands
   leaves it alone, and secret redaction then blanks it out of `mNav`, so the
   session would own nothing.
 
+## Review fixes (Codex on PR #120)
+
+- **A journal failure no longer masks the write's outcome.** `reject` or
+  `diverge` failing after ESPN answered used to raise the journal's
+  `CONFIG_INVALID` in place of `WRITE_REJECTED` or `WRITE_DIVERGED`, and the
+  second hides a write that applied. The original error is raised now, with
+  `details.journal` saying the entry could not be closed.
+- **A known no-send closes the entry `rejected`.** The adapter re-reads the
+  roster live before it sends. When it refuses because the roster moved, the
+  entry used to stay `pending`, as if the outcome were unknown. Only
+  failures marked `transaction_state: "unknown"` leave it `pending` now.
+
 ## Validation
 
-- `uv run pytest`: 1766 passed, 17 skipped. Line and branch coverage is
+- `uv run pytest`: 1835 passed, 17 skipped (after merging #119). Line and branch coverage is
   100% on `commands/lineup.py` and `commands/journal.py`, and 99% overall.
 - `ruff check`, `ruff format --check`, `check_budgets.py`,
   `check_startup.py`, and `render_readme_samples.py --check` are all clean.

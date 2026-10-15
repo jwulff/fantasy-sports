@@ -361,13 +361,21 @@ def execute_lineup(
         data["journal_entry_id"] = entry.id
         try:
             result = provider.set_lineup(*ctx.target, str(team_id), dict(target))
-        except WriteRejectedError as exc:
-            journal.reject(entry.id, exc)
-            raise
         except WriteDivergedError as exc:
-            journal.diverge(entry.id, {"items": list(exc.details.get("items") or [])}, exc)
+            # Applied, perhaps as another account: record what ESPN echoed.
+            items = list(exc.details.get("items") or [])
+            _settle(exc, journal.diverge, entry.id, {"items": items}, exc)
             raise
-        # Anything else -- a timeout, an unclassified failure -- leaves the
+        except FantasySportsError as exc:
+            # The adapter marks every failure that may have applied with
+            # `transaction_state: "unknown"` (a timeout, a 5xx, an unreadable
+            # 200). Anything else is a known no-send or a refusal -- ESPN's 409,
+            # or the adapter's own live re-read finding the roster moved -- so
+            # nothing applied and the entry closes `rejected`.
+            if exc.details.get("transaction_state") != "unknown":
+                _settle(exc, journal.reject, entry.id, exc)
+            raise
+        # An unknown outcome, or an exception outside the taxonomy, leaves the
         # entry `pending`: nothing says whether it applied, and a pending row
         # is exactly that statement. `doctor` reports it.
 
@@ -471,6 +479,23 @@ def _read_back(
         return None, exc.code.value
     slots = {str(slot.provider_id): slot.slot for slot in roster}
     return {pid: slots.get(pid) for pid in target}, None
+
+
+def _settle(outcome: FantasySportsError, close: Any, entry_id: str, *args: Any) -> None:
+    """Close the entry for a failed write without losing the write's own error.
+
+    A journal that fails here (a full disk, a lock) must not replace
+    ``outcome``: for a ``WRITE_DIVERGED`` that would hide a write that applied.
+    The journal's failure rides along in ``outcome.details.journal`` and the
+    entry stays ``pending``.
+    """
+    try:
+        close(entry_id, *args)
+    except Exception as exc:  # noqa: BLE001 - the write's outcome is the error to raise
+        outcome._record_detail(
+            "journal",
+            f"entry {entry_id} could not be closed ({type(exc).__name__}); it stays pending",
+        )
 
 
 def _close(
