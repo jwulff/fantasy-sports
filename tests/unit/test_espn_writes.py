@@ -119,6 +119,12 @@ class ReplayHttp:
             for interaction in document["interactions"]
         }
         self.overrides = dict(overrides or {})
+        # No cassette records a standalone current-period mRoster; the
+        # bootstrap carries the same teams[].roster shape, so serve that.
+        self.bootstrap = json.loads(
+            next(body for key, body in self.bodies.items() if ("view", "mMatchupScore") in key[1])
+        )
+        self.overrides.setdefault("mRoster", self.bootstrap)
         self.views: list[str] = []
 
     def __call__(self, url: str, params=None, headers=None, cookies=None) -> FakeResponse:
@@ -129,7 +135,8 @@ class ReplayHttp:
         view = dict(pairs).get("view")
         self.views.append(str(view))
         if view in self.overrides:
-            return FakeResponse(body=self.overrides[view])
+            override = self.overrides[view]
+            return FakeResponse(body=override(dict(pairs)) if callable(override) else override)
         body = self.bodies.get(_key(url, pairs))
         if body is None:
             raise AssertionError(f"no recorded response for {url} {pairs}")
@@ -631,17 +638,17 @@ def test_a_cancel_without_a_transaction_id_is_refused(transaction_id):
 
 
 def test_a_roster_entry_without_a_slot_is_schema_drift():
-    provider = _provider()
-    provider.session_role(*LEAGUE)
-    transport = provider._transport(*LEAGUE)
-    for response in transport.responses.values():
-        for team in (
-            (response.payload or {}).get("teams", []) if isinstance(response.payload, dict) else []
-        ):
-            for entry in team.get("roster", {}).get("entries", []):
-                entry.pop("lineupSlotId", None)
+    http = ReplayHttp({"mNav": _nav()})
+    roster = json.loads(json.dumps(http.bootstrap))
+    for team in roster["teams"]:
+        for entry in team["roster"]["entries"]:
+            entry.pop("lineupSlotId", None)
+    http.overrides["mRoster"] = roster
+    post = FakePost()
+    provider = EspnProvider(CREDENTIALS, http=http, http_post=post)
     with pytest.raises(SchemaDriftError):
-        provider._lineup_items(*LEAGUE, 1, {"2002": "BE"})
+        provider.set_lineup(*LEAGUE, "1", {"2002": "BE"})
+    assert post.calls == []
 
 
 # --------------------------------------------------------------------------- #
@@ -1110,3 +1117,96 @@ def test_a_success_without_an_echoed_member_records_none():
     provider = _provider(post)
     assert provider.set_lineup(*LEAGUE, "1", {"2002": "BE"}).member_id is None
     assert LEAGUE not in provider._echoed_members
+
+
+# --------------------------------------------------------------------------- #
+# PR #118 review: the diff is against the current roster
+# --------------------------------------------------------------------------- #
+
+
+def test_a_lineup_diff_uses_the_current_roster_not_a_previously_loaded_week():
+    """After ``fetch_roster(week=1)`` the instance holds week 1's ``mRoster``.
+    In week 1, 2002 sat on the bench; now he is at RB. Diffing against the
+    retained week would see no change and refuse, or send a wrong
+    ``fromLineupSlotId``."""
+    http = ReplayHttp()
+    current = http.bootstrap
+    week_one = json.loads(json.dumps(current))
+    for team in week_one["teams"]:
+        for entry in team["roster"]["entries"]:
+            if entry["playerId"] == 2002:
+                entry["lineupSlotId"] = 20
+    asked: list[str | None] = []
+
+    def _roster(params: Mapping[str, str]) -> Any:
+        asked.append(params.get("scoringPeriodId"))
+        return week_one if params.get("scoringPeriodId") == "1" else current
+
+    http.overrides["mRoster"] = _roster
+    http.overrides["mNav"] = _nav()
+    post = FakePost(_captured_response("p3-swap-execute"))
+    provider = EspnProvider(CREDENTIALS, http=http, http_post=post)
+    provider.fetch_roster(*LEAGUE, "1", week=1)
+    provider.set_lineup(*LEAGUE, "1", {"2002": "BE"})
+    assert asked[-1] == "2", "the write's roster read must name the current period"
+    assert post.body["items"] == [
+        {"playerId": 2002, "type": "LINEUP", "fromLineupSlotId": 2, "toLineupSlotId": 20}
+    ]
+
+
+def test_a_current_roster_without_the_team_is_a_player_not_on_it():
+    http = ReplayHttp({"mNav": _nav(), "mRoster": {"teams": []}})
+    post = FakePost()
+    provider = EspnProvider(CREDENTIALS, http=http, http_post=post)
+    with pytest.raises(ConfigInvalidError, match="not on team"):
+        provider.set_lineup(*LEAGUE, "1", {"2002": "BE"})
+    assert post.calls == []
+
+
+# --------------------------------------------------------------------------- #
+# PR #118 review: the SWID and espn_s2 must be the same account
+# --------------------------------------------------------------------------- #
+
+
+def test_a_write_echoing_a_different_member_diverges_and_blocks_later_writes():
+    from fantasy_sports.core.errors import WriteDivergedError
+
+    other = _captured_response("p3-swap-execute", memberId=OTHER)
+    post = FakePost(other)
+    provider = _provider(post)
+    with pytest.raises(WriteDivergedError) as caught:
+        provider.set_lineup(*LEAGUE, "1", {"2002": "BE"})
+    details = caught.value.details
+    expected = swid_pseudonym(SWID, salt=CASSETTE_SWID_SALT)
+    observed = swid_pseudonym(OTHER, salt=CASSETTE_SWID_SALT)
+    assert details["expected_member"] == expected
+    assert details["observed_member"] == observed
+    assert details["provider_transaction_id"] == "<uuid>"
+    assert details["team_id"] == "1"
+    assert details["transaction_state"] == "applied"
+    assert details["proposed_at"].endswith("+00:00")
+    assert len(details["items"]) == 2
+    dumped = json.dumps(caught.value.to_dict())
+    assert SWID not in dumped and OTHER not in dumped
+    assert provider._leagues == {}, "the write applied; the cache must still be purged"
+    assert LEAGUE not in provider._echoed_members
+
+    with pytest.raises(WriteRejectedError) as refused:
+        provider.cancel_transaction(*LEAGUE, "1", "abc")
+    assert refused.value.kind == "not_owned"
+    assert "different accounts" in refused.value.remediation
+    assert "auth login" in refused.value.remediation
+    assert len(post.calls) == 1, "nothing is sent once the pair is known to be split"
+
+
+def test_a_matching_echo_in_another_case_is_not_a_mismatch():
+    echo = _captured_response("p3-swap-execute", memberId=SWID.lower())
+    provider = _provider(FakePost(echo))
+    assert provider.set_lineup(*LEAGUE, "1", {"2002": "BE"}).status == "EXECUTED"
+    assert provider._identity_mismatches == {}
+
+
+def test_a_mismatch_in_one_league_does_not_block_another():
+    provider = _provider(FakePost(_captured_response("p3-swap-execute")))
+    provider._identity_mismatches[("100", 2026)] = ("a", "b")
+    assert provider.set_lineup(*LEAGUE, "1", {"2002": "BE"}).status == "EXECUTED"

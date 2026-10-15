@@ -57,7 +57,7 @@ is coherent after a success.
     directly.
   - `http_post` is a new constructor seam. It is resolved at call time, so
     the default is `requests.post`, imported inside the method.
-- **`tests/unit/test_espn_writes.py`** adds 121 offline tests. Every write
+- **`tests/unit/test_espn_writes.py`** adds 126 offline tests. Every write
   response is a capture body from `docs/research/05-espn-write-surface/`
   against league `99`.
 - **`tests/_fake_provider.py`** gains `WritingFake` for #15, #16, and #18.
@@ -112,10 +112,36 @@ is coherent after a success.
   `WRITE_DIVERGED` stay in `AWAITING_A_COMMAND`, because no command raises
   them yet and a real sample needs one.
 
+## Review fixes (Codex on PR #118)
+
+- **Ownership is now tied to the session that writes.** Ownership comes from
+  the SWID, but ESPN authenticates the write with `espn_s2`. The credential
+  chain resolves the two cookies independently, so they could belong to two
+  accounts. No pre-write identity endpoint is trusted, so there is no probe.
+  Instead, after a 200 the echoed `memberId` pseudonym is compared with the
+  member the guard checked. On a mismatch the write is reported as
+  `WRITE_DIVERGED`. Its details carry `expected_member`, `observed_member`,
+  the transaction id, the team, the status, `proposed_at`, the items, and
+  `transaction_state: "applied"`, so a command can still journal it. The pair
+  is also recorded for that league, and every later write in the process is
+  refused as `not_owned` with an instruction to re-run `auth login`.
+  `doctor` now warns, without any network call, when `espn_s2` and `swid`
+  resolve from different links of the chain.
+- **Residual risk.** A mismatched pair configured by hand is caught after
+  its first write, not before. That write may already have touched a team
+  this session was not verified to own. `auth login` prevents the case by
+  storing both cookies together, and `doctor` flags the configuration most
+  likely to produce it.
+- **The lineup diff uses the current roster.** The diff previously read
+  whatever `mRoster` the instance had retained, so it could use a historical
+  week after a `fetch_roster(week=N)`. It now fetches `view=mRoster` for the
+  write's current `scoringPeriodId` and diffs against that response. A test
+  loads week 1 and then sets the lineup to prove it.
+
 ## Validation
 
-- `uv run pytest -m "not live" --cov`: 1585 passed, 16 deselected.
-  Coverage is 99.15% total, `providers/espn.py` is 97%, and `base.py` and
+- `uv run pytest -m "not live" --cov`: 1685 passed, 16 deselected, after
+  merging `origin/main`. Coverage is 99.06% total, `providers/espn.py` is 97%, and `base.py` and
   `models.py` are 100%.
 - `ruff check` and `ruff format --check` pass.
 - `check_budgets.py` passes with 5/5 dependencies and the wheel within

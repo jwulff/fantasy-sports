@@ -410,6 +410,13 @@ comes back:
   commissioner's cookie is honoured by ESPN on another manager's team
   (brief §6), so this guard is the only thing that keeps `--team` meaning
   "which of *my* teams".
+- **The writing session must be the owning one.** Ownership comes from the
+  SWID; ESPN authenticates the write as `espn_s2`. The `memberId` a write
+  echoes is checked against the guard's member: a mismatch is
+  `WRITE_DIVERGED` for that write and refuses every later one. A hand-split
+  pair is therefore caught after its first write, not before; `auth login`
+  stores both together and `doctor` warns when they come from different
+  links.
 - **A timeout is not a failure.** The POST has a 15 s timeout (over a
   hundred times the observed latency) and is sent exactly once. A timeout or
   connection error after sending is `PROVIDER_UNAVAILABLE` with

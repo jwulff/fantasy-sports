@@ -119,6 +119,7 @@ from fantasy_sports.core.errors import (
     ProviderUnavailableError,
     RateLimitedError,
     SchemaDriftError,
+    WriteDivergedError,
     WriteRejectedError,
 )
 from fantasy_sports.core.models import (
@@ -1030,6 +1031,9 @@ class EspnProvider:
         self._now = now
         self._free_agent_limit = free_agent_limit
         self._echoed_members: dict[tuple[str, int], str] = {}
+        self._identity_mismatches: dict[tuple[str, int], tuple[str, str]] = {}
+        """(league, season) -> (expected, observed) member pseudonyms, once a
+        write proved the SWID and espn_s2 are different accounts."""
         self._leagues: dict[tuple[str, int], tuple[Any, _Transport]] = {}
         self._auth_reason: str | None = None
         self.last_fetch: FetchRecord | None = None
@@ -1472,7 +1476,7 @@ class EspnProvider:
         and ESPN's own answer to both is typed.
         """
         write = self._begin_write(league_id, season, team_id)
-        items = self._lineup_items(league_id, season, write.team_id, target)
+        items = self._lineup_items(write, target)
         return self._post(write, {"type": "ROSTER", "executionType": "EXECUTE", "items": items})
 
     def move_players(
@@ -1569,6 +1573,21 @@ class EspnProvider:
                 ),
                 details={"missing": ["espn_s2"]},
             )
+        mismatch = self._identity_mismatches.get((str(league_id), int(season)))
+        if mismatch is not None:
+            raise WriteRejectedError(
+                "Refusing to write: an earlier write in this session showed that the "
+                "configured SWID and espn_s2 belong to different ESPN accounts, so team "
+                "ownership cannot be trusted.",
+                kind="not_owned",
+                team_id=str(team_id).strip(),
+                remediation=(
+                    "The SWID and espn_s2 appear to belong to different accounts. Re-run "
+                    "`fantasy-sports auth login` and store both cookies from the same "
+                    "logged-in browser session."
+                ),
+                details={"expected_member": mismatch[0], "observed_member": mismatch[1]},
+            )
         credentials = self.credential_report()
         role = self.session_role(league_id, season)
         team = _guard(role, team_id)
@@ -1579,18 +1598,31 @@ class EspnProvider:
             team_id=team,
             scoring_period=period,
             credentials=credentials,
+            member_id=role.member_id,
         )
 
-    def _lineup_items(
-        self, league_id: str, season: int, team_id: int, target: Mapping[str, str]
-    ) -> list[dict[str, Any]]:
+    def _lineup_items(self, write: _Write, target: Mapping[str, str]) -> list[dict[str, Any]]:
+        """The diff between ``target`` and the **current** roster.
+
+        The roster is fetched here, explicitly, for the period the write will
+        be sent for. Reusing whatever ``mRoster`` this instance last recorded
+        would diff against a historical week after a ``fetch_roster(week=N)``
+        on the same provider (PR #118 review), and every item would carry the
+        wrong ``fromLineupSlotId``.
+        """
+        team_id = write.team_id
         if not isinstance(target, Mapping) or not target:
             raise ConfigInvalidError(
                 "A lineup target names no players.",
                 kind="argument",
                 remediation="Map at least one player id to the slot it should occupy.",
             )
-        entries = _roster_entries(self._transport(league_id, season), team_id, None)
+        with _mapped(view="mRoster", operation="set_lineup", provider=self):
+            league = self._league(write.league_id, write.season)
+            current = league.espn_request.league_get(
+                params={"view": "mRoster", "scoringPeriodId": write.scoring_period}
+            )
+        entries = _team_entries(current, team_id) or {}
         items: list[dict[str, Any]] = []
         for player, slot in target.items():
             player_id = _as_int(player)
@@ -1788,8 +1820,6 @@ class EspnProvider:
             cookies_sent=bool(cookies.get("espn_s2")),
             write=write,
         )
-        if result.member_id:
-            self._echoed_members[(write.league_id, write.season)] = result.member_id
         self.last_fetch = FetchRecord(
             responses={
                 **(self.last_fetch.responses if self.last_fetch is not None else {}),
@@ -1798,7 +1828,55 @@ class EspnProvider:
                 ),
             }
         )
+        self._check_identity(write, result)
+        if result.member_id:
+            self._echoed_members[(write.league_id, write.season)] = result.member_id
         return result
+
+    def _check_identity(self, write: _Write, result: WriteResult) -> None:
+        """Prove, after the fact, that the session that wrote is the one the
+        guard checked ownership for.
+
+        Ownership is derived from the SWID, but ESPN authenticates the write
+        with ``espn_s2``, and the credential chain resolves the two
+        independently -- so a hand-configured pair from two accounts would
+        pass the guard for the SWID's teams while writing as someone else.
+        No pre-write identity endpoint is trusted, so the check is the
+        ``memberId`` ESPN echoes on the write itself. A mismatch is recorded
+        for this league, refusing every later write in the process, and the
+        write that just happened is reported as ``WRITE_DIVERGED`` with
+        everything a caller needs to journal it.
+        """
+        expected, observed = write.member_id, result.member_id
+        if not expected or not observed or _guid_key(expected) == _guid_key(observed):
+            return
+        key = (write.league_id, write.season)
+        self._identity_mismatches[key] = (expected, observed)
+        raise WriteDivergedError(
+            "ESPN applied this write as a different member than the configured SWID: "
+            "the SWID and espn_s2 appear to belong to different ESPN accounts.",
+            expected={"member_id": expected},
+            observed={"member_id": observed},
+            remediation=(
+                "The write may have changed a team this session was not verified to own. "
+                "Read `transactions` for this league, then re-run `fantasy-sports auth "
+                "login` and store both cookies from the same logged-in browser session. "
+                "Further writes are refused until then."
+            ),
+            details={
+                "expected_member": expected,
+                "observed_member": observed,
+                "provider_transaction_id": result.provider_transaction_id,
+                "team_id": result.team_id,
+                "status": result.status,
+                "is_pending": result.is_pending,
+                "proposed_at": None
+                if result.proposed_at is None
+                else result.proposed_at.isoformat(),
+                "items": [dict(item) for item in result.items],
+                "transaction_state": "applied",
+            },
+        )
 
     def _after_success(self, write: _Write) -> None:
         """Make the cache and the memoised league forget what the write changed.
@@ -2230,6 +2308,8 @@ class _Write:
     team_id: int
     scoring_period: int
     credentials: Mapping[str, Any]
+    member_id: str | None = None
+    """The member the guard checked ownership for, as a pseudonym."""
 
 
 def _is_credential_set(credentials: Any) -> bool:
@@ -2735,16 +2815,27 @@ def _roster_entries(
         response = _latest(transport.responses, view)
         if response is None or not isinstance(response.payload, Mapping):
             continue
-        for team in response.payload.get("teams", []) or []:
-            if not isinstance(team, Mapping) or team.get("id") != team_id:
-                continue
-            entries = team.get("roster", {}).get("entries", [])
-            return {
-                entry["playerId"]: entry
-                for entry in entries
-                if isinstance(entry, Mapping) and "playerId" in entry
-            }
+        found = _team_entries(response.payload, team_id)
+        if found is not None:
+            return found
     return {}
+
+
+def _team_entries(payload: Any, team_id: int) -> dict[int, Mapping[str, Any]] | None:
+    """One team's raw roster entries from a payload, or ``None`` if it has no
+    such team."""
+    teams = payload.get("teams") if isinstance(payload, Mapping) else None
+    for team in teams if isinstance(teams, list) else []:
+        if not isinstance(team, Mapping) or team.get("id") != team_id:
+            continue
+        roster = team.get("roster")
+        entries = roster.get("entries", []) if isinstance(roster, Mapping) else []
+        return {
+            entry["playerId"]: entry
+            for entry in entries or []
+            if isinstance(entry, Mapping) and "playerId" in entry
+        }
+    return None
 
 
 def _free_agent_entries(responses: Mapping[str, RawResponse]) -> dict[int, Mapping[str, Any]]:
