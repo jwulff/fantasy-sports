@@ -181,23 +181,34 @@ class Recorder:
         _check_body(json, self.owned)
         if set(cookies) != {"espn_s2"}:
             raise Refused("only espn_s2 may be sent")
-        state = _state()
-        _wait_for_gap(state)
-        # Reserve the name and record the attempt BEFORE sending. A write that
-        # times out may still have applied, so its name must never be reusable
-        # and the gap must count from it; reconcile by read-back, not re-send.
-        reservation = PRIVATE / f"{self.name}.attempt"
-        try:
-            with reservation.open("x") as handle:
-                handle.write(datetime.now(UTC).isoformat())
-        except FileExistsError as exc:
-            raise Refused(f"{self.name} was already attempted; read back, do not re-send") from exc
-        sent_at = datetime.now(UTC)
-        state["writes"].append({"at": sent_at.isoformat(), "name": self.name})
-        _save_state(state)
-        started = time.monotonic()
-        response = requests.post(url, json=json, headers=headers, cookies=cookies, timeout=timeout)
-        elapsed = int((time.monotonic() - started) * 1000)
+        import fcntl
+
+        PRIVATE.mkdir(parents=True, exist_ok=True)
+        # One writer at a time across processes: the gap check, the
+        # reservation, and the send happen under one exclusive lock.
+        with (PRIVATE / "write.lock").open("w") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            state = _state()
+            _wait_for_gap(state)
+            # Reserve the name and record the attempt BEFORE sending. A write that
+            # times out may still have applied, so its name must never be reusable
+            # and the gap must count from it; reconcile by read-back, not re-send.
+            reservation = PRIVATE / f"{self.name}.attempt"
+            try:
+                with reservation.open("x") as handle:
+                    handle.write(datetime.now(UTC).isoformat())
+            except FileExistsError as exc:
+                raise Refused(
+                    f"{self.name} was already attempted; read back, do not re-send"
+                ) from exc
+            sent_at = datetime.now(UTC)
+            state["writes"].append({"at": sent_at.isoformat(), "name": self.name})
+            _save_state(state)
+            started = time.monotonic()
+            response = requests.post(
+                url, json=json, headers=headers, cookies=cookies, timeout=timeout
+            )
+            elapsed = int((time.monotonic() - started) * 1000)
         prepared = dict(response.request.headers)
         prepared["Cookie"] = "<redacted>"
         self.capture = {
