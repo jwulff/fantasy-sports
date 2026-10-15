@@ -10,6 +10,17 @@ football API, distributed via `uv tool install fantasy-sports`.
 
 ### Added
 
+- **Irreversible writes are surfaced without a manual check** (#113, R7a).
+  `journal digest --since <24h|7d|30m|ISO-8601> [--irreversible] [--league]
+  [--limit]` lists journal entries recorded in a window, newest first, in the
+  standard envelope, for a cron job or agent to render. A `[notify]` table in
+  `config.toml` (`irreversible_command`) names a command that
+  `reports.notify.notify_irreversible` runs once per irreversible write with
+  the redacted journal entry as JSON on stdin; it never raises and never
+  blocks the write. `doctor` gains a `notify` check that reports whether it is
+  set without running it. `scripts/notify-irreversible-example.sh` is a sample
+  hook. The package knows nothing of any vault or tracker; delivery is the
+  owner's script.
 - **Mutation journal store** — `core/journal.py` (standard library only): a
   SQLite journal at `$XDG_STATE_HOME/fantasy-sports/journal.sqlite` (file
   `0600`, directory `0700`) with a two-phase `begin` / `complete` | `reject` |

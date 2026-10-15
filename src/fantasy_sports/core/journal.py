@@ -525,8 +525,14 @@ class Journal:
         league_id: str | None = None,
         limit: int = 25,
         irreversible_only: bool = False,
+        since: datetime | None = None,
     ) -> list[JournalEntry]:
-        """Newest first. ``irreversible_only`` keeps entries with ``reversible`` false."""
+        """Newest first. ``irreversible_only`` keeps entries with ``reversible`` false.
+
+        ``since`` keeps entries recorded at or after that moment. It must be
+        timezone-aware (a naive datetime is a ``ValueError``, as everywhere in
+        this module); the comparison is on the stored UTC millisecond text.
+        """
         if limit < 1:
             raise ValueError("limit must be at least 1")
         clauses: list[str] = []
@@ -536,6 +542,9 @@ class Journal:
             params.append(league_id)
         if irreversible_only:
             clauses.append("reversible = 0")
+        if since is not None:
+            clauses.append("recorded_at >= ?")
+            params.append(_iso(since))
         where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
         return self._select(where, params, limit=limit)
 
