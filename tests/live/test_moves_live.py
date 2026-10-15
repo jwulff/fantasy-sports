@@ -12,25 +12,31 @@ same second, deliberate opt-in as ``test_lineup_set_live.py``:
 ``FANTASY_SPORTS_ESPN_LEAGUE``. The read-only live suite sets the first alone
 and may point it at a real league; that never makes this test write.
 
-What it does, on the session's own team only:
+What it does, on the session's own team only, mirroring probes F2-F7 in
+``docs/research/06-espn-add-drop-surface.md`` §6:
 
 1. Snapshots the roster and reads this week's free-agent pool.
-2. Picks the lowest-``percent_owned`` player whose ESPN pool status is
-   ``FREEAGENT`` (an outright add, no waiver claim), and the bench player with
-   the lowest projection who is not locked. Neither means a skip with the
-   reason, never a guess: a pool that is all on waivers (true until the
-   test league's waivers clear) has nothing ``add`` can take.
-3. ``add --player FA --drop BENCH``: asserts ``EXECUTED``, a verified
+2. Picks the two lowest-``percent_owned`` players whose ESPN pool status is
+   ``FREEAGENT`` (outright adds, no waiver claim), and the bench player with
+   the lowest projection who is not locked. Anything missing means a skip
+   with the reason, never a guess: a pool that is all on waivers (true until
+   the test league's waivers clear) has nothing ``add`` can take.
+3. ``add --player FA1 --drop BENCH``: asserts ``EXECUTED``, a verified
    read-back, the journal entry ``executed`` with ``reversible: false`` and
    the displaced player as its cost, and a roster the same size as before.
-4. ``drop --player FA``, in a ``finally`` once the add executed, so a failed
-   assertion does not leave the added player behind: asserts the read-back
-   verified and the player off the roster.
+4. ``drop --player FA1``: asserts the read-back verified and FA1 gone.
+5. ``add --player FA2 --slot BE`` (F7): the roster ends at its starting size.
 
-Net effect on the throwaway team: the bench player picked in step 2 is on
-waivers and the roster is one player shorter than it started. That cannot be
-undone (it is the point of the test); it is why this runs only in the test
-league.
+Steps 3 onward run inside one ``try``. Whatever fails, including the add
+itself returning an error after ESPN may have applied it (``WRITE_DIVERGED``,
+a timeout), the ``finally`` re-reads the roster and cleans up from what it
+actually shows: FA1 still held is dropped, and a roster left short gets FA2
+on the bench. It never trusts the failed command's own account.
+
+Net effect on the throwaway team: the roster is back to its starting size
+with FA2 in place of BENCH. BENCH is on 24-hour waivers and is **not**
+restored, and FA1 is on waivers too. Neither can be undone, which is the
+point of the test and why it runs only in the test league.
 
 The journal and cache live in a temporary XDG tree; ``HOME`` is left alone so
 the Keychain still supplies the cookies. Assertions are structural: no team,
@@ -121,10 +127,10 @@ def _roster(cli: CliRunner, team: str) -> list[dict[str, Any]]:
     return _json(cli, ["roster", "--team", team, "--no-cache"])["data"]
 
 
-def _cheapest_free_agent(pool: list[dict[str, Any]]) -> dict[str, Any] | None:
-    """The least-owned player ESPN lists as a free agent rather than on waivers."""
+def _outright_free_agents(pool: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Players ESPN lists as free agents rather than on waivers, least owned first."""
     outright = [fa for fa in pool if (fa.get("raw") or {}).get("status") == "FREEAGENT"]
-    return min(outright, key=lambda fa: fa.get("percent_owned") or 0.0, default=None)
+    return sorted(outright, key=lambda fa: fa.get("percent_owned") or 0.0)
 
 
 def _cheapest_bench(roster: list[dict[str, Any]]) -> dict[str, Any] | None:
@@ -133,36 +139,43 @@ def _cheapest_bench(roster: list[dict[str, Any]]) -> dict[str, Any] | None:
     return min(bench, key=lambda s: s["player"].get("projected_points") or 0.0, default=None)
 
 
-def test_an_add_with_a_drop_is_read_back_and_the_added_player_dropped_again(cli: CliRunner, target):
+def _invoke(cli: CliRunner, args: list[str]) -> Any:
+    return cli.invoke(build_app(), [*args, "--output", "json"])
+
+
+def test_an_add_with_a_drop_is_read_back_then_undone_down_to_roster_size(cli: CliRunner, target):
     team = _owned_team(target)
     before = _roster(cli, team)
     if not before:
         pytest.skip("the test league's roster is empty (draft not finished?)")
-    pool = _json(cli, ["free-agents", "--limit", "200", "--no-cache"])["data"]
-    agent = _cheapest_free_agent(pool)
-    if agent is None:
-        pytest.skip("no player in the pool has ESPN status FREEAGENT; waivers have not cleared")
+    pool = _outright_free_agents(
+        _json(cli, ["free-agents", "--limit", "200", "--no-cache"])["data"]
+    )
+    if len(pool) < 2:
+        pytest.skip("fewer than two players have ESPN status FREEAGENT; waivers have not cleared")
     bench = _cheapest_bench(before)
     if bench is None:
         pytest.skip("no unlocked bench player to drop")
-    added, dropped = agent["provider_id"], bench["provider_id"]
+    first, second = pool[0]["provider_id"], pool[1]["provider_id"]
+    dropped = bench["provider_id"]
 
-    move = _json(
-        cli,
-        [
-            "add",
-            "--team",
-            team,
-            "--player",
-            added,
-            "--drop",
-            dropped,
-            "--acknowledge-irreversible",
-            WHY,
-        ],
-    )["data"]
-    cleaned = False
     try:
+        result = _invoke(
+            cli,
+            [
+                "add",
+                "--team",
+                team,
+                "--player",
+                first,
+                "--drop",
+                dropped,
+                "--acknowledge-irreversible",
+                WHY,
+            ],
+        )
+        assert result.exit_code == 0, f"add -> {result.exit_code}: {result.stderr}"
+        move = json.loads(result.stdout)["data"]
         assert move["status"] == "EXECUTED"
         assert move["is_pending"] is False
         assert move["provider_transaction_id"]
@@ -180,32 +193,70 @@ def test_an_add_with_a_drop_is_read_back_and_the_added_player_dropped_again(cli:
         assert entry.provider_transaction_id == move["provider_transaction_id"]
 
         after_add = {slot["provider_id"] for slot in _roster(cli, team)}
-        assert added in after_add and dropped not in after_add
+        assert first in after_add and dropped not in after_add
         assert len(after_add) == len(before)
 
         release = _json(
-            cli, ["drop", "--team", team, "--player", added, "--acknowledge-irreversible", WHY]
+            cli, ["drop", "--team", team, "--player", first, "--acknowledge-irreversible", WHY]
         )["data"]
-        cleaned = True
         assert release["read_back"] == {"verified": True, "diverged": []}
-        assert added not in {slot["provider_id"] for slot in _roster(cli, team)}
+
+        refill = _json(
+            cli,
+            [
+                "add",
+                "--team",
+                team,
+                "--player",
+                second,
+                "--slot",
+                "BE",
+                "--acknowledge-irreversible",
+                f"{WHY} (F7: restore the roster size)",
+            ],
+        )["data"]
+        assert refill["read_back"] == {"verified": True, "diverged": []}
+        final = {slot["provider_id"]: slot["slot"] for slot in _roster(cli, team)}
+        assert len(final) == len(before)
+        assert final[second] == "BE"
+        assert first not in final and dropped not in final
     finally:
-        if not cleaned:
-            cli.invoke(
-                build_app(),
-                [
-                    "drop",
-                    "--team",
-                    team,
-                    "--player",
-                    added,
-                    "--acknowledge-irreversible",
-                    f"{WHY} (cleanup after a failed assertion)",
-                    "--output",
-                    "json",
-                ],
-            )
+        _restore(cli, team, before_size=len(before), first=first, second=second)
     print(
-        f"\nlive add/drop: team {team}, 2 transactions (add with drop, then drop), "
-        "read-back verified both times"
+        f"\nlive add/drop: team {team}, 3 transactions (add with drop, drop, add to BE), "
+        "read-back verified each time, roster size restored"
     )
+
+
+def _restore(cli: CliRunner, team: str, *, before_size: int, first: str, second: str) -> None:
+    """Clean up from what the roster shows now, not from what a command reported."""
+    held = {slot["provider_id"] for slot in _roster(cli, team)}
+    if first in held:
+        _invoke(
+            cli,
+            [
+                "drop",
+                "--team",
+                team,
+                "--player",
+                first,
+                "--acknowledge-irreversible",
+                f"{WHY} (cleanup)",
+            ],
+        )
+        held = {slot["provider_id"] for slot in _roster(cli, team)}
+    if len(held) < before_size and second not in held:
+        _invoke(
+            cli,
+            [
+                "add",
+                "--team",
+                team,
+                "--player",
+                second,
+                "--slot",
+                "BE",
+                "--acknowledge-irreversible",
+                f"{WHY} (cleanup: restore the roster size)",
+            ],
+        )

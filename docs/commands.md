@@ -2912,8 +2912,11 @@ The flow is `add`'s, with two differences. ESPN answers a claim
 `is_pending: true`: nothing changes on the roster until waivers process, and
 `provider_transaction_id` is the id `claim cancel` will take (#109). The
 read-back therefore looks in this period's `transactions` for a pending
-waiver claim by your team for that player. Finding one is `verified: true`
-with `matched_by`. Not finding one is `verified: null` with a `note`, never
+waiver claim by your team that matches everything you submitted: the player,
+the `--drop`, and the bid, which ESPN records as `0` when none was sent.
+Exactly one match is `verified: true` with `matched_by`. Several identical
+pending claims are `verified: null`, because this one cannot be told apart
+from an earlier one. No match is `verified: null` with a `note`, never
 `true`: `transactions` does not carry ESPN's transaction ids, so a claim it
 does not list is unverified, not missing. A match proves the claim was
 queued and nothing later: a cancel is a new transaction, and the claim's own

@@ -400,7 +400,7 @@ class WritableEspn(RecordedEspn):
                     "isPending": True,
                     "scoringPeriodId": body.get("scoringPeriodId"),
                     "proposedDate": PROPOSED_DATE_MS,
-                    "bidAmount": body.get("bidAmount"),
+                    "bidAmount": body.get("bidAmount", 0),
                     "items": [
                         {"playerId": i["playerId"], "type": i.get("type")}
                         for i in body.get("items", [])

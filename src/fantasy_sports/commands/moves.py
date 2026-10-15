@@ -50,6 +50,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from fantasy_sports.commands.context import open_read, success
@@ -656,11 +657,8 @@ def execute_move(
             read_back, observed, expected = _roster_read_back(ctx, team_id, plan)
             applied = {"items": echoed, "is_pending": False, "roster": observed}
             if read_back["diverged"]:
-                close_entry(
-                    journal, entry.id, warnings, status="diverged", applied_state=applied, **closing
-                )
                 diverged = read_back["diverged"]
-                raise WriteDivergedError(
+                error = WriteDivergedError(
                     f"ESPN accepted the {kind}, but the roster read back differently for "
                     f"{len(diverged)} player(s).",
                     expected={pid: expected[pid] for pid in diverged},
@@ -676,9 +674,23 @@ def execute_move(
                         "provider_transaction_id": result.provider_transaction_id,
                         "journal_entry_id": entry.id,
                         "transaction_state": "applied",
-                        "notified": _announce(journal, entry.id),
                     },
                 )
+                # Stored before the owner is told, so the row and the
+                # notification both say what disagreed.
+                settle(
+                    error,
+                    partial(
+                        journal.complete,
+                        status="diverged",
+                        applied_state=applied,
+                        error=error,
+                        **closing,
+                    ),
+                    entry.id,
+                )
+                error._record_detail("notified", _announce(journal, entry.id))
+                raise error
         close_entry(journal, entry.id, warnings, applied_state=applied, **closing)
         data["read_back"] = read_back
         data["notified"] = _announce(journal, entry.id)
@@ -731,31 +743,52 @@ def _pending_read_back(
     """Look for the queued claim in this period's ``transactions``.
 
     The normalized transaction carries no ESPN transaction id (``espn-api``
-    drops it), so the match is a pending waiver claim by this team for the
-    claimed player. It proves the claim was queued, nothing later: a cancel
-    is a new transaction and the claim's own ``mTransactions2`` row keeps
-    reading ``PENDING`` after it. Seeing one is ``verified: true``; not seeing one is
-    ``verified: null`` with a note, because a pending row ESPN does not show
-    and a claim that is missing look the same from here.
+    drops it), so the match is on everything this claim submitted: a pending
+    waiver claim by this team, for exactly the claimed player, displacing
+    exactly the ``--drop`` player, at exactly this bid (ESPN records a
+    bidless claim as ``0``). Exactly one such row is ``verified: true``.
+
+    None is ``verified: null`` with a note: a pending row ESPN does not show
+    and a claim that is missing look the same from here. More than one is
+    ``null`` too, because an earlier identical claim would satisfy the same
+    match and this one cannot be told apart from it. A match proves the claim
+    was queued, nothing later: a cancel is a new transaction, and the claim's
+    own ``mTransactions2`` row keeps reading ``PENDING`` after it.
     """
     try:
         rows = ctx.provider.fetch_transactions(*ctx.target, scoring_period=scoring_period)
     except FantasySportsError as exc:
         return {"verified": False, "diverged": [], "error": exc.code.value}
-    wanted = {move.player_id for move in plan.adds}
+    adds = {move.player_id for move in plan.adds}
+    drops = {move.player_id for move in plan.drops}
+    bid = plan.bid or 0
+    matches = 0
     for row in rows:
         raw = row.raw if isinstance(row.raw, Mapping) else {}
+        recorded_bid = raw.get("bidAmount")
         if (
             row.type == "waiver_claim"
             and str(row.team_provider_id) == str(team_id)
-            and wanted <= set(row.players_in)
+            and set(row.players_in) == adds
+            and set(row.players_out) == drops
+            and (recorded_bid if isinstance(recorded_bid, int) else 0) == bid
             and str(raw.get("status") or "").upper() == "PENDING"
         ):
-            return {
-                "verified": True,
-                "diverged": [],
-                "matched_by": ["type", "team_id", "player_id", "status"],
-            }
+            matches += 1
+    if matches == 1:
+        return {
+            "verified": True,
+            "diverged": [],
+            "matched_by": ["type", "team_id", "adds", "drops", "bid", "status"],
+        }
+    if matches > 1:
+        return {
+            "verified": None,
+            "diverged": [],
+            "note": f"{matches} identical pending claims are queued for this team, so this "
+            "one cannot be told apart from an earlier one. `claims` "
+            "(jwulff/fantasy-sports#109) lists them by id.",
+        }
     return {"verified": None, "diverged": [], "note": PENDING_NOTE}
 
 

@@ -96,6 +96,24 @@ irreversible write without having to look (R7a). Part of #105.
   `unknown`: it can only arrive if the setting changed between the read and
   the write. A claim's dry run reports `acquisition_type` and `uses_budget`,
   both `null` when ESPN omits them, and `null` refuses nothing.
+- **Codex review on #122: three P2 findings, all fixed.**
+  - *The pending-claim match ignored the bid and the drop.* An older pending
+    claim for the same player could verify a new claim ESPN had not shown.
+    The match now requires the exact adds, drops, and bid; ESPN records a
+    bidless claim as `0`. Two or more identical pending claims are
+    `verified: null`, because this one cannot be told apart from them.
+  - *A read-back divergence was journaled without its error.* `complete`
+    stored `error=None`, so the row and the owner's notification omitted
+    what disagreed. `Journal.complete` now takes `error` for a `diverged`
+    entry and refuses one on `executed`. The error is built first and
+    stored before the notify hook runs. `lineup set` had the same gap and
+    gets the same fix. A journal that fails to close a divergence rides in
+    `details.journal`, as for the other failed writes, instead of becoming a
+    warning lost with the raise.
+  - *The live test's add ran outside its cleanup guard.* A `WRITE_DIVERGED`
+    or timeout on an add ESPN applied would have skipped the cleanup. The add
+    is inside the guard now, and the `finally` decides what to undo from a
+    fresh roster read, not from the failed command's report.
 - **Rejections pass through unchanged.** `_TRAN_KINDS` comes from #121. Five
   of its captured 409s are replayed verbatim. They map to `roster_full`,
   `already_dropped`, `player_on_waivers`, `player_unavailable`, and
@@ -105,15 +123,16 @@ irreversible write without having to look (R7a). Part of #105.
 - **The helpers moved to `commands/writes.py` rather than being imported as
   private names from `lineup.py`.** One command importing another's
   underscored functions is a coupling that breaks quietly on rename.
-- **The live test cannot leave the roster as it found it.** It adds with a
-  drop and checks the roster size is unchanged, then drops the added player
-  to clean up. The original bench player is on waivers by then and cannot be
-  re-added outright, so the throwaway team ends one player short. The test
-  says so.
+- **The live test restores the roster size, not the roster.** It mirrors
+  probes F2-F7 in brief 06. It adds with a drop, drops the added player, then
+  adds a second free agent with `--slot BE`. The roster ends at its starting
+  size, with that player in place of the bench player. The bench player is on
+  24-hour waivers and is not restored, and the test says so.
 
 ## Validation
 
-- `uv run pytest` (on the first push): 1942 passed, 18 skipped. Line and branch coverage is 100%
+- `uv run pytest` (on the first push): 1942 passed, 18 skipped. The figures
+  after the follow-up are in the PR thread. Line and branch coverage is 100%
   on `commands/moves.py`, `commands/writes.py`, and `commands/lineup.py`, and
   99% overall.
 - `ruff check`, `ruff format --check`, `check_budgets.py`,

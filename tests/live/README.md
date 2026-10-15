@@ -13,8 +13,9 @@ there, and a cassette miss must fail loudly rather than quietly reaching ESPN.
 Two live tests **write**. `test_lineup_set_live.py` swaps two players on the
 session's own team and reverses the swap. `test_moves_live.py` adds the
 least-owned outright free agent with a drop of the weakest unlocked bench
-player, then drops the added player again; that one is **irreversible** (the
-bench player ends on waivers) and skips while the pool has no `FREEAGENT`
-player. Both run only when `FANTASY_SPORTS_ESPN_WRITE_LEAGUE` is set **and
+player, drops the added player again, and adds a second free agent to the
+bench so the roster ends at its starting size (probe F7). That one is
+**irreversible**: the bench player ends on 24-hour waivers and is not
+restored. It skips while fewer than two players have ESPN status `FREEAGENT`. Both run only when `FANTASY_SPORTS_ESPN_WRITE_LEAGUE` is set **and
 equals** `FANTASY_SPORTS_ESPN_LEAGUE`, and both must name the throwaway test
 league, never a real one.

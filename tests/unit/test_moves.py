@@ -39,6 +39,7 @@ from _harness import (
 )
 
 from fantasy_sports.commands import REGISTRY, DataShape
+from fantasy_sports.commands.moves import PENDING_NOTE
 from fantasy_sports.core.errors import (
     ConfigInvalidError,
     NotAvailableError,
@@ -372,7 +373,7 @@ def test_a_claim_is_pending_carries_its_bid_and_is_seen_in_transactions(espn: Wr
     assert data["read_back"] == {
         "verified": True,
         "diverged": [],
-        "matched_by": ["type", "team_id", "player_id", "status"],
+        "matched_by": ["type", "team_id", "adds", "drops", "bid", "status"],
     }
     (body,) = espn.posts
     assert body["type"] == "WAIVER" and body["bidAmount"] == 7
@@ -487,6 +488,57 @@ def test_a_claim_espn_does_not_list_is_unverified_not_verified(monkeypatch: pyte
     assert read_back["diverged"] == []
     assert "#109" in read_back["note"] and "unverified" in read_back["note"]
     assert "warnings" not in data
+
+
+def _queued(bid: int | None, *drops: int) -> dict[str, Any]:
+    items = [{"playerId": 3002, "type": "ADD"}]
+    items += [{"playerId": d, "type": "DROP"} for d in drops]
+    return {
+        "id": "0a1b2c3d-older-claim",
+        "teamId": 1,
+        "type": "WAIVER",
+        "status": "PENDING",
+        "scoringPeriodId": 2,
+        "proposedDate": 1789041500000,
+        "bidAmount": 0 if bid is None else bid,
+        "items": items,
+    }
+
+
+@pytest.mark.parametrize(
+    ("older", "claim"),
+    [
+        (_queued(5), {"bid": 9}),
+        (_queued(7), {"bid": 7, "drop": "2003"}),
+        (_queued(7, 2003), {"bid": 7}),
+        (_queued(None), {"bid": 3}),
+    ],
+)
+def test_an_older_pending_claim_does_not_verify_a_different_new_one(
+    monkeypatch: pytest.MonkeyPatch, older: dict[str, Any], claim: dict[str, Any]
+):
+    """ESPN answers PENDING but the new claim is not visible (``ignore``); an
+    earlier claim for the same player with a different bid or drop must not
+    stand in for it (Codex on #122)."""
+    espn = install_writable_espn(monkeypatch, mode="ignore")
+    espn.pending.append(older)
+    espn._publish(espn.bootstrap)
+    data = _claim(acknowledge_irreversible=WHY, **claim)["data"]
+    assert data["read_back"]["verified"] is None
+    assert data["read_back"]["note"] == PENDING_NOTE
+
+
+def test_an_identical_earlier_claim_makes_the_new_one_unverifiable(espn: WritableEspn):
+    espn.pending.append(_queued(7))
+    espn._publish(espn.bootstrap)
+    data = _claim(bid=7, acknowledge_irreversible=WHY)["data"]
+    assert data["read_back"]["verified"] is None
+    assert "2 identical pending claims" in data["read_back"]["note"]
+
+
+def test_a_bidless_claim_matches_the_zero_espn_records(espn: WritableEspn):
+    data = _claim(bid=None, drop="2003", acknowledge_irreversible=WHY)["data"]
+    assert data["read_back"]["verified"] is True
 
 
 def test_a_claim_that_executes_at_once_is_read_back_against_the_roster(
@@ -734,8 +786,29 @@ def test_a_read_back_that_disagrees_is_write_diverged_and_announced(
     assert entry.status == "diverged"
     assert entry.applied_state is not None
     assert entry.applied_state["roster"] == {"3001": None, "2003": "BE"}
+    assert entry.provider_transaction_id == TRANSACTION_ID
+    # The mismatch is stored before the owner is told (Codex on #122).
+    assert entry.error is not None and entry.error["code"] == "WRITE_DIVERGED"
+    assert entry.error["details"]["expected"] == {"2003": None, "3001": "rostered"}
     told = json.loads(out.read_text())
     assert told["id"] == entry.id and told["status"] == "diverged"
+    assert told["error"]["details"]["observed"] == {"2003": "BE", "3001": None}
+
+
+def test_a_diverged_read_back_whose_journal_close_fails_still_raises_the_divergence(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    install_writable_espn(monkeypatch, mode="ignore")
+
+    def broken(self: Journal, *_: Any, **__: Any) -> Any:
+        raise OSError("disk full")
+
+    monkeypatch.setattr(Journal, "complete", broken)
+    with pytest.raises(WriteDivergedError) as caught:
+        _drop(acknowledge_irreversible=WHY)
+    assert "could not be closed (OSError)" in caught.value.details["journal"]
+    assert caught.value.details["notified"]["attempted"] is False
+    assert [entry.status for entry in _entries()] == ["pending"]
 
 
 def test_a_slot_that_reads_back_differently_diverges(
@@ -968,7 +1041,8 @@ def test_a_pending_row_that_is_not_pending_does_not_verify():
         type="waiver_claim",
         team_provider_id="1",
         players_in=("3002",),
-        raw={"status": "EXECUTED"},
+        players_out=(),
+        raw={"status": "EXECUTED", "bidAmount": 1},
     )
     ctx = SimpleNamespace(
         provider=SimpleNamespace(fetch_transactions=lambda *a, **k: [row]), target=("99", 2026)

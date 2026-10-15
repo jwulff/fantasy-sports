@@ -44,6 +44,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from fantasy_sports.commands.context import open_read, success
@@ -396,15 +397,7 @@ def execute_lineup(
         }
         if diverged:
             assert observed is not None
-            _close(
-                journal,
-                entry.id,
-                warnings,
-                status="diverged",
-                applied_state={pid: observed.get(pid) for pid in target},
-                **closing,
-            )
-            raise WriteDivergedError(
+            error = WriteDivergedError(
                 f"ESPN accepted the lineup change, but the roster read back differently "
                 f"for {len(diverged)} player(s).",
                 expected={pid: target[pid] for pid in diverged},
@@ -422,6 +415,18 @@ def execute_lineup(
                     "transaction_state": "applied",
                 },
             )
+            _settle(
+                error,
+                partial(
+                    journal.complete,
+                    status="diverged",
+                    applied_state={pid: observed.get(pid) for pid in target},
+                    error=error,
+                    **closing,
+                ),
+                entry.id,
+            )
+            raise error
         _close(journal, entry.id, warnings, applied_state=dict(target), **closing)
 
     if read_error is None:

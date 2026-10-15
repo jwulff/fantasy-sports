@@ -12,10 +12,12 @@ journaled as the join key). The read side never shows it. `espn-api`'s
 `_transaction()` builds `provider_id` as `f"{type}-{scoring_period}"`.
 Every waiver claim in a period has the same `provider_id`.
 
-So `#18`'s claim read-back matches a pending row by **type, team, claimed
-player, and `raw.status == "PENDING"`**, reports `matched_by`, and returns
-`verified: null` when nothing matches, never `true`. A duplicate claim for the
-same player by the same team would satisfy that match; an id join would not.
+So #18's claim read-back matches a pending row on everything the claim
+submitted: type, team, the exact adds and drops, the bid (ESPN records a
+bidless claim as `0`), and `raw.status == "PENDING"`. It reports `matched_by`
+for exactly one match. No match, or several identical ones, is
+`verified: null`, never `true`: an earlier identical claim satisfies the same
+match, and an id join would not.
 
 **For #109:** a `claims` command that lists pending claims *by id*, which is
 what `claim cancel` takes, has to read ESPN's body itself rather than go
@@ -27,4 +29,5 @@ after a cancel. The cancel is a **new** transaction with
 `status: "CANCELED"` and `relatedTransactionId` naming the claim. So a
 `PENDING` row there does not mean the claim is still live.
 
-Related: [[espn-api-is-a-shape-reader-not-a-client]]
+Related: [[espn-api-is-a-shape-reader-not-a-client]],
+[[a-cancelled-claim-still-reads-pending]]
