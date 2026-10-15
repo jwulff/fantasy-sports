@@ -748,7 +748,7 @@ JOURNAL_CLAIM_ID = "c47d19ab-52e0-4f3c-8a16-9e0b3d7a2c55"
 
 
 def _journal_samples(recorder: Recorder) -> None:
-    """``journal list`` and ``journal show`` against a seeded, invented journal.
+    """``journal list``, ``show``, and ``digest`` against a seeded, invented journal.
 
     These entries are seeded through the store's own API rather than by
     ``lineup set`` (whose samples are below), so the listing also shows a kind
@@ -827,6 +827,12 @@ def _journal_samples(recorder: Recorder) -> None:
     recorder.run("journal-list", ["journal", "list"], **replayed, note=note)
     recorder.run(
         "journal-show", ["journal", "show", "--id", JOURNAL_SWAP_ID], **replayed, note=note
+    )
+    recorder.run(
+        "journal-digest",
+        ["journal", "digest", "--since", "2026-09-12T00:00:00Z", "--irreversible"],
+        **replayed,
+        note="A seeded journal; the claim was begun and never closed, so it is still pending",
     )
     path.unlink()
 

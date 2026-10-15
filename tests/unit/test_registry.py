@@ -42,6 +42,7 @@ V01_SURFACE = frozenset(
         "box-scores",
         "doctor",
         "free-agents",
+        "journal digest",
         "journal list",
         "journal reverse",
         "journal show",

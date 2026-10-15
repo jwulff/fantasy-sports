@@ -18,7 +18,7 @@ Commands:
   box-scores    List both lineups for a week's matchups, player by player, with projections.
   doctor        Run every health check: config, credentials, cache, journal, version, provider.
   free-agents   List unrostered players, optionally filtered to one position.
-  journal       3 subcommands: list, reverse, show
+  journal       4 subcommands: digest, list, reverse, show
   league        1 subcommand: info
   lineup        1 subcommand: set
   matchups      List head-to-head pairings for a week, with both ESPN period identifiers.

@@ -22,6 +22,17 @@ football API, distributed via `uv tool install fantasy-sports`.
   refuses add/drop/claim/cancel entries as `NOT_AVAILABLE` without sending.
   `WRITE_REJECTED` and `WRITE_DIVERGED` now have real command samples (#15,
   #16).
+- **Irreversible writes are surfaced without a manual check** (#113, R7a).
+  `journal digest --since <24h|7d|30m|ISO-8601> [--irreversible] [--league]
+  [--limit]` lists journal entries recorded in a window, newest first, in the
+  standard envelope, for a cron job or agent to render. A `[notify]` table in
+  `config.toml` (`irreversible_command`) names a command that
+  `reports.notify.notify_irreversible` runs once per irreversible write with
+  the redacted journal entry as JSON on stdin; it never raises and never
+  blocks the write. `doctor` gains a `notify` check that reports whether it is
+  set without running it. `scripts/notify-irreversible-example.sh` is a sample
+  hook. The package knows nothing of any vault or tracker; delivery is the
+  owner's script.
 - **The ESPN write transport and ownership guard** — a second Protocol,
   `WritingProvider` (`session_role`, `set_lineup`, `move_players`,
   `cancel_transaction`), with `SessionRole`, `RosterMove`, and `WriteResult`
