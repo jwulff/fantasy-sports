@@ -4,7 +4,8 @@
     uv run python scripts/probe_espn_add_drop.py --league test role
     uv run python scripts/probe_espn_add_drop.py --league test readback p0
     uv run python scripts/probe_espn_add_drop.py --league test move p1-fa-add --add 123 --note "..."
-    uv run python scripts/probe_espn_add_drop.py --league test move p4-waiver --add 123 --bid 1
+    uv run python scripts/probe_espn_add_drop.py --league test move p4-waiver --add 123 --waiver
+    uv run python scripts/probe_espn_add_drop.py --league test pool       # FREEAGENT vs WAIVERS
     uv run python scripts/probe_espn_add_drop.py --league test cancel p5-cancel --related <uuid>
     uv run python scripts/probe_espn_add_drop.py --league test raw p7-x --body '{"type": ...}'
 
@@ -410,9 +411,10 @@ def cmd_move(args, league, season, others) -> int:
             league,
             season,
             str(team),
-            adds=[RosterMove(p) for p in args.add],
+            adds=[RosterMove(p, to_slot=args.add_slot) for p in args.add],
             drops=[RosterMove(p) for p in args.drop],
             bid=args.bid,
+            waiver=args.waiver,
         )
 
     return _send(args.name, args.note, league, season, others, call)
@@ -685,6 +687,8 @@ def main(argv: list[str] | None = None) -> int:
     mv.add_argument("--add", action="append", default=[])
     mv.add_argument("--drop", action="append", default=[])
     mv.add_argument("--bid", type=int, default=None)
+    mv.add_argument("--waiver", action="store_true", help="a claim; bidless unless --bid")
+    mv.add_argument("--add-slot", default=None, help="slot name for the add, e.g. BE")
     mv.add_argument("--note", required=True)
     cn = sub.add_parser("cancel")
     cn.add_argument("name")

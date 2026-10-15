@@ -10,6 +10,17 @@ football API, distributed via `uv tool install fantasy-sports`.
 
 ### Added
 
+- **Captured ESPN add/drop/waiver shapes** — `docs/research/06-espn-add-drop-surface.md`
+  and 13 redacted captures from a throwaway league's post-draft waiver window.
+  `move_players` gains `waiver=True`, a claim with no `bidAmount`, because a
+  league without an acquisition budget rejects every bid. A drops-only move is
+  now a `ROSTER` transaction, since `FREEAGENT` must carry exactly one `ADD`.
+  More than one add, or a claim with nothing to add, is refused before sending.
+  `TRAN_ROSTER_LIMIT_EXCEEDED_ONE` maps to `roster_full` and
+  `TRAN_PLAYER_NOT_ON_TEAM` to `already_dropped`. The executing `FREEAGENT`
+  probes wait on the waiver pool and stay open on #108.
+  `scripts/probe_espn_add_drop.py` runs them by name against `--league test`
+  only (#108).
 - **The ESPN write transport and ownership guard** — a second Protocol,
   `WritingProvider` (`session_role`, `set_lineup`, `move_players`,
   `cancel_transaction`), with `SessionRole`, `RosterMove`, and `WriteResult`
