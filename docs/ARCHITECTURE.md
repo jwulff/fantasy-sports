@@ -134,6 +134,8 @@ providers/
   espn.py    wraps espn-api          [v0.1]
   sleeper.py wraps sleeper-api-wrapper [deferred]
   yahoo.py   wraps yfpy               [deferred]
+sources/     expert upstreams with no leagues; share cache/ and auth/, not the Protocol
+  fantasypros.py  consensus rankings, projections, injuries, news (ADR-0011)
 auth/        credential specs, resolution chain, staleness detection
 output/      json | table | csv renderers
 reports/     scheduled artifacts — MAY call an LLM; nothing below it may
@@ -381,6 +383,14 @@ SQLite at `~/.cache/fantasy-sports/`, TTL by resource type:
 | Standings, matchups (current week) | 15 min |
 | League settings | 1 day |
 | Completed weeks, historical seasons | Forever |
+| FantasyPros players (the `espn_id` crosswalk) | 1 day |
+| FantasyPros rankings, consensus, projections, experts | 6 h |
+| FantasyPros injuries | 1 h |
+| FantasyPros news | 15 min |
+
+FantasyPros entries are season-scoped with **facet tags** for week, position
+and scoring (ADR-0011), so a week is purgeable and a league purge never touches
+them. Premium is 500 requests a day; a cache hit is not a request.
 
 `--no-cache` and `fantasy-sports cache clear` escape hatches.
 

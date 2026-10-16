@@ -1841,13 +1841,15 @@ Every health check in one report, cheapest and most fixable first. `python`,
 reports whether `[notify] irreversible_command` is set; it never runs the command. `version` and
 `provider_status` fetch the project's public health manifest (skipped with
 `FANTASY_SPORTS_NO_HEALTH_CHECK=1`). `leagues_reachable` touches ESPN only
-with `--live`. `data.status` is the worst individual check; `data.ok` is the
+with `--live`. `fantasypros` reports whether the optional FantasyPros API key is
+configured and from which link; with `--live` it spends one one-row request to
+report the account tier (ADR-0011). `data.status` is the worst individual check; `data.ok` is the
 same thing as a boolean for a caller that only wants a gate. A bad finding is
 data, not a failure: `doctor` exits 0 and never raises.
 
 | Option | |
 |---|---|
-| `--live` | Also attempt one read against each configured league. Needs credentials |
+| `--live` | Also attempt one read against each configured league, and one against FantasyPros when a key is configured. Needs credentials |
 
 <!-- sample: doctor -->
 ```bash
@@ -1994,6 +1996,17 @@ fantasy-sports doctor
             "public"
           ]
         }
+      },
+      {
+        "name": "fantasypros",
+        "status": "skipped",
+        "summary": "No FantasyPros API key configured (optional). Set FANTASY_SPORTS_FANTASYPROS_API_KEY or run `fantasy-sports auth login` to enable expert rankings.",
+        "details": {
+          "present": false,
+          "source": null,
+          "tier": null,
+          "probed": false
+        }
       }
     ]
   },
@@ -2020,19 +2033,20 @@ fantasy-sports auth status
   "provider": "espn",
   "league_id": null,
   "season": null,
-  "generated_at": "2026-09-12T19:31:28Z",
+  "generated_at": "2026-10-16T02:47:59Z",
   "data_as_of": null,
   "data_age_seconds": null,
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
   "data": {
-    "generated_at": "2026-09-12T19:31:28.138704Z",
+    "generated_at": "2026-10-16T02:47:59.877671Z",
     "complete": true,
     "credentials": [
       {
         "name": "espn_s2",
         "present": true,
+        "required": true,
         "source": "env",
         "age_days": null,
         "age_basis": "not-tracked:env",
@@ -2041,8 +2055,20 @@ fantasy-sports auth status
         "freshness": "unknown"
       },
       {
+        "name": "fantasypros_api_key",
+        "present": false,
+        "required": false,
+        "source": null,
+        "age_days": null,
+        "age_basis": "absent",
+        "stored_at": null,
+        "last_success_at": null,
+        "freshness": "missing"
+      },
+      {
         "name": "swid",
         "present": true,
+        "required": true,
         "source": "env",
         "age_days": null,
         "age_basis": "not-tracked:env",
@@ -2078,19 +2104,31 @@ fantasy-sports auth status
   "provider": "espn",
   "league_id": null,
   "season": null,
-  "generated_at": "2026-09-12T19:31:30Z",
+  "generated_at": "2026-10-16T02:48:00Z",
   "data_as_of": null,
   "data_age_seconds": null,
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
   "data": {
-    "generated_at": "2026-09-12T19:31:30.553519Z",
+    "generated_at": "2026-10-16T02:48:00.291156Z",
     "complete": false,
     "credentials": [
       {
         "name": "espn_s2",
         "present": false,
+        "required": true,
+        "source": null,
+        "age_days": null,
+        "age_basis": "absent",
+        "stored_at": null,
+        "last_success_at": null,
+        "freshness": "missing"
+      },
+      {
+        "name": "fantasypros_api_key",
+        "present": false,
+        "required": false,
         "source": null,
         "age_days": null,
         "age_basis": "absent",
@@ -2101,6 +2139,7 @@ fantasy-sports auth status
       {
         "name": "swid",
         "present": false,
+        "required": true,
         "source": null,
         "age_days": null,
         "age_basis": "absent",
@@ -2148,7 +2187,7 @@ fantasy-sports auth login
   "provider": "espn",
   "league_id": null,
   "season": null,
-  "generated_at": "2026-09-12T19:31:30Z",
+  "generated_at": "2026-10-16T02:48:00Z",
   "data_as_of": null,
   "data_age_seconds": null,
   "sources": [],
@@ -2183,33 +2222,46 @@ fantasy-sports auth status
   "provider": "espn",
   "league_id": null,
   "season": null,
-  "generated_at": "2026-09-12T19:31:30Z",
+  "generated_at": "2026-10-16T02:48:00Z",
   "data_as_of": null,
   "data_age_seconds": null,
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
   "data": {
-    "generated_at": "2026-09-12T19:31:30.555946Z",
+    "generated_at": "2026-10-16T02:48:00.295423Z",
     "complete": true,
     "credentials": [
       {
         "name": "espn_s2",
         "present": true,
+        "required": true,
         "source": "keychain",
         "age_days": 0.0,
         "age_basis": "stored_at",
-        "stored_at": "2026-09-12T19:31:30.554649Z",
+        "stored_at": "2026-10-16T02:48:00.293204Z",
         "last_success_at": null,
         "freshness": "fresh"
       },
       {
+        "name": "fantasypros_api_key",
+        "present": false,
+        "required": false,
+        "source": null,
+        "age_days": null,
+        "age_basis": "absent",
+        "stored_at": null,
+        "last_success_at": null,
+        "freshness": "missing"
+      },
+      {
         "name": "swid",
         "present": true,
+        "required": true,
         "source": "keychain",
         "age_days": 0.0,
         "age_basis": "stored_at",
-        "stored_at": "2026-09-12T19:31:30.554649Z",
+        "stored_at": "2026-10-16T02:48:00.293204Z",
         "last_success_at": null,
         "freshness": "fresh"
       }
@@ -2248,7 +2300,7 @@ fantasy-sports auth logout
   "provider": "espn",
   "league_id": null,
   "season": null,
-  "generated_at": "2026-09-12T19:31:30Z",
+  "generated_at": "2026-10-16T02:48:00Z",
   "data_as_of": null,
   "data_age_seconds": null,
   "sources": [],
@@ -2274,6 +2326,13 @@ fantasy-sports auth logout
         "env": "absent",
         "env_vars": [],
         "keychain": "removed",
+        "config": "absent"
+      },
+      {
+        "name": "fantasypros_api_key",
+        "env": "absent",
+        "env_vars": [],
+        "keychain": "absent",
         "config": "absent"
       }
     ],

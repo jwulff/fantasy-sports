@@ -3,19 +3,31 @@
   "provider": "espn",
   "league_id": null,
   "season": null,
-  "generated_at": "2026-09-12T19:31:30Z",
+  "generated_at": "2026-10-16T02:48:00Z",
   "data_as_of": null,
   "data_age_seconds": null,
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
   "data": {
-    "generated_at": "2026-09-12T19:31:30.553519Z",
+    "generated_at": "2026-10-16T02:48:00.291156Z",
     "complete": false,
     "credentials": [
       {
         "name": "espn_s2",
         "present": false,
+        "required": true,
+        "source": null,
+        "age_days": null,
+        "age_basis": "absent",
+        "stored_at": null,
+        "last_success_at": null,
+        "freshness": "missing"
+      },
+      {
+        "name": "fantasypros_api_key",
+        "present": false,
+        "required": false,
         "source": null,
         "age_days": null,
         "age_basis": "absent",
@@ -26,6 +38,7 @@
       {
         "name": "swid",
         "present": false,
+        "required": true,
         "source": null,
         "age_days": null,
         "age_basis": "absent",
