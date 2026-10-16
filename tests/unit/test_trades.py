@@ -268,6 +268,7 @@ def test_a_proposal_is_journaled_read_back_and_announced(espn: WritableEspn):
     assert entry.request["counterparty_team_id"] == "2"
     assert entry.request["acknowledged_irreversible"] == WHY
     assert entry.cost["players_offered"] == ["2002"]
+    assert list(entry.command[-2:]) == ["--acknowledge-irreversible", WHY]
     assert entry.provider_transaction_id == TRANSACTION_ID
 
 

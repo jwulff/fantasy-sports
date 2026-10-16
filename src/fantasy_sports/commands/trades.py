@@ -185,6 +185,10 @@ def propose_trade(
     if comment is not None:
         command += ["--comment", str(comment)]
     command += ["--expires-hours", str(expires_hours)]
+    if acknowledge_irreversible is not None:
+        # Journaled as invoked, so the stored command reproduces the operation
+        # (as `add`/`drop`/`claim` do).
+        command += [ACKNOWLEDGE_FLAG, str(acknowledge_irreversible)]
     if dry_run:
         command.append("--dry-run")
     if isinstance(expires_hours, bool) or not 1 <= int(expires_hours) <= MAX_EXPIRES_HOURS:
