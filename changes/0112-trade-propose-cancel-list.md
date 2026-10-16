@@ -68,7 +68,10 @@ twice; the reading-side value is now `other_team_id` and the model's field
 keeps its meaning (Claude). The README's irreversible-write section and notify
 section now include `trade propose`, with a trade lifecycle example (Codex).
 The docs and the `comment` docstring say plainly that ESPN's queue never
-returns the comment (Claude).
+returns the comment (Claude). A third round noted that listing incoming
+offers is assumed, not captured: every queue read so far held only the
+reading team's rows. That is now stated in brief 07 §3, the `trades`
+reference, and the README, and #142's capture settles it.
 
 ## Validation
 

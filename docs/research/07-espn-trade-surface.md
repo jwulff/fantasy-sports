@@ -74,6 +74,10 @@ under `tests/cassettes/private/112/` (gitignored) and are not in git.
 
 - **Accept and decline** (#142): need an offer made *to* a team this session
   owns, so a second account.
+- **Whether the queue shows a member offers made to it** (or other teams'
+  rows at all). Every queue read here and in brief 06 held only team 7's own
+  rows, so `trades`' `incoming` direction rests on the assumption that it
+  does. The same second-account capture (#142) settles it.
 - **What a processed trade looks like** in either view, and how the 24-hour
   review window (`revisionHours`) shows up.
 - **Proposals past the trade deadline**, a locked player, or a trade that

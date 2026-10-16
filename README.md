@@ -646,7 +646,10 @@ fantasy-sports trade cancel --team "My Team" --id TRADE_ID
 - **An offer is irreversible.** The other manager can accept it at once, and
   an accepted trade goes to the league's review window, out of the tool's
   reach. `trade propose` follows the irreversible loop above.
-- **`trades` reads from your side.** `direction` is `outgoing` or `incoming`,
+- **`trades` reads from your side.** It lists offers you made; offers made
+  to you should appear as `incoming`, but that has not been captured from
+  ESPN yet (#142), so check the app before assuming there are none.
+  `direction` is `outgoing` or `incoming`,
   `other_team_id` is the team on the other side, and `giving` and `receiving`
   name the players that would leave and join your team.
 - **Only your own offers can be cancelled.** Accepting or declining an offer

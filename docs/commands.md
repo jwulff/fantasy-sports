@@ -3294,6 +3294,12 @@ other team (`counterparty_team_id` keeps its proposer-side meaning, so on an
 incoming row it is `--team` itself); `giving` lists the players that would leave `--team` and
 `receiving` the ones that would join it. Those four keys are what to act on.
 
+**Not yet captured:** whether ESPN's queue shows a member the offers other
+teams made *to* it. Every queue read so far held only the reading team's own
+proposals, so `incoming` rows are built on that assumption and verified only
+offline. An offer made to you that does not appear here may still exist in
+the ESPN app; #142 captures it with a second account.
+
 This is the queue, not the transaction log. A cancelled proposal leaves the
 queue at once, while its own row in `transactions` keeps reading `PENDING`
 (brief 07 §2), exactly as a cancelled claim does.
