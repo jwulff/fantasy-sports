@@ -228,6 +228,9 @@ def test_the_writing_surface_is_pinned():
         "move_players",
         "cancel_transaction",
         "fetch_pending_claims",
+        "propose_trade",
+        "cancel_trade",
+        "fetch_pending_trades",
     )
     for method in WRITING_PROVIDER_METHODS:
         assert callable(getattr(WritingProvider, method))

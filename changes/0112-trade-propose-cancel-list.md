@@ -49,9 +49,22 @@ command is atomic in the sense ADR-0011 (#135) records.
   bounded 1 to 336. ESPN takes it as a `…T…:….000Z` string and echoes epoch
   milliseconds.
 
+## Review fixes (preflight: Codex and Claude, both P2)
+
+- The queue parser read any item as a trade leg and accepted a leg missing a
+  team id (Codex). It now reads only `TRADE` items as legs, leaving others in
+  `raw`, and requires numeric, distinct, non-zero team ids on the proposer's
+  side, or it is drift.
+- One malformed proposal between two *other* teams would have made `trades`,
+  `trade cancel`, and the propose read-back fail for everyone, because drift
+  was raised before the team filter (Claude). Rows that do not name the
+  reading team are now skipped before they are validated.
+- `WRITING_PROVIDER_METHODS` now lists the three trade methods, and both tests
+  that pin it were updated (Codex).
+
 ## Validation
 
-- `tests/unit/test_trades.py` (46 tests): the queue parser against brief 07's
+- `tests/unit/test_trades.py` (53 tests): the queue parser against brief 07's
   captures, including drift cases; the exact bodies the adapter sends against
   `t1-propose` / `t2-cancel`; dry run, acknowledgement gate, ownership, wrong
   roster, own team, ambiguous names, expiry bounds; journal, read-back and

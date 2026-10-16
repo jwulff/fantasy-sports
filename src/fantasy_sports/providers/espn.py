@@ -2948,17 +2948,25 @@ def _pending_trades(payload: Any, *, team_id: str | None) -> list[PendingTrade]:
     naming both ``fromTeamId`` and ``toTeamId``, ``expirationDate`` in epoch
     milliseconds, ``teamActions``, and the ``comment``. It leaves the queue
     the moment it is cancelled. ``team_id`` keeps proposals that team is on
-    either side of. A proposal whose items do not name exactly one other team
-    is drift: ESPN trades are two-team.
+    either side of, and skips any other row before validating it, so one odd
+    proposal between two other teams cannot break this team's reads. Only
+    ``TRADE`` items are legs; any other item is left in ``raw``. A leg without
+    numeric, distinct, non-zero team ids on the proposer's side, or a proposal
+    whose legs do not name exactly one other team, is drift: ESPN trades are
+    two-team.
     """
     found: list[PendingTrade] = []
     for where, row in _pending_rows(payload):
         if row.get("type") != "TRADE_PROPOSAL" or row.get("status") != "PENDING":
             continue
+        if team_id is not None and team_id not in _teams_named(row):
+            # A bystander's proposal is skipped before it is validated, so one
+            # odd row between two other teams cannot break this team's reads.
+            continue
         trade_id, proposer, items = row.get("id"), _as_int(row.get("teamId")), row.get("items")
         for name, ok in (
             ("id", isinstance(trade_id, str) and bool(trade_id)),
-            ("teamId", proposer is not None),
+            ("teamId", proposer is not None and proposer > 0),
             ("items", isinstance(items, list)),
         ):
             if not ok:
@@ -2968,25 +2976,28 @@ def _pending_trades(payload: Any, *, team_id: str | None) -> list[PendingTrade]:
         others: set[int] = set()
         for position, item in enumerate(items):
             path = f"{where}.items[{position}]"
-            moves = (
-                (
-                    _as_int(item.get("fromTeamId")),
-                    _as_int(item.get("toTeamId")),
-                    _as_int(item.get("playerId")),
-                )
-                if isinstance(item, Mapping)
-                else (None, None, None)
-            )
-            source, target, player = moves
-            if player is None or proposer not in (source, target) or source == target:
+            if not isinstance(item, Mapping):
+                raise _pending_drift("has a trade item that is not an object", [path])
+            if item.get("type") != "TRADE":
+                # Not a leg of the trade (an uncaptured shape, e.g. a
+                # roster-balancing drop): kept in raw, not read as one.
+                continue
+            source, target = _as_int(item.get("fromTeamId")), _as_int(item.get("toTeamId"))
+            player = _as_int(item.get("playerId"))
+            if (
+                player is None
+                or source is None
+                or target is None
+                or min(source, target) <= 0
+                or source == target
+                or proposer not in (source, target)
+            ):
                 raise _pending_drift("has a trade item that does not move a player", [path])
-            others.add(target if source == proposer else source)  # type: ignore[arg-type]
+            others.add(target if source == proposer else source)
             (offered if source == proposer else requested).append(str(player))
         if len(others) != 1:
             raise _pending_drift("has a trade proposal that is not between two teams", [where])
         counterparty = str(others.pop())
-        if team_id is not None and team_id not in (str(proposer), counterparty):
-            continue
         actions = row.get("teamActions")
         comment = row.get("comment")
         expires = _as_int(row.get("expirationDate"))
@@ -3010,6 +3021,17 @@ def _pending_trades(payload: Any, *, team_id: str | None) -> list[PendingTrade]:
             )
         )
     return found
+
+
+def _teams_named(row: Mapping[str, Any]) -> set[str]:
+    """Every team id a pending row names, read loosely: the proposer and both
+    ends of every item. Used only to skip rows before they are validated."""
+    named = {str(_as_int(row.get("teamId")))}
+    items = row.get("items")
+    for item in items if isinstance(items, list) else ():
+        if isinstance(item, Mapping):
+            named |= {str(_as_int(item.get(k))) for k in ("fromTeamId", "toTeamId")}
+    return named
 
 
 def _pending_claim(row: Mapping[str, Any], claim_id: Any, team: Any, items: Any) -> PendingClaim:

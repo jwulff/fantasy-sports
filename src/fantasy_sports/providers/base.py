@@ -215,6 +215,9 @@ WRITING_PROVIDER_METHODS: Final[tuple[str, ...]] = (
     "move_players",
     "cancel_transaction",
     "fetch_pending_claims",
+    "propose_trade",
+    "cancel_trade",
+    "fetch_pending_trades",
 )
 
 

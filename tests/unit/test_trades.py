@@ -516,3 +516,53 @@ def test_the_expiry_clock_falls_back_to_utc_now_without_a_provider_clock():
     from fantasy_sports.commands.trades import provider_now
 
     assert provider_now(object()).tzinfo is not None
+
+
+# --------------------------------------------------------------------------- #
+# Preflight findings on the parser (Codex and Claude, P2)
+# --------------------------------------------------------------------------- #
+
+
+def test_a_non_trade_item_is_not_read_as_a_leg():
+    payload = _capture("t1-pending")
+    row = payload["pendingTransactions"][0]
+    row["items"].append({"playerId": 77, "type": "DROP", "fromTeamId": 2, "toTeamId": 0})
+    (trade,) = _pending_trades(payload, team_id=None)
+    assert trade.players_offered == ("9000101",) and trade.players_requested == ("0",)
+    assert len(trade.raw["items"]) == 3
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda item: item.pop("toTeamId"),
+        lambda item: item.pop("fromTeamId"),
+        lambda item: item.update(toTeamId=0),
+        lambda item: item.update(toTeamId="two"),
+    ],
+    ids=["no-toTeamId", "no-fromTeamId", "team-zero", "non-numeric-team"],
+)
+def test_a_trade_leg_without_two_real_teams_is_drift(mutate):
+    payload = _capture("t1-pending")
+    mutate(payload["pendingTransactions"][0]["items"][0])
+    with pytest.raises(SchemaDriftError) as caught:
+        _pending_trades(payload, team_id=None)
+    assert any("items[0]" in p for p in caught.value.details["path"])
+
+
+def test_a_trade_item_that_is_not_an_object_is_drift():
+    payload = _capture("t1-pending")
+    payload["pendingTransactions"][0]["items"][0] = "TRADE"
+    with pytest.raises(SchemaDriftError, match="not an object"):
+        _pending_trades(payload, team_id=None)
+
+
+def test_a_bystanders_odd_proposal_does_not_break_this_teams_reads():
+    payload = _capture("t1-pending")
+    odd = json.loads(json.dumps(payload["pendingTransactions"][0]))
+    odd.update(id="bystander", teamId=5)
+    odd["items"] = [{"playerId": 1, "type": "TRADE", "fromTeamId": 5}]
+    payload["pendingTransactions"].append(odd)
+    assert [t.provider_id for t in _pending_trades(payload, team_id="7")] == ["<uuid-1>"]
+    with pytest.raises(SchemaDriftError):
+        _pending_trades(payload, team_id=None)

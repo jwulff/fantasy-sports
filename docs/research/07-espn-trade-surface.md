@@ -59,9 +59,11 @@ under `tests/cassettes/private/112/` (gitignored) and are not in git.
 - `EspnProvider.propose_trade` and `cancel_trade` build the shapes above;
   `_post` passes `expirationDate` and `comment` through.
 - `fetch_pending_trades` parses the `TRADE_PROPOSAL` rows of the queue into
-  `PendingTrade`, sharing the row validation with `fetch_pending_claims`. A
-  proposal whose items do not move players between the proposer and exactly
-  one other team is `SCHEMA_DRIFT`.
+  `PendingTrade`, sharing the row validation with `fetch_pending_claims`. Only
+  `TRADE` items are read as legs. A proposal whose legs do not move players
+  between the proposer and exactly one other team is `SCHEMA_DRIFT`, but rows
+  that do not name the reading team are skipped first, so a bystander's odd
+  proposal cannot break another team's reads.
 - `trade propose` checks both rosters before sending, because ESPN's answer to
   a player on the wrong roster (row 9) carries a misleading kind.
 - `TRAN_NOT_FOUND` is left `unknown` in `_TRAN_KINDS`: `trade cancel` reads
