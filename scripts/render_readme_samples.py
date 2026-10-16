@@ -389,6 +389,7 @@ CREDENTIAL_VARS = (
     "ESPN_S2",
     "ESPN_SWID",
     "SWID",
+    "FANTASY_SPORTS_FANTASYPROS_API_KEY",
 )
 
 
@@ -1079,7 +1080,8 @@ def _auth_samples(recorder: Recorder) -> None:
 
     import keyring
 
-    answers = iter([PLACEHOLDER_S2, PLACEHOLDER_SWID.strip("{}")])
+    # Three prompts: the two cookies and the optional FantasyPros key, skipped.
+    answers = iter([PLACEHOLDER_S2, PLACEHOLDER_SWID.strip("{}"), ""])
     original_getpass, original_keyring = getpass.getpass, keyring.get_keyring()
     getpass.getpass = lambda prompt="": next(answers)  # type: ignore[assignment]
     keyring.set_keyring(MemoryKeyring())

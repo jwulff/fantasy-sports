@@ -5,7 +5,7 @@ it starts guessing: one call that answers "config parses, credentials are
 present and not stale, the cache is reachable, and here is what upstream looks
 like" without touching ESPN unless asked to.
 
-**Nine checks, six of them free.** ``python``, ``config``, ``credentials``,
+**Ten checks, six of them free.** ``python``, ``config``, ``credentials``,
 ``cache``, ``journal``, and ``notify`` never leave the machine. ``version`` and
 ``provider_status`` make the one network call ARCHITECTURE §11.3 calls "forced,
 ignores cache" — a 2-second, unauthenticated ``GET`` of the public health manifest
@@ -13,7 +13,9 @@ ignores cache" — a 2-second, unauthenticated ``GET`` of the public health mani
 out. ``leagues_reachable`` is the only check that can touch ESPN, and only
 when ``--live`` is passed: an agent-native ``doctor`` that silently spent a
 credentialed request every time it ran would be the opposite of what "before
-guessing" means.
+guessing" means. ``fantasypros`` (ADR-0011) reports whether the optional API
+key is configured and from which link, and under ``--live`` spends exactly one
+one-row request to read the account's tier.
 
 Every check reports its own :class:`CheckStatus`; nothing here raises on a bad
 result; the doctor's own job is uniformly ``ok``. A configuration problem, a
@@ -106,6 +108,7 @@ def doctor(*, live: bool = False) -> Envelope:
         _notify_check(),
         *_health_checks(current_version=__version__),
         _leagues_reachable_check(live=live),
+        _fantasypros_check(live=live),
     ]
     worst = _worst_of(checks)
     data: dict[str, Any] = {
@@ -573,4 +576,133 @@ def _leagues_reachable_check(*, live: bool) -> DoctorCheck:
             else f"Unreachable: {', '.join(unreachable)}."
         ),
         details={"leagues": results},
+    )
+
+
+# --------------------------------------------------------------------------- #
+# The FantasyPros source (ADR-0011): key present, and under --live, the tier
+# --------------------------------------------------------------------------- #
+
+
+def _fantasypros_check(*, live: bool) -> DoctorCheck:
+    """Is the optional FantasyPros API key configured, and does it answer premium?
+
+    Absent is ``skipped``, not ``warn``: the key is optional to this tool, and
+    an ESPN-only setup is not wrong for lacking it. Present without ``--live``
+    is ``ok`` with the source named. Under ``--live`` one request goes out --
+    ``/nfl/players?player=<fpid>``, one row -- through the real client with
+    the cache bypassed, so it is a probe and not a replay, and the tier is
+    reported. A free tier is ``warn`` (reads will refuse truncated lists), a
+    rejected key is ``fail``, and offline is ``skipped``, because an
+    unreachable FantasyPros says nothing about *this* machine. Nothing here
+    raises (``docs/memory/doctor-must-never-raise.md``).
+    """
+    from fantasy_sports.auth.chain import (
+        FANTASYPROS_API_KEY,
+        FANTASYPROS_CREDENTIALS,
+        resolve_credentials,
+    )
+    from fantasy_sports.core.errors import ConfigInvalidError
+
+    try:
+        resolved = resolve_credentials(FANTASYPROS_CREDENTIALS)
+    except ConfigInvalidError:
+        # The chain's config link fails *hard* on a damaged file (#37), and
+        # unlike the ESPN cookies this key is rarely in the environment, so
+        # the walk reaches that link. The `config` check already reported it.
+        return DoctorCheck(
+            name="fantasypros",
+            status=CheckStatus.SKIPPED,
+            summary="config.toml did not parse; see the `config` check.",
+        )
+    found = resolved.get(FANTASYPROS_API_KEY)
+    details: dict[str, Any] = {
+        "present": found is not None,
+        "source": None if found is None else found.source.value,
+        "tier": None,
+        "probed": False,
+    }
+    if found is None:
+        env_var = FANTASYPROS_CREDENTIALS[0].env_vars[0]
+        return DoctorCheck(
+            name="fantasypros",
+            status=CheckStatus.SKIPPED,
+            summary=(
+                f"No FantasyPros API key configured (optional). Set {env_var} or run "
+                "`fantasy-sports auth login` to enable expert rankings."
+            ),
+            details=details,
+        )
+    if not live:
+        return DoctorCheck(
+            name="fantasypros",
+            status=CheckStatus.OK,
+            summary=(
+                f"FantasyPros API key configured ({details['source']}); pass --live to "
+                "check the account tier."
+            ),
+            details=details,
+        )
+
+    from fantasy_sports.cache.store import CacheMode
+    from fantasy_sports.core.errors import (
+        AuthExpiredError,
+        ConfigInvalidError,
+        FantasySportsError,
+    )
+    from fantasy_sports.sources.fantasypros import DOCTOR_PROBE_PLAYER_ID, FantasyProsClient
+
+    details["probed"] = True
+    try:
+        client = FantasyProsClient(resolved, mode=CacheMode.BYPASS)
+        response = client.players(player_id=DOCTOR_PROBE_PLAYER_ID)
+    except ConfigInvalidError as exc:
+        details["code"] = exc.code.value
+        details["kind"] = exc.kind
+        details["tier"] = exc.details.get("tier")
+        if exc.kind == "tier":
+            return DoctorCheck(
+                name="fantasypros",
+                status=CheckStatus.WARN,
+                summary=f"FantasyPros answers on the {exc.details.get('tier')!r} tier; "
+                "reads will refuse its truncated lists. " + (exc.remediation or ""),
+                details=details,
+            )
+        return DoctorCheck(
+            name="fantasypros", status=CheckStatus.FAIL, summary=exc.message, details=details
+        )
+    except AuthExpiredError as exc:
+        details["code"] = exc.code.value
+        return DoctorCheck(
+            name="fantasypros",
+            status=CheckStatus.FAIL,
+            summary=f"{exc.message} {exc.remediation or ''}".strip(),
+            details=details,
+        )
+    except FantasySportsError as exc:
+        # PROVIDER_UNAVAILABLE, RATE_LIMITED, SCHEMA_DRIFT: upstream or the
+        # network, not this machine. Reported, never failed on.
+        details["code"] = exc.code.value
+        return DoctorCheck(
+            name="fantasypros",
+            status=CheckStatus.SKIPPED,
+            summary=f"FantasyPros could not be probed ({exc.code.value}): {exc.message}",
+            details=details,
+        )
+    except Exception as exc:  # noqa: BLE001 - a check reports; it never crashes doctor
+        details["code"] = None
+        return DoctorCheck(
+            name="fantasypros",
+            status=CheckStatus.SKIPPED,
+            summary=f"FantasyPros could not be probed ({type(exc).__name__}).",
+            details=details,
+        )
+
+    details["tier"] = response.tier
+    return DoctorCheck(
+        name="fantasypros",
+        status=CheckStatus.OK,
+        summary=f"FantasyPros reachable on the {response.tier!r} tier "
+        f"(key from {details['source']}; one request spent).",
+        details=details,
     )

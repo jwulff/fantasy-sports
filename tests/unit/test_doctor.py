@@ -17,7 +17,15 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from _harness import FAKE_S2, FAKE_SWID, RecordedEspn, install_espn, isolate_home
+from _harness import (
+    FAKE_FP_KEY,
+    FAKE_S2,
+    FAKE_SWID,
+    RecordedEspn,
+    RecordedFantasyPros,
+    install_espn,
+    isolate_home,
+)
 
 from fantasy_sports.commands import REGISTRY
 from fantasy_sports.commands.doctor import CheckStatus, doctor
@@ -35,6 +43,7 @@ CHECK_NAMES = {
     "version",
     "provider_status",
     "leagues_reachable",
+    "fantasypros",
 }
 
 
@@ -590,3 +599,146 @@ def test_notify_check_warns_instead_of_raising_on_a_malformed_table(isolated_hom
     envelope = doctor()
     assert envelope.ok
     assert _by_name(envelope)["notify"]["status"] == "warn"
+
+
+# --------------------------------------------------------------------------- #
+# fantasypros — the optional source (ADR-0011); one request only under --live
+# --------------------------------------------------------------------------- #
+
+
+def _fp_client_answering(monkeypatch: pytest.MonkeyPatch, http: Any) -> list[dict[str, Any]]:
+    """Route the doctor's probe at ``http`` and record how it was built."""
+    from fantasy_sports.sources import fantasypros
+
+    built: list[dict[str, Any]] = []
+    real = fantasypros.FantasyProsClient
+
+    def _factory(credentials=None, **kwargs: Any):
+        built.append(dict(kwargs))
+        kwargs.setdefault("pacer", fantasypros.Pacer(monotonic=lambda: 0.0, sleep=lambda _: None))
+        return real(credentials, http=http, **kwargs)
+
+    monkeypatch.setattr(fantasypros, "FantasyProsClient", _factory)
+    return built
+
+
+def test_fantasypros_is_skipped_when_no_key_is_configured(
+    monkeypatch: pytest.MonkeyPatch, espn: RecordedEspn
+):
+    monkeypatch.delenv("FANTASY_SPORTS_FANTASYPROS_API_KEY", raising=False)
+    monkeypatch.setattr("fantasy_sports.auth.chain.read_from_keychain", lambda spec: None)
+    for live in (False, True):
+        check = _by_name(doctor(live=live))["fantasypros"]
+        assert check["status"] == "skipped"
+        assert "FANTASY_SPORTS_FANTASYPROS_API_KEY" in check["summary"]
+        assert check["details"] == {"present": False, "source": None, "tier": None, "probed": False}
+
+
+def test_fantasypros_reports_the_key_and_its_source_without_a_request(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    import requests
+
+    monkeypatch.setenv("FANTASY_SPORTS_FANTASYPROS_API_KEY", FAKE_FP_KEY)
+    monkeypatch.setattr(requests, "get", lambda *a, **k: pytest.fail("no request expected"))
+    check = _by_name(doctor())["fantasypros"]
+    assert check["status"] == "ok"
+    assert check["details"] == {"present": True, "source": "env", "tier": None, "probed": False}
+    assert "--live" in check["summary"]
+    assert FAKE_FP_KEY not in json.dumps(check)
+
+
+def test_fantasypros_live_spends_one_bypassing_request_and_reports_premium(
+    monkeypatch: pytest.MonkeyPatch, espn: RecordedEspn
+):
+    monkeypatch.setenv("FANTASY_SPORTS_FANTASYPROS_API_KEY", FAKE_FP_KEY)
+    http = RecordedFantasyPros()
+    built = _fp_client_answering(monkeypatch, http)
+    check = _by_name(doctor(live=True))["fantasypros"]
+    assert check["status"] == "ok"
+    assert check["details"]["tier"] == "premium"
+    assert check["details"]["probed"] is True
+    assert len(http.calls) == 1
+    assert http.calls[0]["params"] == {"external_ids": "espn", "player": 22947}
+    assert built[0]["mode"].value == "no-cache", "a probe, not a replay"
+    assert FAKE_FP_KEY not in json.dumps(check)
+
+
+def test_fantasypros_live_warns_on_a_free_tier(monkeypatch: pytest.MonkeyPatch, espn: RecordedEspn):
+    monkeypatch.setenv("FANTASY_SPORTS_FANTASYPROS_API_KEY", FAKE_FP_KEY)
+    body = {"sport": "NFL", "players": [], "public_api": True, "tier": "free", "limit": 10}
+    _fp_client_answering(monkeypatch, RecordedFantasyPros(overrides={"players": (200, body)}))
+    check = _by_name(doctor(live=True))["fantasypros"]
+    assert check["status"] == "warn"
+    assert check["details"]["tier"] == "free"
+    assert check["details"]["kind"] == "tier"
+    assert "Hall of Fame" in check["summary"]
+
+
+def test_fantasypros_live_fails_on_a_rejected_key(
+    monkeypatch: pytest.MonkeyPatch, espn: RecordedEspn
+):
+    monkeypatch.setenv("FANTASY_SPORTS_FANTASYPROS_API_KEY", FAKE_FP_KEY)
+    refused = RecordedFantasyPros(overrides={"players": (403, "Forbidden")})
+    _fp_client_answering(monkeypatch, refused)
+    check = _by_name(doctor(live=True))["fantasypros"]
+    assert check["status"] == "fail"
+    assert check["details"]["code"] == "AUTH_EXPIRED"
+    assert FAKE_FP_KEY not in json.dumps(check)
+
+
+def test_fantasypros_live_fails_on_an_argument_error_it_did_not_expect(
+    monkeypatch: pytest.MonkeyPatch, espn: RecordedEspn
+):
+    monkeypatch.setenv("FANTASY_SPORTS_FANTASYPROS_API_KEY", FAKE_FP_KEY)
+    body = {"message": "Invalid Player", "public_api": True}
+    _fp_client_answering(monkeypatch, RecordedFantasyPros(overrides={"players": (200, body)}))
+    check = _by_name(doctor(live=True))["fantasypros"]
+    assert check["status"] == "fail"
+    assert check["details"]["kind"] == "argument"
+
+
+def test_fantasypros_live_is_skipped_when_offline(
+    monkeypatch: pytest.MonkeyPatch, espn: RecordedEspn
+):
+    monkeypatch.setenv("FANTASY_SPORTS_FANTASYPROS_API_KEY", FAKE_FP_KEY)
+
+    def _offline(url, params=None, headers=None, timeout=None):
+        raise ConnectionError("no route to host")
+
+    _fp_client_answering(monkeypatch, _offline)
+    check = _by_name(doctor(live=True))["fantasypros"]
+    assert check["status"] == "skipped"
+    assert check["details"]["code"] == "PROVIDER_UNAVAILABLE"
+    assert check["details"]["probed"] is True
+
+
+def test_fantasypros_live_never_raises_on_an_undocumented_exception(
+    monkeypatch: pytest.MonkeyPatch, espn: RecordedEspn
+):
+    monkeypatch.setenv("FANTASY_SPORTS_FANTASYPROS_API_KEY", FAKE_FP_KEY)
+    from fantasy_sports.sources import fantasypros
+
+    def _boom(*a: object, **k: object) -> None:
+        raise RuntimeError("something FantasyPros never documented")
+
+    monkeypatch.setattr(fantasypros, "FantasyProsClient", _boom)
+    check = _by_name(doctor(live=True))["fantasypros"]
+    assert check["status"] == "skipped"
+    assert "RuntimeError" in check["summary"]
+
+
+def test_fantasypros_is_skipped_with_a_broken_config_toml_and_no_env_key(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    """The chain's config link fails hard on a damaged file; doctor must not."""
+    monkeypatch.delenv("FANTASY_SPORTS_FANTASYPROS_API_KEY", raising=False)
+    monkeypatch.setattr("fantasy_sports.auth.chain.read_from_keychain", lambda spec: None)
+    config_dir = tmp_path / "config" / "fantasy-sports"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    (config_dir / "config.toml").write_text("this is not [ valid toml")
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    checks = _by_name(doctor(live=True))
+    assert checks["config"]["status"] == "fail"
+    assert checks["fantasypros"]["status"] == "skipped"
+    assert "config" in checks["fantasypros"]["summary"]

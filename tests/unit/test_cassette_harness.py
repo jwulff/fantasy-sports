@@ -405,6 +405,11 @@ def test_an_encoding_vcrpy_cannot_decode_is_refused_rather_than_recorded() -> No
 #: invented by ``scripts/build_synthetic_cassette.py``.
 PUBLIC_LEAGUES = frozenset({"1234", "99"})
 
+#: The one non-ESPN upstream a committed cassette may record, and only under
+#: ``tests/cassettes/fantasypros/`` (ADR-0011). FantasyPros payloads name no
+#: league, so the league-id check below is vacuous for them by construction.
+FANTASYPROS_HOST = "https://api.fantasypros.com"
+
 
 #: Every shape in which a committed capture can name a league:
 #: the current-season path (``/leagues/<id>``), the historical path
@@ -448,7 +453,8 @@ def test_every_committed_cassette_comes_from_a_public_league() -> None:
         document = yaml.safe_load(path.read_text(encoding="utf-8"))
         for interaction in document["interactions"]:
             uri = interaction["request"]["uri"]
-            assert uri.startswith(ESPN_HOST), f"{path.name} recorded a non-ESPN host"
+            allowed = FANTASYPROS_HOST if path.parent.name == "fantasypros" else ESPN_HOST
+            assert uri.startswith(allowed), f"{path.name} recorded an unexpected host"
             for league in _league_ids_in(uri):
                 assert league in PUBLIC_LEAGUES, f"{path.name} records private league {league}"
 

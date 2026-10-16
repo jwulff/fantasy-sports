@@ -29,6 +29,7 @@ from typing import Any
 
 import pytest
 from _harness import (
+    FAKE_FP_KEY,
     FAKE_S2,
     FAKE_SWID,
     LEAGUE_ID,
@@ -615,7 +616,8 @@ def test_auth_status_never_contacts_the_provider(monkeypatch: pytest.MonkeyPatch
 
 def test_auth_login_stores_names_and_reports_what_it_repaired(monkeypatch: pytest.MonkeyPatch):
     """A SWID pasted without braces is repaired before the write, not rejected."""
-    entered = iter([FAKE_S2, FAKE_SWID.strip("{}")])
+    # The third prompt is the optional FantasyPros key, skipped with Enter.
+    entered = iter([FAKE_S2, FAKE_SWID.strip("{}"), ""])
     written: dict[str, str] = {}
 
     monkeypatch.setattr("getpass.getpass", lambda prompt="": next(entered))
@@ -625,7 +627,23 @@ def test_auth_login_stores_names_and_reports_what_it_repaired(monkeypatch: pytes
     assert data["stored"] == ["espn_s2", "swid"]
     assert data["repaired"] == ["swid"]
     assert written["swid"] == FAKE_SWID
+    assert "fantasypros_api_key" not in written
     assert FAKE_S2 not in json.dumps(data)
+
+
+def test_auth_login_stores_the_optional_fantasypros_key_when_entered(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """ADR-0011: one chain, one login. The key is stored beside the cookies."""
+    entered = iter([FAKE_S2, FAKE_SWID, FAKE_FP_KEY])
+    written: dict[str, str] = {}
+    monkeypatch.setattr("getpass.getpass", lambda prompt="": next(entered))
+    monkeypatch.setattr("fantasy_sports.auth.chain.write_to_keychain", written.__setitem__)
+
+    data = auth_commands.login().data
+    assert data["stored"] == ["espn_s2", "fantasypros_api_key", "swid"]
+    assert written["fantasypros_api_key"] == FAKE_FP_KEY
+    assert FAKE_FP_KEY not in json.dumps(data)
 
 
 def test_auth_login_writes_nothing_when_a_value_is_missing(monkeypatch: pytest.MonkeyPatch):
@@ -698,7 +716,7 @@ def test_a_credential_with_no_guidance_still_prompts(monkeypatch: pytest.MonkeyP
     from fantasy_sports.auth.chain import ESPN_CREDENTIALS
 
     bare = tuple(replace(spec, guidance="") for spec in ESPN_CREDENTIALS)
-    monkeypatch.setattr("fantasy_sports.auth.chain.ESPN_CREDENTIALS", bare)
+    monkeypatch.setattr("fantasy_sports.auth.chain.ALL_CREDENTIALS", bare)
     entered = iter([FAKE_S2, FAKE_SWID])
     monkeypatch.setattr("getpass.getpass", lambda prompt="": next(entered))
     monkeypatch.setattr("fantasy_sports.auth.chain.write_to_keychain", lambda *a: None)

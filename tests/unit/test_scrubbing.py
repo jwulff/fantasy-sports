@@ -305,6 +305,30 @@ def test_scrub_text_redacts_every_credential_shape() -> None:
     assert SWID_PLACEHOLDER in scrubbed
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "x-api-key: fpk-not-a-real-key-abcdefghij",
+        "x-api-key:\n  - fpk-not-a-real-key-abcdefghij",
+        '"x-api-key": "fpk-not-a-real-key-abcdefghij"',
+        'fantasypros_api_key = "fpk-not-a-real-key-abcdefghij"',
+        "api-key=fpk-not-a-real-key-abcdefghij",
+    ],
+)
+def test_scrub_text_redacts_an_api_key_under_its_header_or_key(text: str) -> None:
+    """ADR-0011: the FantasyPros key has no shape of its own, but its *key* does."""
+    scrubbed = scrub_text(text)
+    assert "fpk-not-a-real-key" not in scrubbed
+    assert REDACTED in scrubbed
+    assert scrub_text(scrubbed) == scrubbed
+
+
+def test_scrub_text_leaves_a_credential_name_alone() -> None:
+    """The auth-status payload names the credential; a name is not a value."""
+    text = '"name": "fantasypros_api_key", "present": true'
+    assert scrub_text(text) == text
+
+
 def test_scrub_text_leaves_an_already_scrubbed_value_alone() -> None:
     already = f"espn_s2={REDACTED}; SWID={SWID_PLACEHOLDER}"
     assert scrub_text(already) == already

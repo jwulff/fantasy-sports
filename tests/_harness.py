@@ -39,6 +39,11 @@ SEASON = 2026
 FAKE_S2 = "AEB" + "q" * 200
 FAKE_SWID = "{1A2B3C4D-5E6F-7A8B-9C0D-1E2F3A4B5C6D}"
 
+#: A synthetic FantasyPros API key (ADR-0011). Long enough to register with
+#: the redaction set, obviously fake, and never to be replaced by a real one.
+FAKE_FP_KEY = "fpk-not-a-real-key-" + "z" * 24
+FP_CASSETTE = "fantasypros/premium_2026.yaml"
+
 CONFIG_TOML = (
     'default = "synthetic"\n'
     "\n"
@@ -641,3 +646,64 @@ def install_writable_espn(monkeypatch: Any, **options: Any) -> WritableEspn:
         "fantasy_sports.providers.espn.utc_now", lambda: datetime.fromisoformat(UNLOCKED_AT)
     )
     return http
+
+
+# --------------------------------------------------------------------------- #
+# FantasyPros (ADR-0011, jwulff/fantasy-sports#128)
+# --------------------------------------------------------------------------- #
+
+
+class RecordedFantasyPros:
+    """Serves ``tests/cassettes/fantasypros/premium_2026.yaml`` as the client's
+    ``http`` seam, and records every call -- URL, params, headers, timeout.
+
+    Matching is by path plus order-insensitive query pairs, the same identity
+    :func:`query_key` gives an ESPN request. ``overrides`` maps a path suffix
+    (``"consensus-rankings"``) to a ``(status, body)`` pair or a callable
+    raising an exception, for the error paths no recording can honestly hold
+    (``docs/testing.md`` §4). A request with no recording and no override
+    fails the test rather than inventing an answer.
+    """
+
+    def __init__(
+        self,
+        name: str = FP_CASSETTE,
+        overrides: Mapping[str, Any] | None = None,
+    ) -> None:
+        import yaml
+        from conftest import CASSETTE_LIBRARY_DIR
+
+        document = yaml.safe_load(Path(CASSETTE_LIBRARY_DIR / name).read_text(encoding="utf-8"))
+        self.bodies: dict[tuple[Any, ...], str] = {}
+        for interaction in document["interactions"]:
+            uri = interaction["request"]["uri"]
+            self.bodies[query_key(uri)] = interaction["response"]["body"]["string"]
+        self.overrides = dict(overrides or {})
+        self.calls: list[dict[str, Any]] = []
+
+    def __call__(self, url, params=None, headers=None, timeout=None) -> FakeResponse:
+        pairs = [(str(k), str(v)) for k, v in (params or {}).items()]
+        self.calls.append(
+            {
+                "url": url,
+                "params": dict(params or {}),  # as sent, so a test sees the caller's types
+                "headers": dict(headers or {}),
+                "timeout": timeout,
+            }
+        )
+        path = urlsplit(url).path
+        for suffix, override in self.overrides.items():
+            if path.endswith(suffix):
+                if callable(override):
+                    override()
+                status, body = override
+                response = FakeResponse(body, status_code=status)
+                return response
+        body = self.bodies.get(query_key(url, pairs))
+        if body is None:
+            raise AssertionError(f"no recorded FantasyPros response for {path} {dict(pairs)}")
+        return FakeResponse(body)
+
+    def paths(self) -> list[str]:
+        """Every endpoint path requested, in order."""
+        return [urlsplit(call["url"]).path.rsplit("/json/", 1)[-1] for call in self.calls]

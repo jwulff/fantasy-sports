@@ -49,8 +49,11 @@ from fantasy_sports.core.redaction import (
 )
 
 __all__ = [
+    "ALL_CREDENTIALS",
     "ENV_PREFIX",
     "ESPN_CREDENTIALS",
+    "FANTASYPROS_API_KEY",
+    "FANTASYPROS_CREDENTIALS",
     "REDACTED",
     "SERVICE",
     "CredentialSet",
@@ -197,6 +200,33 @@ ESPN_CREDENTIALS: tuple[CredentialSpec, ...] = (
 )
 """ESPN's two manually-extracted cookies. There is no programmatic auth to
 design toward, ever (ARCHITECTURE §14 item 10)."""
+
+FANTASYPROS_API_KEY = "fantasypros_api_key"
+"""The FantasyPros credential's canonical name: Keychain account and config key."""
+
+FANTASYPROS_CREDENTIALS: tuple[CredentialSpec, ...] = (
+    CredentialSpec(
+        name=FANTASYPROS_API_KEY,
+        label="FantasyPros API key",
+        env_vars=(f"{ENV_PREFIX}FANTASYPROS_API_KEY",),
+        guidance=(
+            "Optional. From your FantasyPros account's API page; the key is sent as the "
+            "x-api-key header. Press Enter to skip if you do not use FantasyPros."
+        ),
+        required=False,
+    ),
+)
+"""The FantasyPros expert source's one credential (ADR-0011).
+
+``required=False`` is scoped to *this tool*, not to the source: nothing on the
+ESPN side needs it, so ``auth status`` must not report an ESPN-only setup as
+incomplete and ``auth login`` must not refuse to store two good cookies because
+a third prompt was skipped. The source itself still refuses to run without it
+(``sources/fantasypros.py`` raises ``AUTH_MISSING`` naming the variable).
+"""
+
+ALL_CREDENTIALS: tuple[CredentialSpec, ...] = ESPN_CREDENTIALS + FANTASYPROS_CREDENTIALS
+"""Every credential the ``auth`` commands manage, provider and source alike."""
 
 
 # ---------------------------------------------------------------------------
