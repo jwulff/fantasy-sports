@@ -68,6 +68,7 @@ from fantasy_sports.core.models import (
     League,
     Matchup,
     PendingClaim,
+    PendingTrade,
     RosterMove,
     RosterSlot,
     SessionRole,
@@ -287,6 +288,43 @@ class WritingProvider(Protocol):
         self, league_id: str, season: int, team_id: str, transaction_id: str
     ) -> WriteResult:
         """Withdraw a pending transaction (a queued waiver claim)."""
+        ...
+
+    def propose_trade(
+        self,
+        league_id: str,
+        season: int,
+        team_id: str,
+        *,
+        counterparty_id: str,
+        give: Sequence[str],
+        get: Sequence[str],
+        expires_at: datetime,
+        comment: str | None = None,
+    ) -> WriteResult:
+        """Offer ``give`` from ``team_id`` for ``get`` from ``counterparty_id``.
+
+        Only ``team_id`` is ownership-guarded; the counterparty's players are
+        the provider's to check. Pending until the counterparty answers or it
+        expires, and the counterparty can accept at any moment, so the caller
+        owns the acknowledgement gate in front of this.
+        """
+        ...
+
+    def cancel_trade(
+        self, league_id: str, season: int, team_id: str, transaction_id: str
+    ) -> WriteResult:
+        """Withdraw one of ``team_id``'s own pending trade proposals."""
+        ...
+
+    def fetch_pending_trades(
+        self, league_id: str, season: int, team_id: str | None = None
+    ) -> list[PendingTrade]:
+        """Open trade proposals, by transaction id, from the provider's queue.
+
+        ``team_id`` keeps the ones that team made or received. A read, so not
+        ownership-guarded. A queue whose shape changed is ``SCHEMA_DRIFT``.
+        """
         ...
 
     def fetch_pending_claims(

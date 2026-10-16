@@ -789,3 +789,111 @@ register(
         ),
     )
 )
+
+# --------------------------------------------------------------------------- #
+# Trades (jwulff/fantasy-sports#112): propose, cancel, list. Accept and
+# decline are #142. A `trade` group does not shadow anything: there is no
+# top-level `trade` command, and the list is the plural `trades`.
+# --------------------------------------------------------------------------- #
+
+register(
+    CommandSpec(
+        name="trades",
+        summary="List a team's open trade proposals, made and received, by transaction id.",
+        handler="fantasy_sports.commands.trades:list_trades",
+        shape=DataShape.COLLECTION,
+        params=(
+            Param(
+                name="team",
+                help="The team whose proposals to read: id, or its name (case-insensitive; a "
+                "unique prefix is enough). Defaults to the session's own team; required "
+                "when the session owns none or more than one.",
+                annotation=str | None,
+            ),
+        ),
+    )
+)
+
+register(
+    CommandSpec(
+        name="propose",
+        group="trade",
+        summary="Offer your players for another team's in one trade proposal. Irreversible.",
+        handler="fantasy_sports.commands.trades:propose_trade",
+        shape=DataShape.OBJECT,
+        params=(
+            _TEAM_PARAM,
+            Param(
+                name="with_team",
+                flags=("--with",),
+                help="The team to trade with: id, or its name (case-insensitive; a unique "
+                "prefix is enough). Not your own.",
+                annotation=str,
+                required=True,
+            ),
+            Param(
+                name="give",
+                help="A player on your roster to offer: id, or a name unique on your roster. "
+                "Repeat for each player.",
+                annotation=list[str],
+                required=True,
+            ),
+            Param(
+                name="get",
+                help="A player on the other team's roster to ask for: id, or a name unique on "
+                "that roster. Repeat for each player.",
+                annotation=list[str],
+                required=True,
+            ),
+            Param(
+                name="comment",
+                help="A note the other manager sees with the offer.",
+                annotation=str | None,
+            ),
+            Param(
+                name="expires_hours",
+                help="Hours until the offer lapses unanswered, 1 to 336.",
+                annotation=int,
+                default=48,
+            ),
+            _ACKNOWLEDGE_PARAM,
+            Param(
+                name="dry_run",
+                help="Read both rosters, check every player, and report the items and what "
+                "cannot be undone. Sends and journals nothing; does not validate that ESPN "
+                "would accept the proposal.",
+                annotation=bool,
+                default=False,
+            ),
+        ),
+    )
+)
+
+register(
+    CommandSpec(
+        name="cancel",
+        group="trade",
+        summary="Withdraw one of your own open trade proposals by its transaction id. Writes.",
+        handler="fantasy_sports.commands.trades:cancel_trade",
+        shape=DataShape.OBJECT,
+        params=(
+            _TEAM_PARAM,
+            Param(
+                name="id",
+                help="The proposal's transaction id: `provider_id` in `trades`, or the "
+                "`provider_transaction_id` that `trade propose` returned. Refused unless "
+                "this team made it and it is open now. Needs no --acknowledge-irreversible: "
+                "a cancel gives nothing up.",
+                annotation=str,
+                required=True,
+            ),
+            Param(
+                name="dry_run",
+                help="Check the proposal is open and report what would be sent. Sends and "
+                "journals nothing.",
+                annotation=bool,
+                default=False,
+            ),
+        ),
+    )
+)

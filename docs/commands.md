@@ -697,6 +697,8 @@ Commands:
   roster        List one team's roster slots: player, lineup slot, eligibility, kickoff, lock.
   standings     List teams in the provider's own rank order, with a 1-based standing.
   teams         List every team with its record, points, and owners. Unordered.
+  trade         2 subcommands: cancel, propose
+  trades        List a team's open trade proposals, made and received, by transaction id.
   transactions  List recent roster moves, newest first, walking scoring periods backward.
 ```
 <!-- /sample -->
@@ -3247,6 +3249,522 @@ fantasy-sports cancel-claim --team 1 --id 5d0c6e2a-7f41-4b9e-a3c8-1e6f2b9d4a70
       }
     ],
     "journal_entry_id": "cf706192-8dae-4fb0-91c2-4d5e6f708192",
+    "reversible": false,
+    "acknowledged_irreversible": null,
+    "cost": {
+      "bid_amount": null,
+      "displaced_player_id": null
+    },
+    "credentials": {
+      "espn_s2_age_seconds": null,
+      "warning": "credential age unknown"
+    },
+    "read_back": {
+      "verified": true,
+      "diverged": [],
+      "matched_by": [
+        "provider_transaction_id"
+      ],
+      "queue_size": 0
+    },
+    "notified": null,
+    "dry_run": false
+  },
+  "error": null
+}
+```
+<!-- /sample -->
+
+### `trades`
+
+Lists the open trade proposals one team made or received, newest first, from
+ESPN's queue (`view=mPendingTransactions`, the same view `claims` reads).
+`data` is a list. Each proposal carries `provider_id`, ESPN's transaction id
+and the `--id` that `trade cancel` takes, plus `proposing_team_id`,
+`counterparty_team_id`, `players_offered` (moving from the proposer),
+`players_requested` (moving to the proposer), `proposed_at`, `expires_at`,
+`status`, `team_actions` (each team's answer so far, verbatim; the proposer
+reads `ACCEPTED` from the moment it proposes), `comment`, and `raw`. Times
+are UTC.
+
+The same proposal looks different from each side, so every row also says
+where `--team` stands: `direction` is `outgoing` when `--team` proposed it
+and `incoming` when it was proposed to `--team`; `counterparty_team_id` is
+the other team; `giving` lists the players that would leave `--team` and
+`receiving` the ones that would join it. Those four keys are what to act on.
+
+This is the queue, not the transaction log. A cancelled proposal leaves the
+queue at once, while its own row in `transactions` keeps reading `PENDING`
+(brief 07 §2), exactly as a cancelled claim does.
+
+`comment` is free text another manager wrote and is listed in the envelope's
+`untrusted` map. ESPN's queue row does not carry it, so it is empty for
+proposals read from the queue; the write response to `trade propose`
+echoes it.
+
+`--team` defaults to the team the session owns, as for `claims`, and another
+team's proposals are readable too. The read caches for 15 minutes, and every
+successful write purges it. Pass `--fresh` before acting on what it shows.
+
+| Option | |
+|---|---|
+| `--team` | The team whose proposals to read, by id or name. Defaults to your own team |
+
+<!-- sample: trades -->
+```bash
+fantasy-sports trades --team 1
+# synthetic league 99, season 2026 (replayed). Exit 0, stdout, trimmed with …. The proposal above, as ESPN's queue lists it (brief 07): the queue row carries no comment:
+```
+```json
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "espn",
+  "league_id": "99",
+  "season": 2026,
+  "generated_at": "2026-10-16T06:54:54Z",
+  "data_as_of": "2026-10-16T06:54:54Z",
+  "data_age_seconds": 0,
+  "sources": [
+    {
+      "name": "mTeam+mRoster+mMatchup+mSettings+mStandings",
+      "fetched_at": "2026-10-16T06:54:54Z",
+      "age_seconds": 0,
+      "cached": true
+    },
+    {
+      "name": "players_wl",
+      "fetched_at": "2026-10-16T06:54:54Z",
+      "age_seconds": 0,
+      "cached": true
+    },
+    {
+      "name": "proTeamSchedules_wl",
+      "fetched_at": "2026-10-16T06:54:54Z",
+      "age_seconds": 0,
+      "cached": true
+    },
+    {
+      "name": "mDraftDetail",
+      "fetched_at": "2026-10-16T06:54:54Z",
+      "age_seconds": 0,
+      "cached": true
+    },
+    {
+      "name": "mPendingTransactions",
+      "fetched_at": "2026-10-16T06:54:54Z",
+      "age_seconds": 0,
+      "cached": true
+    }
+  ],
+  "untrusted": {
+    "[0].comment": ""
+  },
+  "raw_omitted": false,
+  "data": [
+    {
+      "provider": "espn",
+      "provider_id": "5d0c6e2a-7f41-4b9e-a3c8-1e6f2b9d4a70",
+      "proposing_team_id": "1",
+      "counterparty_team_id": "2",
+      "players_offered": [
+        "2002"
+      ],
+      "players_requested": [
+        "2011"
+      ],
+      "proposed_at": "2026-09-10T12:00:01Z",
+      "expires_at": "2026-09-12T12:00:00Z",
+      "status": "PENDING",
+      "team_actions": {
+        "1": "ACCEPTED"
+      },
+      "comment": "",
+      "raw": {
+        "bidAmount": 0,
+        "executionType": "EXECUTE",
+        "expirationDate": 1789214400000,
+        "id": "5d0c6e2a-7f41-4b9e-a3c8-1e6f2b9d4a70",
+        "…": "… 12 more keys"
+      },
+      "direction": "outgoing",
+      "giving": [
+        "2002"
+      ],
+      "receiving": [
+        "2011"
+      ]
+    }
+  ],
+  "error": null
+}
+```
+<!-- /sample -->
+
+### `trade propose`
+
+Offers players from your team for players on another team, in one
+`TRADE_PROPOSAL` transaction. Each player is one `TRADE` item naming both
+teams, the shape brief 07 captured live. The offer is `PENDING` until the
+other manager answers it, it is cancelled, or it expires.
+
+**Irreversible.** The other manager can accept the offer the moment it lands,
+and an accepted trade enters the league's review window, out of this tool's
+reach. So `trade propose` takes `--acknowledge-irreversible "<why>"` exactly
+as `add`, `drop`, and `claim` do: without it the command is `CONFIG_INVALID`,
+and the message states what cannot be undone. The reason is journaled
+verbatim, and the owner's
+[notify hook](../README.md#being-told-about-irreversible-writes) runs after
+the entry closes. `--dry-run` needs no flag and reports the same statement
+under `irreversible_because`.
+
+**What is checked before anything is sent.** `--team` must be a team the
+session owns (`WRITE_REJECTED` `not_owned`), and `--with` another team. Both
+rosters are read: every `--give` must be on yours and every `--get` on
+theirs, by id or a name unique on that roster, and no player may be named
+twice. A player on the wrong roster is `CONFIG_INVALID` naming the flag and
+the team. ESPN's own answer to that mistake is `TRAN_PLAYER_NOT_ON_TEAM`,
+which the shared rejection vocabulary calls `already_dropped`, a misleading
+word for a trade; checking first means an agent never has to read it. The
+trade deadline and roster limits are ESPN's to enforce, and its rejection
+comes back as `WRITE_REJECTED` with `provider_type` verbatim.
+
+**What comes back.** The keys every write returns, with `kind` `"trade"` and
+`provider_transaction_id` the proposal's id, plus `counterparty_team_id`,
+`giving`, `receiving`, `expires_at`, and `comment`. `items` lists each player
+with `from_team_id` and `to_team_id`. `cost.players_offered` is what this
+offer puts on the table. `read_back` looks for the proposal in `trades` under
+that id: `verified: true` when it is listed, `null` with a note when the queue
+does not show it yet, `false` with `error` when the queue cannot be read.
+
+Accepting or declining an offer made *to* your team is not supported yet
+(#142). Deciding whether a trade is good is not this command's job: an agent
+reads rosters, projections, and `trades`, and decides.
+
+| Option | |
+|---|---|
+| `--team` | Your team's id or name. Required |
+| `--with` | The team to trade with, by id or name. Required |
+| `--give` | A player on your roster to offer. Repeat for each. Required |
+| `--get` | A player on their roster to ask for. Repeat for each. Required |
+| `--comment` | A note the other manager sees with the offer |
+| `--expires-hours` | Hours until the offer lapses unanswered, 1 to 336. Default 48 |
+| `--acknowledge-irreversible` | Why you are making the offer. Required to send |
+| `--dry-run` | Read both rosters, check every player, and report the items; send and journal nothing |
+
+<!-- sample: trade-propose.dry-run -->
+```bash
+fantasy-sports trade propose --team 1 --with 2 --give 'Grace Hopper' --get 'Alan Turing' --comment 'Hopper for Turing?' --dry-run
+# synthetic league 99, season 2026 (replayed). Exit 0, stdout:
+```
+```json
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "espn",
+  "league_id": "99",
+  "season": 2026,
+  "generated_at": "2026-10-16T06:54:54Z",
+  "data_as_of": "2026-09-10T12:00:00Z",
+  "data_age_seconds": 3092094,
+  "sources": [
+    {
+      "name": "mTeam+mRoster+mMatchup+mSettings+mStandings",
+      "fetched_at": "2026-09-10T12:00:00Z",
+      "age_seconds": 3092094,
+      "cached": false
+    },
+    {
+      "name": "players_wl",
+      "fetched_at": "2026-09-10T12:00:00Z",
+      "age_seconds": 3092094,
+      "cached": false
+    },
+    {
+      "name": "proTeamSchedules_wl",
+      "fetched_at": "2026-09-10T12:00:00Z",
+      "age_seconds": 3092094,
+      "cached": false
+    },
+    {
+      "name": "mDraftDetail",
+      "fetched_at": "2026-09-10T12:00:00Z",
+      "age_seconds": 3092094,
+      "cached": false
+    },
+    {
+      "name": "mNav",
+      "fetched_at": "2026-09-10T12:00:00Z",
+      "age_seconds": 3092094,
+      "cached": false
+    }
+  ],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": {
+    "team_id": "1",
+    "kind": "trade",
+    "provider_transaction_id": null,
+    "status": null,
+    "is_pending": null,
+    "proposed_at": null,
+    "items": [
+      {
+        "player_id": "2002",
+        "type": "trade",
+        "from_team_id": "1",
+        "to_team_id": "2"
+      },
+      {
+        "player_id": "2011",
+        "type": "trade",
+        "from_team_id": "2",
+        "to_team_id": "1"
+      }
+    ],
+    "journal_entry_id": null,
+    "reversible": false,
+    "acknowledged_irreversible": null,
+    "cost": {
+      "bid_amount": null,
+      "displaced_player_id": null,
+      "players_offered": [
+        "2002"
+      ]
+    },
+    "credentials": {
+      "espn_s2_age_seconds": null,
+      "warning": "credential age unknown"
+    },
+    "read_back": null,
+    "notified": null,
+    "dry_run": true,
+    "counterparty_team_id": "2",
+    "giving": [
+      "2002"
+    ],
+    "receiving": [
+      "2011"
+    ],
+    "expires_at": "2026-09-12T12:00:00Z",
+    "comment": "Hopper for Turing?",
+    "irreversible_because": "Team 2 can accept the offer of Grace Hopper (2002) for Alan Turing (2011) at any moment until it is cancelled or expires; once accepted the trade enters the league's review window and this tool cannot reverse it.",
+    "note": "Dry run: nothing was sent and nothing was journaled. Both rosters were read and every player is where the items say; ESPN has no validate-only mode, so whether it would accept the proposal (trade deadline, roster limits, locked players) was not checked. A real run needs --acknowledge-irreversible."
+  },
+  "error": null
+}
+```
+<!-- /sample -->
+
+<!-- sample: trade-propose -->
+```bash
+fantasy-sports trade propose --team 1 --with 2 --give 'Grace Hopper' --get 'Alan Turing' --comment 'Hopper for Turing?' --acknowledge-irreversible 'Our QB room is empty; Turing starts for us and Hopper is our RB3'
+# synthetic league 99, season 2026 (replayed). Exit 0, stdout. The write host answers the TRADE_PROPOSAL shape brief 07 captured; no [notify] command is configured:
+```
+```json
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "espn",
+  "league_id": "99",
+  "season": 2026,
+  "generated_at": "2026-10-16T06:54:54Z",
+  "data_as_of": "2026-09-10T12:00:00Z",
+  "data_age_seconds": 3092094,
+  "sources": [
+    {
+      "name": "mTeam+mRoster+mMatchup+mSettings+mStandings",
+      "fetched_at": "2026-09-10T12:00:00Z",
+      "age_seconds": 3092094,
+      "cached": false
+    },
+    {
+      "name": "players_wl",
+      "fetched_at": "2026-09-10T12:00:00Z",
+      "age_seconds": 3092094,
+      "cached": false
+    },
+    {
+      "name": "proTeamSchedules_wl",
+      "fetched_at": "2026-09-10T12:00:00Z",
+      "age_seconds": 3092094,
+      "cached": false
+    },
+    {
+      "name": "mDraftDetail",
+      "fetched_at": "2026-09-10T12:00:00Z",
+      "age_seconds": 3092094,
+      "cached": false
+    },
+    {
+      "name": "mPendingTransactions",
+      "fetched_at": "2026-09-10T12:00:00Z",
+      "age_seconds": 3092094,
+      "cached": false
+    }
+  ],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": {
+    "team_id": "1",
+    "kind": "trade",
+    "provider_transaction_id": "5d0c6e2a-7f41-4b9e-a3c8-1e6f2b9d4a70",
+    "status": "PENDING",
+    "is_pending": true,
+    "proposed_at": "2026-09-10T12:00:01Z",
+    "items": [
+      {
+        "player_id": "2002",
+        "type": "trade",
+        "from_team_id": "1",
+        "to_team_id": "2"
+      },
+      {
+        "player_id": "2011",
+        "type": "trade",
+        "from_team_id": "2",
+        "to_team_id": "1"
+      }
+    ],
+    "journal_entry_id": "d08172a3-9ebf-4fc1-a2d3-5e6f708192a3",
+    "reversible": false,
+    "acknowledged_irreversible": "Our QB room is empty; Turing starts for us and Hopper is our RB3",
+    "cost": {
+      "bid_amount": null,
+      "displaced_player_id": null,
+      "players_offered": [
+        "2002"
+      ]
+    },
+    "credentials": {
+      "espn_s2_age_seconds": null,
+      "warning": "credential age unknown"
+    },
+    "read_back": {
+      "verified": true,
+      "diverged": [],
+      "matched_by": [
+        "provider_transaction_id"
+      ],
+      "queue_size": 1
+    },
+    "notified": {
+      "enabled": false,
+      "attempted": false,
+      "ok": null,
+      "exit_status": null,
+      "error": null
+    },
+    "dry_run": false,
+    "counterparty_team_id": "2",
+    "giving": [
+      "2002"
+    ],
+    "receiving": [
+      "2011"
+    ],
+    "expires_at": "2026-09-12T12:00:00Z",
+    "comment": "Hopper for Turing?"
+  },
+  "error": null
+}
+```
+<!-- /sample -->
+
+### `trade cancel`
+
+Withdraws one of your own open trade proposals. It sends a `TRADE_PROPOSAL`
+transaction with `executionType: "CANCEL"` and `relatedTransactionId` naming
+the proposal, the shape brief 07 captured.
+
+It follows `cancel-claim`'s rules. `--team` must be a team the session owns,
+and `--id` a proposal that team made and that is open now, as `trades` just
+read it. Anything else is `CONFIG_INVALID` with `details.outgoing_ids`; an
+offer made *to* your team is refused with a pointer to #142, since only the
+proposer can cancel. No `--acknowledge-irreversible` is needed, because a
+cancel gives nothing up, and the notify hook is not run. ESPN answers with a
+**new** transaction id (`provider_transaction_id`); the proposal it withdrew
+is `cancelled_trade_id`. The journal entry is kind `trade_cancel` with the
+proposal as `prior_state`. The queue is re-read and the proposal must be gone:
+`read_back.verified` is `true`. ESPN answers a cancel of a proposal that is no
+longer open with `TRAN_NOT_FOUND`, reported as `WRITE_REJECTED` with that
+`provider_type`.
+
+| Option | |
+|---|---|
+| `--team` | Your team's id or name. Required |
+| `--id` | The proposal's transaction id, from `trades` or from `trade propose`. Required |
+| `--dry-run` | Check the proposal is open and report what would be sent; send and journal nothing |
+
+<!-- sample: trade-cancel -->
+```bash
+fantasy-sports trade cancel --team 1 --id 5d0c6e2a-7f41-4b9e-a3c8-1e6f2b9d4a70
+# synthetic league 99, season 2026 (replayed). Exit 0, stdout. Withdraws the proposal above; the write host answers the cancel shape brief 07 captured (a new id, CANCELED, relatedTransactionId):
+```
+```json
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "espn",
+  "league_id": "99",
+  "season": 2026,
+  "generated_at": "2026-10-16T06:54:54Z",
+  "data_as_of": "2026-09-10T12:00:00Z",
+  "data_age_seconds": 3092094,
+  "sources": [
+    {
+      "name": "mTeam+mRoster+mMatchup+mSettings+mStandings",
+      "fetched_at": "2026-09-10T12:00:00Z",
+      "age_seconds": 3092094,
+      "cached": false
+    },
+    {
+      "name": "players_wl",
+      "fetched_at": "2026-09-10T12:00:00Z",
+      "age_seconds": 3092094,
+      "cached": false
+    },
+    {
+      "name": "proTeamSchedules_wl",
+      "fetched_at": "2026-09-10T12:00:00Z",
+      "age_seconds": 3092094,
+      "cached": false
+    },
+    {
+      "name": "mDraftDetail",
+      "fetched_at": "2026-09-10T12:00:00Z",
+      "age_seconds": 3092094,
+      "cached": false
+    },
+    {
+      "name": "mPendingTransactions",
+      "fetched_at": "2026-09-10T12:00:00Z",
+      "age_seconds": 3092094,
+      "cached": false
+    }
+  ],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": {
+    "team_id": "1",
+    "kind": "trade_cancel",
+    "provider_transaction_id": "c4a7e1d2-9b3f-4e6a-8d1c-5f2e7a9b0c13",
+    "cancelled_trade_id": "5d0c6e2a-7f41-4b9e-a3c8-1e6f2b9d4a70",
+    "counterparty_team_id": "2",
+    "status": "CANCELED",
+    "is_pending": false,
+    "proposed_at": "2026-09-10T12:00:01Z",
+    "items": [
+      {
+        "player_id": "2002",
+        "type": "trade",
+        "from_team_id": "1",
+        "to_team_id": "2"
+      },
+      {
+        "player_id": "2011",
+        "type": "trade",
+        "from_team_id": "2",
+        "to_team_id": "1"
+      }
+    ],
+    "journal_entry_id": "e19283b4-afc0-40d2-b3e4-6f708192a3b4",
     "reversible": false,
     "acknowledged_irreversible": null,
     "cost": {

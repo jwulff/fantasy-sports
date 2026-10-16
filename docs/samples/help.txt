@@ -31,4 +31,6 @@ Commands:
   roster        List one team's roster slots: player, lineup slot, eligibility, kickoff, lock.
   standings     List teams in the provider's own rank order, with a 1-based standing.
   teams         List every team with its record, points, and owners. Unordered.
+  trade         2 subcommands: cancel, propose
+  trades        List a team's open trade proposals, made and received, by transaction id.
   transactions  List recent roster moves, newest first, walking scoring periods backward.

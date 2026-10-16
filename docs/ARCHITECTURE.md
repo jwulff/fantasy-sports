@@ -611,6 +611,30 @@ cancel's own new id as `provider_transaction_id` and the claim's as
 `cancelled_claim_id`. Its read-back re-reads the queue and reports rather than
 raises: ESPN did accept the cancel.
 
+### Trades (#112)
+
+`trade propose --team T --with U --give P ... --get Q ...` sends one
+`TRADE_PROPOSAL`: one `TRADE` item per player, each naming both teams, plus
+`expirationDate` and an optional `comment` (brief 07, captured live). A
+proposal is in the irreversible class: the other manager can accept it the
+moment it lands, and an accepted trade enters the league's review window out
+of the tool's reach. So it takes `--acknowledge-irreversible`, is journaled as
+kind `trade` with `reversible: false`, and runs the notify hook. Both rosters
+are read first and every player checked, because ESPN's answer to a player on
+the wrong roster is `TRAN_PLAYER_NOT_ON_TEAM`, which the shared vocabulary
+calls `already_dropped`. Only `--team` is ownership-guarded; the counterparty's
+players are ESPN's to check.
+
+`trades [--team T]` lists the open proposals that team made or received from
+the same `mPendingTransactions` queue as `claims`, for the same reason: a
+cancelled proposal's own `mTransactions2` row keeps reading `PENDING`. Each
+row restates the sides from `--team`'s point of view (`direction`, `giving`,
+`receiving`). `trade cancel --team T --id ID` withdraws one of the team's own
+proposals on `cancel-claim`'s rules: kind `trade_cancel`, no acknowledgement,
+not announced. Accepting and declining an offer need a second account to
+capture and are #142. Valuing a trade is an agent's job, not a command
+(ADR-0011, #135).
+
 ### Testing and what is proven
 
 Write tests never touch ESPN. Unit tests inject `http_post` and replay bodies
@@ -839,17 +863,20 @@ fantasy-sports drop      --team <id|name> --player P
 fantasy-sports claim     --team <id|name> --player P [--bid N] [--drop D]
 fantasy-sports claims    [--team <id|name>]
 fantasy-sports cancel-claim --team <id|name> --id CLAIM_ID
+fantasy-sports trades    [--team <id|name>]
+fantasy-sports trade propose --team <id|name> --with <id|name> --give P --get Q
+fantasy-sports trade cancel  --team <id|name> --id TRADE_ID
 fantasy-sports journal list | show | digest | reverse
 ```
 
-(`add`, `drop`, and `claim` also take `--acknowledge-irreversible "<why>"` and
-`--dry-run`. The writes are §9.)
+(`add`, `drop`, `claim`, and `trade propose` also take
+`--acknowledge-irreversible "<why>"` and `--dry-run`. The writes are §9.)
 
 ESPN only · reads and writes · JSON/table/CSV · multi-league config · SQLite
 cache · mutation journal · cassette tests · live canary in CI · health
 manifest + client-side check.
 
-**Out of scope for v0.1:** trades (#112), the MCP server (#111), Yahoo,
+**Out of scope for v0.1:** accepting and declining trades (#142), the MCP server (#111), Yahoo,
 Sleeper, cross-provider player IDs, draft tooling, projections.
 
 ---
@@ -858,8 +885,8 @@ Sleeper, cross-provider player IDs, draft tooling, projections.
 
 | Version | Contents |
 |---|---|
-| **v0.1** | ESPN reads, cache, config, drift detection, `doctor`, and **writes**: `lineup set`, `add`, `drop`, `claim`, `claims`, `cancel-claim`, the mutation journal, and `journal reverse` (epic #105, §9) |
-| **Still open on v0.1's write surface** | The executing `FREEAGENT` probes against a throwaway league (#108); trade proposals, acceptance, and cancellation (#112) |
+| **v0.1** | ESPN reads, cache, config, drift detection, `doctor`, and **writes**: `lineup set`, `add`, `drop`, `claim`, `claims`, `cancel-claim`, `trades`, `trade propose`, `trade cancel`, the mutation journal, and `journal reverse` (epic #105, §9) |
+| **Still open on v0.1's write surface** | The executing `FREEAGENT` probes against a throwaway league (#108); accepting and declining trades, which need a second account (#142) |
 | **v0.2** | `reports/` — start-sit memo, weekly recap, vault output |
 | **v0.3** | `mcp serve` adapter over the same registry (#111) |
 | **v0.4+** | Second provider, only when a real need appears |

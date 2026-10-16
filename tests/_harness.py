@@ -372,9 +372,18 @@ class WritableEspn(RecordedEspn):
         transaction_id = TRANSACTION_ID
         items = [self._echo(item) for item in body.get("items", [])]
         answer: dict[str, Any] = {}
-        if kind == "WAIVER" and execution == "EXECUTE":
+        if kind in ("WAIVER", "TRADE_PROPOSAL") and execution == "EXECUTE":
             status, pending = "PENDING", True
             transaction_id = self._claim_id()
+        if kind == "TRADE_PROPOSAL" and execution == "EXECUTE":
+            # As t1-propose was captured (brief 07): the expiry comes back in
+            # epoch milliseconds, the comment echoed, the proposer ACCEPTED.
+            answer.update(
+                expirationDate=_epoch_ms(body.get("expirationDate")),
+                teamActions={str(body.get("teamId")): "ACCEPTED"},
+            )
+            if "comment" in body:
+                answer["comment"] = body["comment"]
         if execution == "CANCEL":
             status, transaction_id = "CANCELED", CANCEL_TRANSACTION_ID
             related = body.get("relatedTransactionId")
@@ -443,6 +452,33 @@ class WritableEspn(RecordedEspn):
                 self.withdrawn += [*claims, dict(answer)]
             self._publish(self.bootstrap)
             return
+        if kind == "TRADE_PROPOSAL":
+            # Queued as t1-pending was captured: no comment in the queue row.
+            self.pending.append(
+                {
+                    "bidAmount": 0,
+                    "executionType": "EXECUTE",
+                    "expirationDate": (answer or {}).get("expirationDate"),
+                    "id": (answer or {}).get("id", TRANSACTION_ID),
+                    "isActingAsTeamOwner": False,
+                    "isLeagueManager": False,
+                    "isPending": True,
+                    "items": [
+                        dict(item, acquisitionBudget=0, fromLineupSlotId=20)
+                        for item in (answer or {}).get("items", [])
+                    ],
+                    "memberId": (answer or {}).get("memberId"),
+                    "proposedDate": PROPOSED_DATE_MS,
+                    "rating": 0,
+                    "scoringPeriodId": body.get("scoringPeriodId"),
+                    "status": "PENDING",
+                    "teamActions": (answer or {}).get("teamActions"),
+                    "teamId": body.get("teamId"),
+                    "type": "TRADE_PROPOSAL",
+                }
+            )
+            self._publish(self.bootstrap)
+            return
         if kind == "WAIVER":
             echoed = (answer or {}).get("items") or [
                 self._echo(item) for item in body.get("items", [])
@@ -488,6 +524,15 @@ class WritableEspn(RecordedEspn):
                     "toLineupSlotId"
                 ]
         self._publish(updated)
+
+
+def _epoch_ms(stamp: Any) -> int | None:
+    """ESPN's ``YYYY-MM-DDTHH:MM:SS.000Z`` expiry as the epoch milliseconds it echoes."""
+    from datetime import datetime
+
+    if not isinstance(stamp, str):
+        return None
+    return int(datetime.fromisoformat(stamp.replace("Z", "+00:00")).timestamp() * 1000)
 
 
 def _logged(row: Mapping[str, Any]) -> dict[str, Any]:

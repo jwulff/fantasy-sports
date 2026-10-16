@@ -845,11 +845,16 @@ WRITE_ENTRY_IDS = (
     "ad5e4f70-6b8c-4d9e-bfa0-2b3c4d5e6f70",
     "be6f5081-7c9d-4eaf-80b1-3c4d5e6f7081",
     "cf706192-8dae-4fb0-91c2-4d5e6f708192",
+    "d08172a3-9ebf-4fc1-a2d3-5e6f708192a3",
+    "e19283b4-afc0-40d2-b3e4-6f708192a3b4",
 )
 """Journal entry ids the write samples mint, in order, so they are byte-stable."""
 
 MOVE_JUSTIFICATION = "Johnson is out for the season; Liskov starts this week"
 """The ``--acknowledge-irreversible`` reason the executed ``add`` sample passes."""
+
+TRADE_JUSTIFICATION = "Our QB room is empty; Turing starts for us and Hopper is our RB3"
+"""The ``--acknowledge-irreversible`` reason the executed ``trade propose`` sample passes."""
 
 
 def _write_samples(recorder: Recorder) -> None:
@@ -967,6 +972,7 @@ def _move_samples(recorder: Recorder, replayed: Mapping[str, Any], serve: Any) -
         "command is configured",
     )
     _claim_queue_samples(recorder, replayed, serve)
+    _trade_samples(recorder, replayed, serve)
 
 
 def _claim_queue_samples(recorder: Recorder, replayed: Mapping[str, Any], serve: Any) -> None:
@@ -1007,6 +1013,55 @@ def _claim_queue_samples(recorder: Recorder, replayed: Mapping[str, Any], serve:
         ["cancel-claim", "--team", "1", "--id", TRANSACTION_ID],
         **replayed,
         note="Withdraws the claim above; the write host answers the cancel shape brief 06 "
+        "captured (a new id, CANCELED, relatedTransactionId)",
+    )
+
+
+def _trade_samples(recorder: Recorder, replayed: Mapping[str, Any], serve: Any) -> None:
+    """``trade propose``, ``trades``, and ``trade cancel`` (#112) against one proposal.
+
+    The write host answers the proposal and the cancel the way brief 07
+    captured them: a ``PENDING`` proposal queued where
+    ``view=mPendingTransactions`` lists it, then a new id, ``CANCELED``, and
+    ``relatedTransactionId``. No ``[notify]`` table is configured.
+    """
+    from _harness import TRANSACTION_ID
+
+    serve("apply")
+    propose = [
+        "trade",
+        "propose",
+        "--team",
+        "1",
+        "--with",
+        "2",
+        "--give",
+        "Grace Hopper",
+        "--get",
+        "Alan Turing",
+        "--comment",
+        "Hopper for Turing?",
+    ]
+    recorder.run("trade-propose.dry-run", [*propose, "--dry-run"], **replayed)
+    recorder.run(
+        "trade-propose",
+        [*propose, "--acknowledge-irreversible", TRADE_JUSTIFICATION],
+        **replayed,
+        note="The write host answers the TRADE_PROPOSAL shape brief 07 captured; no [notify] "
+        "command is configured",
+    )
+    recorder.run(
+        "trades",
+        ["trades", "--team", "1"],
+        **replayed,
+        note="The proposal above, as ESPN's queue lists it (brief 07): the queue row carries "
+        "no comment",
+    )
+    recorder.run(
+        "trade-cancel",
+        ["trade", "cancel", "--team", "1", "--id", TRANSACTION_ID],
+        **replayed,
+        note="Withdraws the proposal above; the write host answers the cancel shape brief 07 "
         "captured (a new id, CANCELED, relatedTransactionId)",
     )
 

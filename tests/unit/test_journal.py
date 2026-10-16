@@ -181,7 +181,7 @@ def test_a_timestamp_in_another_zone_is_stored_as_utc():
 @pytest.mark.parametrize(
     "overrides",
     [
-        {"kind": "trade"},
+        {"kind": "veto"},
         {"role": "owner"},
         {"status": "done"},
         {"command": "fantasy-sports lineup set"},

@@ -1,0 +1,61 @@
+{
+  "name": "t2-cancel",
+  "note": "cancel the t1 proposal",
+  "captured_at": "2026-10-16T06:46:18+00:00",
+  "request": {
+    "method": "POST",
+    "url": "https://lm-api-writes.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/segments/0/leagues/99/transactions/",
+    "body": {
+      "isLeagueManager": false,
+      "teamId": 7,
+      "type": "TRADE_PROPOSAL",
+      "scoringPeriodId": 6,
+      "executionType": "CANCEL",
+      "relatedTransactionId": "<uuid-1>"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "bidAmount": 0,
+      "executionType": "CANCEL",
+      "id": "<uuid-2>",
+      "isActingAsTeamOwner": false,
+      "isLeagueManager": false,
+      "isPending": false,
+      "items": [
+        {
+          "fromLineupSlotId": 20,
+          "fromTeamId": 7,
+          "isKeeper": false,
+          "overallPickNumber": 0,
+          "playerId": 9000101,
+          "toLineupSlotId": -1,
+          "toTeamId": 2,
+          "type": "TRADE"
+        },
+        {
+          "fromLineupSlotId": 20,
+          "fromTeamId": 2,
+          "isKeeper": false,
+          "overallPickNumber": 0,
+          "playerId": 0,
+          "toLineupSlotId": -1,
+          "toTeamId": 7,
+          "type": "TRADE"
+        }
+      ],
+      "memberId": "{SWID-REDACTED}",
+      "proposedDate": 1792133178894,
+      "rating": 0,
+      "relatedTransactionId": "<uuid-1>",
+      "scoringPeriodId": 6,
+      "skipTransactionCounters": false,
+      "status": "CANCELED",
+      "subOrder": 0,
+      "teamId": 7,
+      "type": "TRADE_PROPOSAL"
+    },
+    "elapsed_ms": 79
+  }
+}

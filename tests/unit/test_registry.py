@@ -58,6 +58,9 @@ V01_SURFACE = frozenset(
         "roster",
         "standings",
         "teams",
+        "trade cancel",
+        "trade propose",
+        "trades",
         "transactions",
     }
 )
@@ -77,7 +80,9 @@ def test_the_v01_surface_is_registered_and_nothing_else_is():
     first writes, from the write-surface plan (jwulff/fantasy-sports#105):
     the reversible half, ahead of `add`/`drop`/`claim`, which #18 added
     behind an acknowledgement gate. `claims` and `cancel-claim` (#109) are
-    the waiver queue: what is pending, and withdrawing one.
+    the waiver queue: what is pending, and withdrawing one. `trades`, `trade
+    propose`, and `trade cancel` (#112) are the proposing half of trades;
+    accepting and declining are #142.
     """
     assert set(REGISTRY) == V01_SURFACE
 

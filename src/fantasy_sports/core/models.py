@@ -57,6 +57,7 @@ __all__ = [
     "LineupEntry",
     "Matchup",
     "PendingClaim",
+    "PendingTrade",
     "Player",
     "ProviderObject",
     "RosterMove",
@@ -670,6 +671,50 @@ class PendingClaim(ProviderObject):
     sub_order: int | None = None
     """The provider's ordering among one team's claims, where it reports one.
     ESPN's queue view has been seen without it."""
+    raw: Mapping[str, Any]
+
+
+@dataclass(frozen=True, kw_only=True)
+class PendingTrade(ProviderObject):
+    """A trade proposal the provider holds open: offered, not yet accepted,
+    declined, cancelled, or expired (jwulff/fantasy-sports#112).
+
+    Read from the same queue as :class:`PendingClaim` (ESPN's
+    ``view=mPendingTransactions``), for the same reason: the transaction log
+    keeps a cancelled proposal's own row reading ``PENDING``
+    (``docs/research/07-espn-trade-surface.md``). Sides are named from the
+    proposer's point of view; ``trades`` restates them from the reading
+    team's.
+
+    Not in :data:`NORMALIZED_MODELS`, like :class:`PendingClaim`: it is served
+    by the writing protocol.
+    """
+
+    _SEQUENCES: ClassVar[frozenset[str]] = frozenset({"players_offered", "players_requested"})
+    _UNTRUSTED: ClassVar[frozenset[str]] = frozenset({"comment"})
+    """The comment is free text the proposing manager wrote (R1a, #17)."""
+
+    provider: str
+    provider_id: str
+    """The proposal's transaction id: what ``trade cancel --id`` takes, and the
+    ``provider_transaction_id`` the ``trade propose`` that made it returned."""
+    proposing_team_id: str
+    counterparty_team_id: str
+    players_offered: tuple[str, ...] = ()
+    """Player ids moving from the proposing team to the counterparty."""
+    players_requested: tuple[str, ...] = ()
+    """Player ids moving from the counterparty to the proposing team."""
+    proposed_at: datetime | None = None
+    """When the proposal was made, UTC."""
+    expires_at: datetime | None = None
+    """When the offer lapses unanswered, UTC, where the provider says."""
+    status: str
+    """The provider's own status, verbatim (``"PENDING"``)."""
+    team_actions: Mapping[str, str] = field(default_factory=dict)
+    """Each team's answer so far, by team id, verbatim (ESPN: the proposer is
+    ``"ACCEPTED"`` from the moment it proposes)."""
+    comment: str = ""
+    """The note shown to the counterparty; empty when there is none."""
     raw: Mapping[str, Any]
 
 

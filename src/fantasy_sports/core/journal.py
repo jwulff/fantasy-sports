@@ -105,7 +105,16 @@ DEFAULT_JOURNAL_FILENAME: Final[str] = "journal.sqlite"
 DIR_MODE: Final[int] = 0o700
 FILE_MODE: Final[int] = 0o600
 
-KINDS: Final[tuple[str, ...]] = ("lineup", "add", "drop", "claim", "cancel", "reverse")
+KINDS: Final[tuple[str, ...]] = (
+    "lineup",
+    "add",
+    "drop",
+    "claim",
+    "cancel",
+    "reverse",
+    "trade",
+    "trade_cancel",
+)
 ROLES: Final[tuple[str, ...]] = ("creator", "manager", "member")
 STATUSES: Final[tuple[str, ...]] = ("pending", "executed", "rejected", "diverged")
 

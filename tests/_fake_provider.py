@@ -107,10 +107,12 @@ class WritingFake(_Base):
         result: Any = None,
         fail_with: BaseException | None = None,
         pending_claims: Any = (),
+        pending_trades: Any = (),
         **options: Any,
     ) -> None:
         super().__init__(credentials, **options)
         self.pending_claims = list(pending_claims)
+        self.pending_trades = list(pending_trades)
         self.owned = tuple(owned)
         self.role = role
         self.member_id = member_id
@@ -180,6 +182,54 @@ class WritingFake(_Base):
         )
         return [c for c in self.pending_claims if team_id is None or c.team_id == str(team_id)]
 
+    def propose_trade(
+        self,
+        league_id: str,
+        season: int,
+        team_id: str,
+        *,
+        counterparty_id: str,
+        give: Any,
+        get: Any,
+        expires_at: Any,
+        comment: str | None = None,
+    ) -> Any:
+        return self._write(
+            "propose_trade",
+            league_id,
+            season,
+            team_id,
+            counterparty_id=counterparty_id,
+            give=list(give),
+            get=list(get),
+            expires_at=expires_at,
+            comment=comment,
+            kind="TRADE_PROPOSAL",
+        )
+
+    def cancel_trade(self, league_id: str, season: int, team_id: str, transaction_id: str) -> Any:
+        return self._write(
+            "cancel_trade",
+            league_id,
+            season,
+            team_id,
+            transaction_id=transaction_id,
+            kind="CANCEL",
+        )
+
+    def fetch_pending_trades(
+        self, league_id: str, season: int, team_id: str | None = None
+    ) -> list[Any]:
+        """``pending_trades`` as given, narrowed to either side of ``team_id``."""
+        self.calls.append(
+            ("fetch_pending_trades", {"league_id": league_id, "season": season, "team_id": team_id})
+        )
+        return [
+            t
+            for t in self.pending_trades
+            if team_id is None or str(team_id) in (t.proposing_team_id, t.counterparty_team_id)
+        ]
+
     def _write(
         self, method: str, league_id: str, season: int, team_id: str, *, kind: str, **args: Any
     ) -> Any:
@@ -202,8 +252,8 @@ class WritingFake(_Base):
         return WriteResult(
             provider=self.name,
             provider_transaction_id=f"fake-{len(self.calls)}",
-            status="PENDING" if kind == "WAIVER" else "EXECUTED",
-            is_pending=kind == "WAIVER",
+            status="PENDING" if kind in ("WAIVER", "TRADE_PROPOSAL") else "EXECUTED",
+            is_pending=kind in ("WAIVER", "TRADE_PROPOSAL"),
             team_id=str(team_id),
             items=(),
             member_id=self.member_id,

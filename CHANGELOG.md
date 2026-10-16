@@ -62,6 +62,20 @@ irreversible class (`add`, `drop`, `claim`) additionally needs
   `transactions` is removed, because a cancelled claim's row there reads
   `PENDING` forever and could verify a new identical claim. New model
   `PendingClaim`; `WritingProvider` gains `fetch_pending_claims`.
+- **Trades: `trade propose`, `trade cancel`, and `trades`** (#112).
+  `trade propose --team T --with U --give P --get Q [--comment C]
+  [--expires-hours H]` offers players for another team's in one
+  `TRADE_PROPOSAL`, the shape captured live in brief 07. It is irreversible
+  (the other manager can accept at once), so it needs
+  `--acknowledge-irreversible`, is journaled as kind `trade`, and runs the
+  notify hook; both rosters are read and every player checked before
+  sending. `trades [--team T]` lists open proposals made and received from
+  ESPN's queue, with `direction`, `giving`, and `receiving` from `--team`'s
+  side and the proposal comment labeled untrusted. `trade cancel --team T
+  --id ID` withdraws one of the team's own proposals on `cancel-claim`'s
+  rules (kind `trade_cancel`). New model `PendingTrade`; `WritingProvider`
+  gains `propose_trade`, `cancel_trade`, and `fetch_pending_trades`.
+  Accepting and declining are #142.
 - **The mutation journal** (#16, #107). `core/journal.py` (standard library
   only): a SQLite journal at `$XDG_STATE_HOME/fantasy-sports/journal.sqlite`
   (file `0600`, directory `0700`) with a two-phase `begin` / `complete` |

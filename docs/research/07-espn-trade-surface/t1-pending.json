@@ -1,0 +1,47 @@
+{
+  "pendingTransactions": [
+    {
+      "bidAmount": 0,
+      "executionType": "EXECUTE",
+      "expirationDate": 1792305970000,
+      "id": "<uuid-1>",
+      "isActingAsTeamOwner": false,
+      "isLeagueManager": false,
+      "isPending": true,
+      "items": [
+        {
+          "acquisitionBudget": 0,
+          "fromLineupSlotId": 20,
+          "fromTeamId": 7,
+          "isKeeper": false,
+          "overallPickNumber": 0,
+          "playerId": 9000101,
+          "toLineupSlotId": -1,
+          "toTeamId": 2,
+          "type": "TRADE"
+        },
+        {
+          "acquisitionBudget": 0,
+          "fromLineupSlotId": 20,
+          "fromTeamId": 2,
+          "isKeeper": false,
+          "overallPickNumber": 0,
+          "playerId": 0,
+          "toLineupSlotId": -1,
+          "toTeamId": 7,
+          "type": "TRADE"
+        }
+      ],
+      "memberId": "{SWID-REDACTED}",
+      "proposedDate": 1792133171734,
+      "rating": 0,
+      "scoringPeriodId": 6,
+      "status": "PENDING",
+      "teamActions": {
+        "7": "ACCEPTED"
+      },
+      "teamId": 7,
+      "type": "TRADE_PROPOSAL"
+    }
+  ]
+}

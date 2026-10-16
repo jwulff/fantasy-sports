@@ -29,10 +29,11 @@ drift canary. Every command's output, in every mode, is in the
 where `lineup set` changes your own team's lineup and `journal reverse` undoes
 it, and the irreversible kind: `add`, `drop`, and `claim`, each behind an
 acknowledgement flag, with `claims` and `cancel-claim` to manage the waiver
-queue (see [Writing](#writing)). Every write is journaled before it is sent
-and read back after. Trades are not built; they and the executing add and
-drop probes are tracked in the [write-surface
-epic](https://github.com/jwulff/fantasy-sports/issues/105).
+queue, and `trade propose` behind the same flag, with `trades` and `trade
+cancel` to see and withdraw offers (see [Writing](#writing)). Every write is
+journaled before it is sent and read back after. Accepting and declining a
+trade offer (#142) and the executing add and drop probes are tracked in the
+[write-surface epic](https://github.com/jwulff/fantasy-sports/issues/105).
 The package is not on PyPI (`0.1.0.dev0`); install from git as below.
 
 ## Install
@@ -195,6 +196,9 @@ fails if a committed sample no longer matches what the code renders.
 | [`claim`](docs/commands.md#claim) | Submit a waiver claim, optionally with a bid and a drop. Irreversible; needs `--acknowledge-irreversible`. **Writes** |
 | [`claims`](docs/commands.md#claims) | A team's pending waiver claims by id, from ESPN's queue |
 | [`cancel-claim`](docs/commands.md#cancel-claim) | Withdraw a pending claim before it processes. **Writes** |
+| [`trades`](docs/commands.md#trades) | A team's open trade proposals, made and received, by id, from ESPN's queue |
+| [`trade propose`](docs/commands.md#trade-propose) | Offer your players for another team's. Irreversible; needs `--acknowledge-irreversible`. **Writes** |
+| [`trade cancel`](docs/commands.md#trade-cancel) | Withdraw one of your own open trade proposals. **Writes** |
 | [`journal list`](docs/commands.md#journal-list) | The mutation journal, newest first: each write, who made it, how it ended |
 | [`journal digest`](docs/commands.md#journal-digest) | Journal entries since a time, newest first, for a cron job or agent to report |
 | [`journal show`](docs/commands.md#journal-show) | One journal entry in full: prior and applied state, acting member, cost |
@@ -480,9 +484,9 @@ Every field this loop reads is shown in the [command reference](docs/commands.md
 
 ## Writing
 
-Six commands change a league: `lineup set`, `add`, `drop`, `claim`,
-`cancel-claim`, and `journal reverse`. `claims` and the other `journal`
-commands only read. They are built to be run by an agent with nobody watching, so
+Eight commands change a league: `lineup set`, `add`, `drop`, `claim`,
+`cancel-claim`, `trade propose`, `trade cancel`, and `journal reverse`.
+`claims`, `trades`, and the other `journal` commands only read. They are built to be run by an agent with nobody watching, so
 there is no confirmation prompt and no dry-run default. What makes that safe
 is the shape of every loop: read, preview, write, then read it back. The
 irreversible ones add one step. The design is in
@@ -542,8 +546,8 @@ fantasy-sports journal reverse --id JOURNAL_ENTRY_ID
 - **A lineup change can be reversed until kickoff.** `journal reverse --id`
   sends every player back to the slot the entry recorded, through the same
   checks, and journals the reversal. It is the only reversal there is: an
-  `add`, `drop`, `claim`, or `cancel-claim` entry is `NOT_AVAILABLE`, with
-  nothing sent.
+  `add`, `drop`, `claim`, `cancel-claim`, `trade`, or `trade_cancel` entry is
+  `NOT_AVAILABLE`, with nothing sent.
 
 ### Irreversible writes: `add`, `drop`, `claim`
 

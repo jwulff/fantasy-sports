@@ -122,6 +122,11 @@ _IRREVERSIBLE_REMEDIATION: dict[str, str] = {
     "processed, dropping the player is a new, irreversible decision.",
     "cancel": "A cancelled claim cannot be restored. Resubmitting it is a new claim, decided "
     "by a human.",
+    "trade": "A trade proposal cannot be undone by the tool once accepted. While it is open, "
+    "withdraw it with `fantasy-sports trade cancel --team ... --id <provider_transaction_id>`; "
+    "once accepted, only the league's review process can stop it.",
+    "trade_cancel": "A withdrawn trade proposal cannot be restored. Proposing it again is a "
+    "new offer, decided by a human.",
 }
 
 _REVERSIBLE_KINDS = ("lineup", "reverse")

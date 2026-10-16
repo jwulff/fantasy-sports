@@ -702,6 +702,58 @@
     "file": "claim-cancel.json"
   },
   {
+    "name": "trade-propose.dry-run",
+    "command": "fantasy-sports trade propose --team 1 --with 2 --give 'Grace Hopper' --get 'Alan Turing' --comment 'Hopper for Turing?' --dry-run",
+    "source": "replayed",
+    "league": "synthetic league 99, season 2026",
+    "exit": 0,
+    "stream": "stdout",
+    "format": "json",
+    "trimmed": false,
+    "note": null,
+    "offline": true,
+    "file": "trade-propose.dry-run.json"
+  },
+  {
+    "name": "trade-propose",
+    "command": "fantasy-sports trade propose --team 1 --with 2 --give 'Grace Hopper' --get 'Alan Turing' --comment 'Hopper for Turing?' --acknowledge-irreversible 'Our QB room is empty; Turing starts for us and Hopper is our RB3'",
+    "source": "replayed",
+    "league": "synthetic league 99, season 2026",
+    "exit": 0,
+    "stream": "stdout",
+    "format": "json",
+    "trimmed": false,
+    "note": "The write host answers the TRADE_PROPOSAL shape brief 07 captured; no [notify] command is configured",
+    "offline": true,
+    "file": "trade-propose.json"
+  },
+  {
+    "name": "trades",
+    "command": "fantasy-sports trades --team 1",
+    "source": "replayed",
+    "league": "synthetic league 99, season 2026",
+    "exit": 0,
+    "stream": "stdout",
+    "format": "json",
+    "trimmed": true,
+    "note": "The proposal above, as ESPN's queue lists it (brief 07): the queue row carries no comment",
+    "offline": true,
+    "file": "trades.json"
+  },
+  {
+    "name": "trade-cancel",
+    "command": "fantasy-sports trade cancel --team 1 --id 5d0c6e2a-7f41-4b9e-a3c8-1e6f2b9d4a70",
+    "source": "replayed",
+    "league": "synthetic league 99, season 2026",
+    "exit": 0,
+    "stream": "stdout",
+    "format": "json",
+    "trimmed": false,
+    "note": "Withdraws the proposal above; the write host answers the cancel shape brief 07 captured (a new id, CANCELED, relatedTransactionId)",
+    "offline": true,
+    "file": "trade-cancel.json"
+  },
+  {
     "name": "journal-digest",
     "command": "fantasy-sports journal digest --since 2026-09-12T00:00:00Z --irreversible",
     "source": "replayed",

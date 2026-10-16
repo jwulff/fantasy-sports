@@ -1,0 +1,50 @@
+{
+  "name": "t3-give-not-mine",
+  "note": "give a player who is on team 3, not team 7",
+  "captured_at": "2026-10-16T06:46:39+00:00",
+  "request": {
+    "method": "POST",
+    "url": "https://lm-api-writes.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/segments/0/leagues/99/transactions/",
+    "body": {
+      "isLeagueManager": false,
+      "teamId": 7,
+      "type": "TRADE_PROPOSAL",
+      "scoringPeriodId": 6,
+      "executionType": "EXECUTE",
+      "items": [
+        {
+          "playerId": 1,
+          "type": "TRADE",
+          "fromTeamId": 7,
+          "toTeamId": 2
+        },
+        {
+          "playerId": 0,
+          "type": "TRADE",
+          "fromTeamId": 2,
+          "toTeamId": 7
+        }
+      ],
+      "expirationDate": "2026-10-18T06:46:38.000Z",
+      "comment": "Automated API test from team 7; it will be cancelled within a minute. Please ignore."
+    }
+  },
+  "response": {
+    "status": 409,
+    "body": {
+      "messages": [
+        "<counterparty player 1> is not on team 7"
+      ],
+      "details": [
+        {
+          "message": "<counterparty player 1> is not on team 7",
+          "shortMessage": "<counterparty player 1> is not on team 7",
+          "resolution": null,
+          "type": "TRAN_PLAYER_NOT_ON_TEAM",
+          "metaData": null
+        }
+      ]
+    },
+    "elapsed_ms": 72
+  }
+}

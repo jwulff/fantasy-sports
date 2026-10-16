@@ -35,5 +35,11 @@ test plan that assumes a free-agent pool right after a draft stalls; check
 availability before roster size, so on a full roster that rejection hides the
 `TRAN_ROSTER_LIMIT_EXCEEDED_ONE` you might have expected.
 
+**Trade proposals behave the same way** (brief 07, #112). A cancelled
+`TRADE_PROPOSAL` leaves `mPendingTransactions` at once while its own
+`mTransactions2` row keeps reading `PENDING`, so `trades` reads the queue too.
+The queue's proposal row omits `comment`, which only the write response
+echoes.
+
 Related: [[espn-lineup-write-authority-is-broader-than-team-ownership]],
 [[espn-401-tells-you-nothing]]

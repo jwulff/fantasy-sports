@@ -130,6 +130,7 @@ from fantasy_sports.core.models import (
     LineupEntry,
     Matchup,
     PendingClaim,
+    PendingTrade,
     Player,
     RosterMove,
     RosterSlot,
@@ -1615,6 +1616,106 @@ class EspnProvider:
             {"type": "WAIVER", "executionType": "CANCEL", "relatedTransactionId": related},
         )
 
+    def propose_trade(
+        self,
+        league_id: str,
+        season: int,
+        team_id: str,
+        *,
+        counterparty_id: str,
+        give: Sequence[str],
+        get: Sequence[str],
+        expires_at: datetime,
+        comment: str | None = None,
+    ) -> WriteResult:
+        """Offer ``give`` (players on ``team_id``) for ``get`` (players on
+        ``counterparty_id``): one ``TRADE_PROPOSAL`` with ``executionType:
+        "EXECUTE"``.
+
+        Each player is one ``TRADE`` item naming both teams: a given player
+        goes ``fromTeamId`` this team ``toTeamId`` the counterparty, a
+        requested one the other way round. ``expirationDate`` is when the
+        offer lapses, as ESPN's ``YYYY-MM-DDTHH:MM:SS.000Z`` string; ``comment``
+        is the note the other manager sees, sent only when given. The shape is
+        ``docs/research/07-espn-trade-surface.md``.
+
+        Only ``team_id`` is ownership-guarded. The counterparty's players are
+        checked by ESPN, which answers a player who is not on the team the
+        item names with a typed rejection.
+
+        Refused before any request, as ``CONFIG_INVALID`` (``kind:
+        "argument"``): the counterparty being this team, an empty side (a
+        trade needs at least one player each way), a player named twice, and
+        an expiry that is not in the future.
+        """
+        mine, theirs = str(team_id).strip(), str(counterparty_id or "").strip()
+        if _as_int(theirs) is None or theirs == mine:
+            raise ConfigInvalidError(
+                f"A trade needs another team to trade with; got {counterparty_id!r}.",
+                kind="argument",
+                remediation="Name a team in this league other than your own.",
+            )
+        gives = [str(pid).strip() for pid in give]
+        gets = [str(pid).strip() for pid in get]
+        if not gives or not gets:
+            raise ConfigInvalidError(
+                "A trade proposal needs at least one player each way.",
+                kind="argument",
+                remediation="Name at least one player to give and one to get.",
+            )
+        named = gives + gets
+        if len(set(named)) != len(named) or any(_as_int(pid) is None for pid in named):
+            raise ConfigInvalidError(
+                "A trade names each player once, by numeric id.",
+                kind="argument",
+                remediation="Pass each player's id once, on the side it moves from.",
+            )
+        if expires_at.tzinfo is None or expires_at <= self._now():
+            raise ConfigInvalidError(
+                "A trade's expiry must be a timezone-aware time in the future.",
+                kind="argument",
+                remediation="Pass an expiry after now.",
+            )
+        write = self._begin_write(league_id, season, team_id)
+        other = int(theirs)
+        items = [
+            {"playerId": int(pid), "type": "TRADE", "fromTeamId": write.team_id, "toTeamId": other}
+            for pid in gives
+        ] + [
+            {"playerId": int(pid), "type": "TRADE", "fromTeamId": other, "toTeamId": write.team_id}
+            for pid in gets
+        ]
+        envelope: dict[str, Any] = {
+            "type": "TRADE_PROPOSAL",
+            "executionType": "EXECUTE",
+            "items": items,
+            "expirationDate": _espn_timestamp(expires_at),
+        }
+        if comment is not None and str(comment).strip():
+            envelope["comment"] = str(comment).strip()
+        return self._post(write, envelope)
+
+    def cancel_trade(
+        self, league_id: str, season: int, team_id: str, transaction_id: str
+    ) -> WriteResult:
+        """Withdraw this team's own pending trade proposal: ``type:
+        "TRADE_PROPOSAL"``, ``executionType: "CANCEL"``,
+        ``relatedTransactionId``, and no items -- the waiver cancel's shape
+        with the proposal's type (``07-espn-trade-surface.md``).
+        """
+        related = str(transaction_id or "").strip()
+        if not related:
+            raise ConfigInvalidError(
+                "A cancel needs the transaction id it withdraws.",
+                kind="argument",
+                remediation="Pass the provider_transaction_id the proposal returned.",
+            )
+        write = self._begin_write(league_id, season, team_id)
+        return self._post(
+            write,
+            {"type": "TRADE_PROPOSAL", "executionType": "CANCEL", "relatedTransactionId": related},
+        )
+
     def fetch_pending_claims(
         self, league_id: str, season: int, team_id: str | None = None
     ) -> list[PendingClaim]:
@@ -1640,6 +1741,25 @@ class EspnProvider:
             payload = league.espn_request.league_get(params={"view": PENDING_VIEW})
             wanted = None if team_id is None else str(team_id).strip()
             return _pending_claims(payload, team_id=wanted)
+
+    def fetch_pending_trades(
+        self, league_id: str, season: int, team_id: str | None = None
+    ) -> list[PendingTrade]:
+        """The open trade proposals, from ``view=mPendingTransactions``.
+
+        The same queue as :meth:`fetch_pending_claims` and for the same
+        reason: a cancelled proposal leaves it at once, while its own
+        ``mTransactions2`` row keeps reading ``PENDING``
+        (``07-espn-trade-surface.md``). ``team_id`` keeps proposals that team
+        made or received. A read, so not ownership-guarded.
+
+        :raises SchemaDriftError: when the body or a proposal row is not the
+            captured shape.
+        """
+        with self._read(league_id, season, "fetch_pending_trades") as league:
+            payload = league.espn_request.league_get(params={"view": PENDING_VIEW})
+            wanted = None if team_id is None else str(team_id).strip()
+            return _pending_trades(payload, team_id=wanted)
 
     def credential_report(self) -> dict[str, Any]:
         """``{"espn_s2_age_seconds", "warning"}`` -- the R12a block every write
@@ -1872,7 +1992,7 @@ class EspnProvider:
             "scoringPeriodId": write.scoring_period,
             "executionType": envelope["executionType"],
         }
-        for name in ("items", "bidAmount", "relatedTransactionId"):
+        for name in ("items", "bidAmount", "relatedTransactionId", "expirationDate", "comment"):
             if name in envelope:
                 body[name] = envelope[name]
 
@@ -2684,6 +2804,14 @@ def _write_outcome(
     )
 
 
+def _espn_timestamp(moment: datetime) -> str:
+    """``moment`` as the UTC ``YYYY-MM-DDTHH:MM:SS.000Z`` string ESPN's
+    ``expirationDate`` takes (``07-espn-trade-surface.md``)."""
+    from datetime import UTC
+
+    return moment.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+
+
 def _header(headers: Mapping[str, str], name: str) -> str | None:
     """One header, case-insensitively whether or not ``headers`` is ``requests``'
     own case-insensitive mapping."""
@@ -2771,19 +2899,8 @@ def _pending_claims(payload: Any, *, team_id: str | None) -> list[PendingClaim]:
     told "nothing is queued" by a body that no longer says so would resubmit
     a claim it still has.
     """
-    if not isinstance(payload, Mapping):
-        raise _pending_drift("is not a JSON object", [])
-    rows = payload.get("pendingTransactions")
-    if not isinstance(rows, list):
-        what = (
-            "has no pendingTransactions" if rows is None else "has a non-list pendingTransactions"
-        )
-        raise _pending_drift(what, ["pendingTransactions"])
     found: list[PendingClaim] = []
-    for index, row in enumerate(rows):
-        where = f"pendingTransactions[{index}]"
-        if not isinstance(row, Mapping):
-            raise _pending_drift(f"has a {where} that is not an object", [where])
+    for where, row in _pending_rows(payload):
         if row.get("type") != "WAIVER" or row.get("status") != "PENDING":
             continue
         claim_id = row.get("id")
@@ -2799,6 +2916,99 @@ def _pending_claims(payload: Any, *, team_id: str | None) -> list[PendingClaim]:
         if team_id is not None and str(_as_int(team)) != team_id:
             continue
         found.append(_pending_claim(row, claim_id, _as_int(team), items))
+    return found
+
+
+def _pending_rows(payload: Any) -> Iterator[tuple[str, Mapping[str, Any]]]:
+    """Each row of an ``mPendingTransactions`` body with its path, or drift.
+
+    ESPN sends ``pendingTransactions`` for an empty queue too (an empty list),
+    so an absent key is drift, not an empty queue.
+    """
+    if not isinstance(payload, Mapping):
+        raise _pending_drift("is not a JSON object", [])
+    rows = payload.get("pendingTransactions")
+    if not isinstance(rows, list):
+        what = (
+            "has no pendingTransactions" if rows is None else "has a non-list pendingTransactions"
+        )
+        raise _pending_drift(what, ["pendingTransactions"])
+    for index, row in enumerate(rows):
+        where = f"pendingTransactions[{index}]"
+        if not isinstance(row, Mapping):
+            raise _pending_drift(f"has a {where} that is not an object", [where])
+        yield where, row
+
+
+def _pending_trades(payload: Any, *, team_id: str | None) -> list[PendingTrade]:
+    """The ``TRADE_PROPOSAL``/``PENDING`` rows of an ``mPendingTransactions`` body.
+
+    Captured live for #112 (``07-espn-trade-surface.md``): a proposal sits in
+    the queue with the proposer's ``teamId``, one ``TRADE`` item per player
+    naming both ``fromTeamId`` and ``toTeamId``, ``expirationDate`` in epoch
+    milliseconds, ``teamActions``, and the ``comment``. It leaves the queue
+    the moment it is cancelled. ``team_id`` keeps proposals that team is on
+    either side of. A proposal whose items do not name exactly one other team
+    is drift: ESPN trades are two-team.
+    """
+    found: list[PendingTrade] = []
+    for where, row in _pending_rows(payload):
+        if row.get("type") != "TRADE_PROPOSAL" or row.get("status") != "PENDING":
+            continue
+        trade_id, proposer, items = row.get("id"), _as_int(row.get("teamId")), row.get("items")
+        for name, ok in (
+            ("id", isinstance(trade_id, str) and bool(trade_id)),
+            ("teamId", proposer is not None),
+            ("items", isinstance(items, list)),
+        ):
+            if not ok:
+                raise _pending_drift(f"has a trade proposal without {name}", [f"{where}.{name}"])
+        offered: list[str] = []
+        requested: list[str] = []
+        others: set[int] = set()
+        for position, item in enumerate(items):
+            path = f"{where}.items[{position}]"
+            moves = (
+                (
+                    _as_int(item.get("fromTeamId")),
+                    _as_int(item.get("toTeamId")),
+                    _as_int(item.get("playerId")),
+                )
+                if isinstance(item, Mapping)
+                else (None, None, None)
+            )
+            source, target, player = moves
+            if player is None or proposer not in (source, target) or source == target:
+                raise _pending_drift("has a trade item that does not move a player", [path])
+            others.add(target if source == proposer else source)  # type: ignore[arg-type]
+            (offered if source == proposer else requested).append(str(player))
+        if len(others) != 1:
+            raise _pending_drift("has a trade proposal that is not between two teams", [where])
+        counterparty = str(others.pop())
+        if team_id is not None and team_id not in (str(proposer), counterparty):
+            continue
+        actions = row.get("teamActions")
+        comment = row.get("comment")
+        expires = _as_int(row.get("expirationDate"))
+        proposed = _as_int(row.get("proposedDate"))
+        found.append(
+            PendingTrade(
+                provider=PROVIDER,
+                provider_id=str(trade_id),
+                proposing_team_id=str(proposer),
+                counterparty_team_id=counterparty,
+                players_offered=tuple(offered),
+                players_requested=tuple(requested),
+                proposed_at=None if proposed is None else from_epoch_millis(proposed),
+                expires_at=None if expires is None else from_epoch_millis(expires),
+                status=str(row["status"]),
+                team_actions={str(k): str(v) for k, v in actions.items()}
+                if isinstance(actions, Mapping)
+                else {},
+                comment=comment if isinstance(comment, str) else "",
+                raw=dict(row),
+            )
+        )
     return found
 
 
