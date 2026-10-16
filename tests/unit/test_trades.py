@@ -322,10 +322,13 @@ def test_trades_lists_a_proposal_from_each_side(espn: WritableEspn):
     _propose()
     (mine,) = _run("trades")["data"]
     assert mine["provider_id"] == TRANSACTION_ID
-    assert mine["direction"] == "outgoing" and mine["counterparty_team_id"] == "2"
+    assert mine["direction"] == "outgoing" and mine["other_team_id"] == "2"
+    assert mine["counterparty_team_id"] == "2"
     assert (mine["giving"], mine["receiving"]) == (["2002"], ["2011"])
     (theirs,) = _run("trades", team="2")["data"]
-    assert theirs["direction"] == "incoming" and theirs["counterparty_team_id"] == "1"
+    assert theirs["direction"] == "incoming" and theirs["other_team_id"] == "1"
+    # The model's proposer-side field keeps its meaning on an incoming row.
+    assert (theirs["proposing_team_id"], theirs["counterparty_team_id"]) == ("1", "2")
     assert (theirs["giving"], theirs["receiving"]) == (["2011"], ["2002"])
 
 

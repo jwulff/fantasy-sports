@@ -16,9 +16,9 @@ What an agent can rely on
   (``docs/research/07-espn-trade-surface.md``).
 * **Sides are named from the reading team.** Each ``trades`` row carries
   ``direction`` (``outgoing``: this team proposed it; ``incoming``: it was
-  proposed to this team), ``counterparty_team_id``, ``giving`` (players that
-  would leave this team) and ``receiving`` (players that would join it), next
-  to the proposer-relative fields of
+  proposed to this team), ``other_team_id``, ``giving`` (players that would
+  leave this team) and ``receiving`` (players that would join it), next to
+  the proposer-relative fields of
   :class:`~fantasy_sports.core.models.PendingTrade`.
 * **A proposal is irreversible.** The other manager can accept it the moment
   it lands, and an accepted trade enters the league's review window out of
@@ -104,11 +104,12 @@ def list_trades(
     """Open trade proposals one team made or received, newest first.
 
     ``data`` is a list of :class:`~fantasy_sports.core.models.PendingTrade`
-    mappings plus ``direction``, ``counterparty_team_id``, ``giving`` and
+    mappings plus ``direction``, ``other_team_id``, ``giving`` and
     ``receiving`` from ``--team``'s side (see :func:`trade_view`).
     ``provider_id`` is what ``trade cancel --id`` takes. ``--team`` defaults to
     the session's own team; reading another team's proposals is allowed.
-    ``comment`` is free text another manager wrote and is labeled untrusted.
+    ``comment`` is free text another manager wrote and is labeled untrusted;
+    ESPN's queue does not return it, so it is empty here.
     """
     ctx = open_read(league, season, fresh=fresh, no_cache=no_cache)
     team_id = _team_or_own(ctx, team)
@@ -129,7 +130,7 @@ def trade_view(trade: PendingTrade, team_id: str) -> dict[str, Any]:
     data = trade.to_dict()
     data.update(
         direction="outgoing" if outgoing else "incoming",
-        counterparty_team_id=trade.counterparty_team_id if outgoing else trade.proposing_team_id,
+        other_team_id=trade.counterparty_team_id if outgoing else trade.proposing_team_id,
         giving=list(trade.players_offered if outgoing else trade.players_requested),
         receiving=list(trade.players_requested if outgoing else trade.players_offered),
     )

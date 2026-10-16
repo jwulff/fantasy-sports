@@ -714,7 +714,9 @@ class PendingTrade(ProviderObject):
     """Each team's answer so far, by team id, verbatim (ESPN: the proposer is
     ``"ACCEPTED"`` from the moment it proposes)."""
     comment: str = ""
-    """The note shown to the counterparty; empty when there is none."""
+    """The note shown to the counterparty; empty when there is none. ESPN's
+    queue row does not carry it (brief 07 §1), so a proposal read from the
+    queue always has ``""`` here; only the write response echoes it."""
     raw: Mapping[str, Any]
 
 

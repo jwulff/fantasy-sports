@@ -3289,8 +3289,9 @@ are UTC.
 
 The same proposal looks different from each side, so every row also says
 where `--team` stands: `direction` is `outgoing` when `--team` proposed it
-and `incoming` when it was proposed to `--team`; `counterparty_team_id` is
-the other team; `giving` lists the players that would leave `--team` and
+and `incoming` when it was proposed to `--team`; `other_team_id` is the
+other team (`counterparty_team_id` keeps its proposer-side meaning, so on an
+incoming row it is `--team` itself); `giving` lists the players that would leave `--team` and
 `receiving` the ones that would join it. Those four keys are what to act on.
 
 This is the queue, not the transaction log. A cancelled proposal leaves the
@@ -3298,9 +3299,9 @@ queue at once, while its own row in `transactions` keeps reading `PENDING`
 (brief 07 §2), exactly as a cancelled claim does.
 
 `comment` is free text another manager wrote and is listed in the envelope's
-`untrusted` map. ESPN's queue row does not carry it, so it is empty for
-proposals read from the queue; the write response to `trade propose`
-echoes it.
+`untrusted` map. ESPN's queue row does not carry it, so for now it is always
+empty here: an empty `comment` does not mean the offer had no note. The write
+response to `trade propose` echoes it.
 
 `--team` defaults to the team the session owns, as for `claims`, and another
 team's proposals are readable too. The read caches for 15 minutes, and every
@@ -3321,37 +3322,37 @@ fantasy-sports trades --team 1
   "provider": "espn",
   "league_id": "99",
   "season": 2026,
-  "generated_at": "2026-10-16T06:54:54Z",
-  "data_as_of": "2026-10-16T06:54:54Z",
+  "generated_at": "2026-10-16T07:12:11Z",
+  "data_as_of": "2026-10-16T07:12:11Z",
   "data_age_seconds": 0,
   "sources": [
     {
       "name": "mTeam+mRoster+mMatchup+mSettings+mStandings",
-      "fetched_at": "2026-10-16T06:54:54Z",
+      "fetched_at": "2026-10-16T07:12:11Z",
       "age_seconds": 0,
       "cached": true
     },
     {
       "name": "players_wl",
-      "fetched_at": "2026-10-16T06:54:54Z",
+      "fetched_at": "2026-10-16T07:12:11Z",
       "age_seconds": 0,
       "cached": true
     },
     {
       "name": "proTeamSchedules_wl",
-      "fetched_at": "2026-10-16T06:54:54Z",
+      "fetched_at": "2026-10-16T07:12:11Z",
       "age_seconds": 0,
       "cached": true
     },
     {
       "name": "mDraftDetail",
-      "fetched_at": "2026-10-16T06:54:54Z",
+      "fetched_at": "2026-10-16T07:12:11Z",
       "age_seconds": 0,
       "cached": true
     },
     {
       "name": "mPendingTransactions",
-      "fetched_at": "2026-10-16T06:54:54Z",
+      "fetched_at": "2026-10-16T07:12:11Z",
       "age_seconds": 0,
       "cached": true
     }
@@ -3387,6 +3388,7 @@ fantasy-sports trades --team 1
         "…": "… 12 more keys"
       },
       "direction": "outgoing",
+      "other_team_id": "2",
       "giving": [
         "2002"
       ],
@@ -3462,38 +3464,38 @@ fantasy-sports trade propose --team 1 --with 2 --give 'Grace Hopper' --get 'Alan
   "provider": "espn",
   "league_id": "99",
   "season": 2026,
-  "generated_at": "2026-10-16T06:54:54Z",
+  "generated_at": "2026-10-16T07:12:11Z",
   "data_as_of": "2026-09-10T12:00:00Z",
-  "data_age_seconds": 3092094,
+  "data_age_seconds": 3093131,
   "sources": [
     {
       "name": "mTeam+mRoster+mMatchup+mSettings+mStandings",
       "fetched_at": "2026-09-10T12:00:00Z",
-      "age_seconds": 3092094,
+      "age_seconds": 3093131,
       "cached": false
     },
     {
       "name": "players_wl",
       "fetched_at": "2026-09-10T12:00:00Z",
-      "age_seconds": 3092094,
+      "age_seconds": 3093131,
       "cached": false
     },
     {
       "name": "proTeamSchedules_wl",
       "fetched_at": "2026-09-10T12:00:00Z",
-      "age_seconds": 3092094,
+      "age_seconds": 3093131,
       "cached": false
     },
     {
       "name": "mDraftDetail",
       "fetched_at": "2026-09-10T12:00:00Z",
-      "age_seconds": 3092094,
+      "age_seconds": 3093131,
       "cached": false
     },
     {
       "name": "mNav",
       "fetched_at": "2026-09-10T12:00:00Z",
-      "age_seconds": 3092094,
+      "age_seconds": 3093131,
       "cached": false
     }
   ],
@@ -3565,38 +3567,38 @@ fantasy-sports trade propose --team 1 --with 2 --give 'Grace Hopper' --get 'Alan
   "provider": "espn",
   "league_id": "99",
   "season": 2026,
-  "generated_at": "2026-10-16T06:54:54Z",
+  "generated_at": "2026-10-16T07:12:11Z",
   "data_as_of": "2026-09-10T12:00:00Z",
-  "data_age_seconds": 3092094,
+  "data_age_seconds": 3093131,
   "sources": [
     {
       "name": "mTeam+mRoster+mMatchup+mSettings+mStandings",
       "fetched_at": "2026-09-10T12:00:00Z",
-      "age_seconds": 3092094,
+      "age_seconds": 3093131,
       "cached": false
     },
     {
       "name": "players_wl",
       "fetched_at": "2026-09-10T12:00:00Z",
-      "age_seconds": 3092094,
+      "age_seconds": 3093131,
       "cached": false
     },
     {
       "name": "proTeamSchedules_wl",
       "fetched_at": "2026-09-10T12:00:00Z",
-      "age_seconds": 3092094,
+      "age_seconds": 3093131,
       "cached": false
     },
     {
       "name": "mDraftDetail",
       "fetched_at": "2026-09-10T12:00:00Z",
-      "age_seconds": 3092094,
+      "age_seconds": 3093131,
       "cached": false
     },
     {
       "name": "mPendingTransactions",
       "fetched_at": "2026-09-10T12:00:00Z",
-      "age_seconds": 3092094,
+      "age_seconds": 3093131,
       "cached": false
     }
   ],
@@ -3704,38 +3706,38 @@ fantasy-sports trade cancel --team 1 --id 5d0c6e2a-7f41-4b9e-a3c8-1e6f2b9d4a70
   "provider": "espn",
   "league_id": "99",
   "season": 2026,
-  "generated_at": "2026-10-16T06:54:54Z",
+  "generated_at": "2026-10-16T07:12:11Z",
   "data_as_of": "2026-09-10T12:00:00Z",
-  "data_age_seconds": 3092094,
+  "data_age_seconds": 3093131,
   "sources": [
     {
       "name": "mTeam+mRoster+mMatchup+mSettings+mStandings",
       "fetched_at": "2026-09-10T12:00:00Z",
-      "age_seconds": 3092094,
+      "age_seconds": 3093131,
       "cached": false
     },
     {
       "name": "players_wl",
       "fetched_at": "2026-09-10T12:00:00Z",
-      "age_seconds": 3092094,
+      "age_seconds": 3093131,
       "cached": false
     },
     {
       "name": "proTeamSchedules_wl",
       "fetched_at": "2026-09-10T12:00:00Z",
-      "age_seconds": 3092094,
+      "age_seconds": 3093131,
       "cached": false
     },
     {
       "name": "mDraftDetail",
       "fetched_at": "2026-09-10T12:00:00Z",
-      "age_seconds": 3092094,
+      "age_seconds": 3093131,
       "cached": false
     },
     {
       "name": "mPendingTransactions",
       "fetched_at": "2026-09-10T12:00:00Z",
-      "age_seconds": 3092094,
+      "age_seconds": 3093131,
       "cached": false
     }
   ],

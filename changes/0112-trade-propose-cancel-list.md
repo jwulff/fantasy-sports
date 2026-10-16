@@ -38,7 +38,7 @@ command is atomic in the sense ADR-0011 (#135) records.
   propose read-back, and `trade cancel` all read `mPendingTransactions`. The
   row validation is shared with `fetch_pending_claims` (`_pending_rows`).
 - **Sides restated from the reader.** The same proposal reads differently
-  from each team, so `trades` adds `direction`, `counterparty_team_id`,
+  from each team, so `trades` adds `direction`, `other_team_id`,
   `giving`, and `receiving` relative to `--team` beside the proposer-relative
   `PendingTrade` fields. The comment is free text another manager wrote and
   is labeled untrusted (#17); ESPN's queue row omits it.
@@ -61,6 +61,14 @@ command is atomic in the sense ADR-0011 (#135) records.
   reading team are now skipped before they are validated.
 - `WRITING_PROVIDER_METHODS` now lists the three trade methods, and both tests
   that pin it were updated (Codex).
+
+Second preflight round (P3s, fixed): `trades` first wrote the reading-side
+team into `counterparty_team_id`, so an incoming row named the proposer
+twice; the reading-side value is now `other_team_id` and the model's field
+keeps its meaning (Claude). The README's irreversible-write section and notify
+section now include `trade propose`, with a trade lifecycle example (Codex).
+The docs and the `comment` docstring say plainly that ESPN's queue never
+returns the comment (Claude).
 
 ## Validation
 
