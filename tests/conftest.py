@@ -65,9 +65,10 @@ from fantasy_sports.core.redaction import (
     SWID_PSEUDONYM_SENTINEL,  # noqa: F401 -- re-exported for tests/unit/test_scrubbing.py
     UnscrubbableResponseError,
     is_swid_pseudonym,  # noqa: F401 -- re-exported for tests/unit/test_scrubbing.py
+    redact,
+    scrub_credential_patterns,
     swid_pseudonym,  # noqa: F401 -- re-exported for tests/unit/test_scrubbing.py
 )
-from fantasy_sports.core.redaction import scrub_credential_patterns as scrub_text
 
 TESTS_DIR = Path(__file__).resolve().parent
 REPO_ROOT = TESTS_DIR.parent
@@ -78,7 +79,9 @@ CASSETTE_LIBRARY_DIR = TESTS_DIR / "cassettes"
 REDACTED = CREDENTIAL_PLACEHOLDER
 
 #: Headers whose value is the credential itself. The ESPN request auth *is*
-#: ``Cookie: espn_s2=...; SWID={...}``, which makes ``cookie`` load-bearing.
+#: ``Cookie: espn_s2=...; SWID={...}``, which makes ``cookie`` load-bearing;
+#: the FantasyPros request auth is ``x-api-key: <key>`` (ADR-0011), so that
+#: header is the credential too.
 SENSITIVE_HEADERS = frozenset(
     {
         "authorization",
@@ -87,6 +90,7 @@ SENSITIVE_HEADERS = frozenset(
         "set-cookie",
         "x-espn-swid",
         "espn-s2",
+        "x-api-key",
     }
 )
 
@@ -106,6 +110,20 @@ SENSITIVE_QUERY_PARAMS = CREDENTIAL_QUERY_PARAMS
 # ``docs/memory/parallel-wave-seams.md`` was written about. What stays in this
 # file is the part that is genuinely test-only -- the vcrpy hooks and the
 # repo-wide scan of committed fixtures.
+
+
+def scrub_text(text: str) -> str:
+    """Every credential *shape*, then every credential value this process holds.
+
+    The patterns cover values we were never handed (another member's SWID in
+    a body). ``redact`` covers the ones we were: a FantasyPros API key has no
+    recognisable shape of its own, so a body that echoed it would pass the
+    pattern pass -- but the key was wrapped in a ``Secret`` on the way in and
+    is in the registry (``docs/memory/cache-redaction-and-tag-classes.md``
+    §1: "do we hold this value?" decides which scrubber you need; a cassette
+    needs both).
+    """
+    return redact(scrub_credential_patterns(text))
 
 
 def _scrub_header_value(name: str, value: Any) -> Any:
@@ -304,6 +322,7 @@ def build_vcr_config() -> dict[str, Any]:
             ("authorization", REDACTED),
             ("cookie", REDACTED),
             ("set-cookie", REDACTED),
+            ("x-api-key", REDACTED),
         ],
         "filter_query_parameters": [
             ("espn_s2", REDACTED),

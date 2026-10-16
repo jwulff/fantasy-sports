@@ -1,0 +1,369 @@
+interactions:
+- request:
+    body: null
+    headers:
+      Accept:
+      - application/json
+      x-api-key:
+      - REDACTED
+    method: GET
+    uri: https://api.fantasypros.com/public/v2/json/nfl/players?external_ids=espn
+  response:
+    body:
+      string: '{"sport":"NFL","count":5,"season":"2026","week":"6","players":[{"player_id":8000,"player_name":"Arizona
+        Cardinals","short_name":"Arizona","first_name":"Arizona","last_name":"Cardinals","reverse_name":"Cardinals,
+        Arizona","position_id":"DST","positions":["DST"],"team_id":"ARI","filename":"https://www.fantasypros.com/nfl/teams/arizona-defense.php","sportsdata_player_id":"de760528-1dc0-416a-a978-b510d20692ff","rank_ecr":0,"espn_id":"-16022","rank_ecr_ppr":0,"rank_adp_ppr":315,"rank_ecr_half":0,"birthdate":"","birthdatetime":""},{"player_id":22947,"player_name":"Dameon
+        Pierce","short_name":"D. Pierce","first_name":"Dameon","last_name":"Pierce","reverse_name":"Pierce,
+        Dameon","position_id":"RB","positions":["RB"],"team_id":"PHI","filename":"https://www.fantasypros.com/nfl/players/dameon-pierce.php","sportsdata_player_id":"5d4ef6da-a6b5-4d9c-adc0-28dfdbe9315e","rank_ecr":0,"espn_id":"4360238","rank_ecr_ppr":0,"rank_adp_ppr":0,"rank_ecr_half":0,"birthdate":"2000-02-19","birthdatetime":950918400,"age":26,"draft_class":2022},{"player_id":9001,"player_name":"Aaron
+        Rodgers","short_name":"A. Rodgers","first_name":"Aaron","last_name":"Rodgers","reverse_name":"Rodgers,
+        Aaron","position_id":"QB","positions":["QB"],"team_id":"PIT","filename":"https://www.fantasypros.com/nfl/players/aaron-rodgers.php","sportsdata_player_id":"0ce48193-e2fa-466e-a986-33f751add206","rank_ecr":0,"espn_id":"8439","rank_ecr_ppr":0,"rank_adp_ppr":234,"rank_ecr_half":0,"birthdate":"1983-12-02","birthdatetime":439171200,"age":42,"draft_class":2005},{"player_id":9006,"player_name":"Adrian
+        Peterson","short_name":"A. Peterson","first_name":"Adrian","last_name":"Peterson","reverse_name":"Peterson,
+        Adrian","position_id":"RB","positions":["RB"],"team_id":"FA","filename":"https://www.fantasypros.com/nfl/players/adrian-peterson-min.php","sportsdata_player_id":"ab58c0ac-a747-47e6-9b3c-505e41d2bd3d","rank_ecr":0,"espn_id":"10452","rank_ecr_ppr":0,"rank_adp_ppr":0,"rank_ecr_half":0,"birthdate":"1985-03-21","birthdatetime":480211200,"age":41,"draft_class":2007},{"player_id":9012,"player_name":"Alex
+        Smith","short_name":"A. Smith","first_name":"Alex","last_name":"Smith","reverse_name":"Smith,
+        Alex","position_id":"QB","positions":["QB"],"team_id":"FA","filename":"https://www.fantasypros.com/nfl/players/alex-smith.php","sportsdata_player_id":"2fda010a-8c62-4c07-b601-4ba03f57e6af","rank_ecr":0,"espn_id":"8416","rank_ecr_ppr":0,"rank_adp_ppr":0,"rank_ecr_half":0,"birthdate":"1984-05-07","birthdatetime":452736000,"age":42,"draft_class":2005}],"public_api":true,"tier":"premium"}'
+    headers:
+      Content-Type:
+      - application/json
+      cache-control:
+      - max-age=600
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - application/json
+      x-api-key:
+      - REDACTED
+    method: GET
+    uri: https://api.fantasypros.com/public/v2/json/nfl/players?external_ids=espn&player=22947
+  response:
+    body:
+      string: '{"sport":"NFL","count":1,"season":"2026","week":"6","players":[{"player_id":22947,"player_name":"Dameon
+        Pierce","short_name":"D. Pierce","first_name":"Dameon","last_name":"Pierce","reverse_name":"Pierce,
+        Dameon","position_id":"RB","positions":["RB"],"team_id":"PHI","filename":"https://www.fantasypros.com/nfl/players/dameon-pierce.php","sportsdata_player_id":"5d4ef6da-a6b5-4d9c-adc0-28dfdbe9315e","rank_ecr":0,"espn_id":"4360238","rank_ecr_ppr":0,"rank_adp_ppr":0,"rank_ecr_half":0,"birthdate":"2000-02-19","birthdatetime":950918400,"age":26,"draft_class":2022}],"public_api":true,"tier":"premium"}'
+    headers:
+      Content-Type:
+      - application/json
+      cache-control:
+      - max-age=600
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - application/json
+      x-api-key:
+      - REDACTED
+    method: GET
+    uri: https://api.fantasypros.com/public/v2/json/nfl/2026/consensus-rankings?week=6&position=RB&scoring=PPR
+  response:
+    body:
+      string: '{"sport":"NFL","type":"Weekly PPR","ranking_type_name":"weekly","year":"2026","week":"6","position_id":"RB","scoring":"PPR","filters":"317,96,1080,285,1139,2729,125,3585,7254,394,7662,5598,835,120,1138,6752,636,766,534,607,2632,3535,2559,3168,323,145,93,95,1667,552,7560,6658,690,329,3747,2475,4176,621,4404,7195,540,908","count":5,"total_experts":42,"last_updated":"10/16","players":[{"player_id":23133,"player_name":"Bijan
+        Robinson","sportsdata_id":"f78d68c2-f9da-48e7-b954-26b69efd828d","player_team_id":"ATL","player_position_id":"RB","player_positions":"RB","player_short_name":"B.
+        Robinson","player_eligibility":"RB","player_yahoo_positions":"RB","player_page_url":"https://www.fantasypros.com/nfl/players/bijan-robinson.php","player_filename":"bijan-robinson.php","player_yahoo_id":"40055","cbs_player_id":"3168163","player_bye_week":"11","player_owned_avg":99.8,"player_owned_espn":99.9,"player_owned_yahoo":100,"player_opponent":"vs.
+        CHI","player_opponent_id":"CHI","player_game_kickoff_ts":1792342800,"player_game_status":"scheduled","player_ecr_delta":1,"rank_ecr":1,"rank_min":"1","rank_max":"2","rank_ave":"1.10","rank_std":"0.30","note":null,"tag":"start","recommendation":null,"pos_rank":"RB1","start_sit_grade":"A+","r2p_pts":"23.0"},{"player_id":23021,"player_name":"Kenneth
+        Walker III","sportsdata_id":"22ee9bac-a64c-4d44-94fc-51d775465b3b","player_team_id":"KC","player_position_id":"RB","player_positions":"RB","player_short_name":"K.
+        Walker III","player_eligibility":"RB","player_yahoo_positions":"RB","player_page_url":"https://www.fantasypros.com/nfl/players/kenneth-walker-rb.php","player_filename":"kenneth-walker-rb.php","player_yahoo_id":"33996","cbs_player_id":"3121372","player_bye_week":"5","player_owned_avg":99.6,"player_owned_espn":99.8,"player_owned_yahoo":100,"player_opponent":"vs.
+        LAC","player_opponent_id":"LAC","player_game_kickoff_ts":1792355100,"player_game_status":"scheduled","player_ecr_delta":-1,"rank_ecr":2,"rank_min":"1","rank_max":"5","rank_ave":"2.18","rank_std":"0.80","note":null,"tag":"start","recommendation":null,"pos_rank":"RB2","start_sit_grade":"A+","r2p_pts":"21.6"},{"player_id":19217,"player_name":"Jonathan
+        Taylor","sportsdata_id":"925195a4-06ba-4e37-ae7d-a3d6a5419139","player_team_id":"IND","player_position_id":"RB","player_positions":"RB","player_short_name":"J.
+        Taylor","player_eligibility":"RB","player_yahoo_positions":"RB","player_page_url":"https://www.fantasypros.com/nfl/players/jonathan-taylor.php","player_filename":"jonathan-taylor.php","player_yahoo_id":"32711","cbs_player_id":"2866395","player_bye_week":"13","player_owned_avg":99.8,"player_owned_espn":99.9,"player_owned_yahoo":100,"player_opponent":"vs.
+        TEN","player_opponent_id":"TEN","player_game_kickoff_ts":1792342800,"player_game_status":"scheduled","player_ecr_delta":null,"rank_ecr":3,"rank_min":"2","rank_max":"5","rank_ave":"3.53","rank_std":"0.77","note":null,"tag":"start","recommendation":null,"pos_rank":"RB3","start_sit_grade":"A","r2p_pts":"20.6"},{"player_id":16393,"player_name":"Christian
+        McCaffrey","sportsdata_id":"f96db0af-5e25-42d1-a07a-49b4e065b364","player_team_id":"SF","player_position_id":"RB","player_positions":"RB","player_short_name":"C.
+        McCaffrey","player_eligibility":"RB","player_yahoo_positions":"RB","player_page_url":"https://www.fantasypros.com/nfl/players/christian-mccaffrey.php","player_filename":"christian-mccaffrey.php","player_yahoo_id":"30121","cbs_player_id":"2136743","player_bye_week":"8","player_owned_avg":99.8,"player_owned_espn":99.9,"player_owned_yahoo":100,"player_opponent":"vs.
+        WAS","player_opponent_id":"WAS","player_game_kickoff_ts":1792455300,"player_game_status":"scheduled","player_ecr_delta":1,"rank_ecr":4,"rank_min":"2","rank_max":"7","rank_ave":"3.70","rank_std":"1.05","note":null,"tag":"start","recommendation":null,"pos_rank":"RB4","start_sit_grade":"A","r2p_pts":"20.5"},{"player_id":23059,"player_name":"Kyren
+        Williams","sportsdata_id":"19d44771-8f1d-4127-9b7d-230da137f15d","player_team_id":"LAR","player_position_id":"RB","player_positions":"RB","player_short_name":"K.
+        Williams","player_eligibility":"RB","player_yahoo_positions":"RB","player_page_url":"https://www.fantasypros.com/nfl/players/kyren-williams.php","player_filename":"kyren-williams.php","player_yahoo_id":"34120","cbs_player_id":"3121836","player_bye_week":"11","player_owned_avg":99.3,"player_owned_espn":99.4,"player_owned_yahoo":100,"player_opponent":"vs.
+        ARI","player_opponent_id":"ARI","player_game_kickoff_ts":1792353900,"player_game_status":"scheduled","player_ecr_delta":-1,"rank_ecr":5,"rank_min":"4","rank_max":"6","rank_ave":"4.73","rank_std":"0.63","note":null,"tag":"start","recommendation":null,"pos_rank":"RB5","start_sit_grade":"A","r2p_pts":"19.9"}],"last_updated_ts":1792109670,"public_api":true,"tier":"premium"}'
+    headers:
+      Content-Type:
+      - application/json
+      cache-control:
+      - max-age=600
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - application/json
+      x-api-key:
+      - REDACTED
+    method: GET
+    uri: https://api.fantasypros.com/public/v2/json/nfl/2026/consensus-rankings?week=6&position=RB&scoring=STD&experts=show
+  response:
+    body:
+      string: '{"sport":"NFL","type":"Weekly","ranking_type_name":"weekly","year":"2026","week":"6","position_id":"RB","scoring":"STD","filters":"96,1080,285,1139,2729,125,3585,7254,394,7662,5598,835,120,636,766,534,607,2632,3535,2559,3168,323,145,93,95,1667,552,7560,6658,690,329,3747,2475,6752,4176,621,4404,7195,540,908","count":5,"total_experts":40,"last_updated":"10/16","players":[{"player_id":23133,"player_name":"Bijan
+        Robinson","sportsdata_id":"f78d68c2-f9da-48e7-b954-26b69efd828d","player_team_id":"ATL","player_position_id":"RB","player_positions":"RB","player_short_name":"B.
+        Robinson","player_eligibility":"RB","player_yahoo_positions":"RB","player_page_url":"https://www.fantasypros.com/nfl/players/bijan-robinson.php","player_filename":"bijan-robinson.php","player_yahoo_id":"40055","cbs_player_id":"3168163","player_bye_week":"11","player_owned_avg":99.8,"player_owned_espn":99.9,"player_owned_yahoo":100,"player_opponent":"vs.
+        CHI","player_opponent_id":"CHI","player_game_kickoff_ts":1792342800,"player_game_status":"scheduled","player_ecr_delta":1,"rank_ecr":1,"rank_min":"1","rank_max":"2","rank_ave":"1.11","rank_std":"0.31","experts":{"285":"1","7560":"1","7662":"1","2559":"1","1139":"1","394":"1","3168":"2","323":"2","145":"1","93":"1","95":"1","540":"1","2475":"1","329":"1","636":"1","766":"1","3535":"1","7195":"1","96":"1","1667":"1","621":"2","690":"2","552":"1","2632":"1","1080":"1","6752":"1","120":"1","908":"1","534":"1","2729":"1","125":"1","7254":"2","3747":"1","4176":"1","4404":"1","607":"1","3585":"1","6658":"1","835":"1","5598":"1"},"rank_points":3758,"note":null,"tag":"start","recommendation":null,"pos_rank":"RB1","start_sit_grade":"A+","r2p_pts":"19.3"},{"player_id":23021,"player_name":"Kenneth
+        Walker III","sportsdata_id":"22ee9bac-a64c-4d44-94fc-51d775465b3b","player_team_id":"KC","player_position_id":"RB","player_positions":"RB","player_short_name":"K.
+        Walker III","player_eligibility":"RB","player_yahoo_positions":"RB","player_page_url":"https://www.fantasypros.com/nfl/players/kenneth-walker-rb.php","player_filename":"kenneth-walker-rb.php","player_yahoo_id":"33996","cbs_player_id":"3121372","player_bye_week":"5","player_owned_avg":99.6,"player_owned_espn":99.8,"player_owned_yahoo":100,"player_opponent":"vs.
+        LAC","player_opponent_id":"LAC","player_game_kickoff_ts":1792355100,"player_game_status":"scheduled","player_ecr_delta":-1,"rank_ecr":2,"rank_min":"1","rank_max":"7","rank_ave":"2.26","rank_std":"1.21","experts":{"285":"2","7560":"7","7662":"2","2559":"2","1139":"3","394":"2","3168":"1","323":"1","145":"2","93":"2","95":"2","540":"2","2475":"2","329":"2","636":"2","766":"2","3535":"2","7195":"3","96":"3","1667":"2","621":"1","690":"1","552":"2","2632":"2","1080":"2","6752":"2","120":"7","908":"2","534":"2","2729":"2","125":"3","7254":"1","3747":"7","4176":"2","4404":"2","607":"2","3585":"2","6658":"2","835":"2","5598":"2"},"rank_points":3714,"note":null,"tag":"start","recommendation":null,"pos_rank":"RB2","start_sit_grade":"A+","r2p_pts":"18.6"},{"player_id":19217,"player_name":"Jonathan
+        Taylor","sportsdata_id":"925195a4-06ba-4e37-ae7d-a3d6a5419139","player_team_id":"IND","player_position_id":"RB","player_positions":"RB","player_short_name":"J.
+        Taylor","player_eligibility":"RB","player_yahoo_positions":"RB","player_page_url":"https://www.fantasypros.com/nfl/players/jonathan-taylor.php","player_filename":"jonathan-taylor.php","player_yahoo_id":"32711","cbs_player_id":"2866395","player_bye_week":"13","player_owned_avg":99.8,"player_owned_espn":99.9,"player_owned_yahoo":100,"player_opponent":"vs.
+        TEN","player_opponent_id":"TEN","player_game_kickoff_ts":1792342800,"player_game_status":"scheduled","player_ecr_delta":null,"rank_ecr":3,"rank_min":"2","rank_max":"6","rank_ave":"3.11","rank_std":"0.72","experts":{"285":"3","7560":"2","7662":"3","2559":"3","1139":"2","394":"5","3168":"3","323":"3","145":"3","93":"3","95":"3","540":"3","2475":"3","329":"6","636":"3","766":"3","3535":"3","7195":"4","96":"4","1667":"3","621":"8","690":"3","552":"3","2632":"3","1080":"3","6752":"3","120":"2","908":"3","534":"3","2729":"3","125":"2","7254":"3","3747":"2","4176":"3","4404":"3","607":"3","3585":"3","6658":"3","835":"3","5598":"4"},"rank_points":3682,"note":null,"tag":"start","recommendation":null,"pos_rank":"RB3","start_sit_grade":"A+","r2p_pts":"18.2"},{"player_id":15514,"player_name":"Derrick
+        Henry","sportsdata_id":"87c481c7-7414-43cc-82df-19ca0c2ae22e","player_team_id":"BAL","player_position_id":"RB","player_positions":"RB","player_short_name":"D.
+        Henry","player_eligibility":"RB","player_yahoo_positions":"RB","player_page_url":"https://www.fantasypros.com/nfl/players/derrick-henry.php","player_filename":"derrick-henry.php","player_yahoo_id":"29279","cbs_player_id":"2061188","player_bye_week":"13","player_owned_avg":99.7,"player_owned_espn":99.9,"player_owned_yahoo":100,"player_opponent":"at
+        CLE","player_opponent_id":"CLE","player_game_kickoff_ts":1792342800,"player_game_status":"scheduled","player_ecr_delta":1,"rank_ecr":4,"rank_min":"3","rank_max":"6","rank_ave":"4.61","rank_std":"0.63","experts":{"285":"5","7560":"3","7662":"5","2559":"4","1139":"6","394":"6","3168":"5","323":"4","145":"5","93":"5","95":"5","540":"4","2475":"4","329":"5","636":"5","766":"4","3535":"5","7195":"5","96":"5","1667":"5","621":"6","690":"4","552":"4","2632":"5","1080":"5","6752":"4","120":"5","908":"4","534":"4","2729":"4","125":"4","7254":"5","3747":"5","4176":"5","4404":"4","607":"4","3585":"5","6658":"5","835":"4","5598":"3"},"rank_points":3625,"note":null,"tag":"start","recommendation":null,"pos_rank":"RB4","start_sit_grade":"A","r2p_pts":"17.2"},{"player_id":23059,"player_name":"Kyren
+        Williams","sportsdata_id":"19d44771-8f1d-4127-9b7d-230da137f15d","player_team_id":"LAR","player_position_id":"RB","player_positions":"RB","player_short_name":"K.
+        Williams","player_eligibility":"RB","player_yahoo_positions":"RB","player_page_url":"https://www.fantasypros.com/nfl/players/kyren-williams.php","player_filename":"kyren-williams.php","player_yahoo_id":"34120","cbs_player_id":"3121836","player_bye_week":"11","player_owned_avg":99.3,"player_owned_espn":99.4,"player_owned_yahoo":100,"player_opponent":"vs.
+        ARI","player_opponent_id":"ARI","player_game_kickoff_ts":1792353900,"player_game_status":"scheduled","player_ecr_delta":-1,"rank_ecr":5,"rank_min":"3","rank_max":"7","rank_ave":"5.21","rank_std":"1.17","experts":{"285":"7","7560":"4","7662":"4","2559":"6","1139":"7","394":"3","3168":"4","323":"6","145":"4","93":"4","95":"4","540":"6","2475":"6","329":"3","636":"6","766":"6","3535":"4","7195":"6","96":"6","1667":"4","621":"5","690":"6","552":"6","2632":"4","1080":"6","6752":"6","120":"3","908":"6","534":"6","2729":"6","125":"6","7254":"6","3747":"3","4176":"4","4404":"6","607":"6","3585":"7","6658":"4","835":"7","5598":"5"},"rank_points":3602,"note":null,"tag":"start","recommendation":null,"pos_rank":"RB5","start_sit_grade":"A","r2p_pts":"16.9"}],"last_updated_ts":1792109669,"expert_pub":{"96":"2026-10-15
+        22:30:36","1080":"2026-10-15 12:06:11","285":"2026-10-16 00:12:53","1139":"2026-10-16
+        00:13:52","2729":"2026-10-16 00:06:05","125":"2026-10-16 00:09:01","3585":"2026-10-15
+        23:56:44","7254":"2026-10-15 20:48:26","394":"2026-10-15 23:21:59","7662":"2026-10-15
+        19:36:24","5598":"2026-10-15 23:53:22","835":"2026-10-15 23:54:00","120":"2026-10-15
+        23:04:35","636":"2026-10-15 19:28:43","766":"2026-10-16 00:14:29","534":"2026-10-16
+        00:02:07","607":"2026-10-16 00:04:38","2632":"2026-10-15 23:36:52","3535":"2026-10-15
+        23:41:44","2559":"2026-10-16 00:10:07","3168":"2026-10-15 15:58:31","323":"2026-10-16
+        00:00:54","145":"2026-10-16 00:08:52","93":"2026-10-16 00:10:43","95":"2026-10-16
+        00:11:08","1667":"2026-10-15 23:08:51","552":"2026-10-16 00:06:27","7560":"2026-10-15
+        18:58:58","6658":"2026-10-15 19:17:06","690":"2026-10-15 21:49:57","329":"2026-10-15
+        22:43:30","3747":"2026-10-15 23:58:35","2475":"2026-10-15 22:24:04","6752":"2026-10-15
+        22:34:54","4176":"2026-10-15 23:02:02","621":"2026-10-15 23:08:52","4404":"2026-10-15
+        23:14:51","7195":"2026-10-16 00:04:00","540":"2026-10-16 00:06:36","908":"2026-10-15
+        23:58:15"},"expert_names":{"1139":"Andrew Erickson","394":"Rudy Gamble","93":"Jared
+        Smola","145":"Jody Smith","323":"Matt Schauf","3168":"Shane Hallam","95":"Kevin
+        Hanson","540":"Nathan Jahnke","2475":"Todd D Clark","329":"David Biggs","636":"Jamie
+        Calandro","766":"Nick Mariano","3535":"Nick Spencer","7195":"Christopher Gimino","96":"Ken
+        Zalis","1667":"Mick Ciallela","621":"Tim Heaney","690":"Kevin Steele","552":"Matthew
+        Hill","2632":"David Heilman","1080":"Marc Shannep","6752":"Trevor Land","120":"Sean
+        Koerner","908":"Mike Maher","534":"Patrick Thorman","125":"Jeff Ratcliffe","2729":"Tyler
+        Orginski","7254":"Pete Nova","3747":"Dylan Licciardo","4176":"Alfredo Brown","4404":"Nic
+        Bodiford","607":"Matthew Freedman","3585":"Ryan Weisse","6658":"Brad Beatson","835":"Kev
+        Wheeler","5598":"Aaron St Denis","285":"Dalton Del Don","7560":"Paul Brenton","7662":"Doug
+        Burrell","2559":"Ben Wasley"},"expert_twitter":{"1139":"Andrewerickson_","394":"rudygamble","93":"SmolaDS","145":"JodySmithNFL","323":"SchaufDS","3168":"shanephallam","95":"EDSFootball","540":"PFF_NateJahnke","2475":"lunchmade","329":"drinkfive","636":"jac3600","766":"NMariano53","3535":"NickBSpencer","7195":"@ChrisGimino","96":"KZfansfantasy","1667":"themick23","621":"Tim_Heaney","690":"FantasyWrath13","552":"MatthewHill_FF","2632":"DynastyDorks","1080":"FantasyKnockout","6752":"Trevor__Land","120":"The_Oddsmaker","908":"mikemaher","534":"Pat_Thorman","125":"JeffRatcliffe","2729":"FFTylerO","7254":"","3747":"DylanLNFL","4176":"ThePretendGM","4404":"NicBodifordNFL","607":"MattFtheOracle
+        ","3585":"TheFantasyFive","6658":"banditfootball_","835":"FF_Wheeler","5598":"FFMadScientist","285":"daltondeldon","7560":"pointsoverhype","7662":"DraftWithDoug","2559":"fantasyfirstdwn
+        "},"public_api":true,"tier":"premium"}'
+    headers:
+      Content-Type:
+      - application/json
+      cache-control:
+      - max-age=600
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - application/json
+      x-api-key:
+      - REDACTED
+    method: GET
+    uri: https://api.fantasypros.com/public/v2/json/nfl/2026/rankings?week=6&rankstats=true&range=true
+  response:
+    body:
+      string: '{"sport":"NFL","count":5,"season":"2026","week":"6","experts":{"STD":{"QB":151,"RB":140,"WR":142,"TE":139,"FLX":143,"OP":142,"K":101,"DST":100,"IDP":22,"DL":23,"LB":23,"DB":23},"PPR":{"RB":141,"WR":143,"TE":140,"FLX":143,"OP":142},"HALF":{"RB":150,"WR":152,"TE":148,"FLX":145,"OP":143},"ROS-STD":{"ALL":18,"QB":22,"RB":17,"WR":18,"TE":18,"FLX":18,"K":10,"DST":10,"IDP":3,"DL":4,"LB":4,"DB":4},"ROS-PPR":{"ALL":18,"RB":17,"WR":18,"TE":18,"FLX":18},"ROS-HALF":{"ALL":20,"RB":21,"WR":21,"TE":22,"FLX":19},"DYN":{"ALL":7,"QB":6,"RB":6,"WR":8,"TE":4,"K":0,"DST":0,"OP":8,"IDP":0,"DL":0,"LB":0,"DB":0}},"players":[{"id":8000,"rank":{"ECR":{"STD":{"DST":27},"PPR":{"DST":27},"HALF":{"DST":27},"ROS-STD":{"DST":31},"ROS-PPR":{"DST":31},"ROS-HALF":{"DST":31},"DYN":{"DST":22}},"ECR_MIN":{"STD":{"DST":25},"PPR":{"DST":25},"HALF":{"DST":25},"ROS-STD":{"DST":30},"ROS-PPR":{"DST":30},"ROS-HALF":{"DST":30},"DYN":{"DST":9}},"ECR_MAX":{"STD":{"DST":28},"PPR":{"DST":28},"HALF":{"DST":28},"ROS-STD":{"DST":32},"ROS-PPR":{"DST":32},"ROS-HALF":{"DST":32},"DYN":{"DST":31}},"ECR_AVG":{"STD":{"DST":27.1},"PPR":{"DST":27.1},"HALF":{"DST":27.1},"ROS-STD":{"DST":31},"ROS-PPR":{"DST":31},"ROS-HALF":{"DST":31},"DYN":{"DST":21}},"ECR_STD":{"STD":{"DST":0.8},"PPR":{"DST":0.8},"HALF":{"DST":0.8},"ROS-STD":{"DST":0.8},"ROS-PPR":{"DST":0.8},"ROS-HALF":{"DST":0.8},"DYN":{"DST":9.9}}}},{"id":8010,"rank":{"ECR":{"STD":{"DST":21},"PPR":{"DST":21},"HALF":{"DST":21},"ROS-STD":{"ALL":406,"DST":26},"ROS-PPR":{"DST":26,"ALL":405},"ROS-HALF":{"DST":26,"ALL":403},"DYN":{"DST":21}},"ECR_MIN":{"STD":{"DST":14},"PPR":{"DST":14},"HALF":{"DST":14},"ROS-STD":{"ALL":355,"DST":12},"ROS-PPR":{"DST":12,"ALL":356},"ROS-HALF":{"DST":12,"ALL":355},"DYN":{"DST":19}},"ECR_MAX":{"STD":{"DST":25},"PPR":{"DST":25},"HALF":{"DST":25},"ROS-STD":{"ALL":355,"DST":28},"ROS-PPR":{"DST":28,"ALL":356},"ROS-HALF":{"DST":28,"ALL":355},"DYN":{"DST":28}},"ECR_AVG":{"STD":{"DST":19.9},"PPR":{"DST":19.9},"HALF":{"DST":19.9},"ROS-STD":{"ALL":355,"DST":24},"ROS-PPR":{"DST":24,"ALL":356},"ROS-HALF":{"DST":24,"ALL":355},"DYN":{"DST":22.7}},"ECR_STD":{"STD":{"DST":2.2},"PPR":{"DST":2.2},"HALF":{"DST":2.2},"ROS-STD":{"ALL":0,"DST":5.1},"ROS-PPR":{"DST":5.1,"ALL":0},"ROS-HALF":{"DST":5.1,"ALL":0},"DYN":{"DST":2.9}}}},{"id":8020,"rank":{"ECR":{"STD":{"DST":4},"PPR":{"DST":4},"HALF":{"DST":4},"ROS-STD":{"ALL":191,"DST":11},"ROS-PPR":{"DST":11,"ALL":195},"ROS-HALF":{"DST":11,"ALL":191},"DYN":{"ALL":293,"DST":11}},"ECR_MIN":{"STD":{"DST":2},"PPR":{"DST":2},"HALF":{"DST":2},"ROS-STD":{"ALL":184,"DST":5},"ROS-PPR":{"DST":5,"ALL":185},"ROS-HALF":{"DST":5,"ALL":184},"DYN":{"ALL":275,"DST":11}},"ECR_MAX":{"STD":{"DST":5},"PPR":{"DST":5},"HALF":{"DST":5},"ROS-STD":{"ALL":205,"DST":13},"ROS-PPR":{"DST":13,"ALL":206},"ROS-HALF":{"DST":13,"ALL":205},"DYN":{"ALL":330,"DST":17}},"ECR_AVG":{"STD":{"DST":3.7},"PPR":{"DST":3.7},"HALF":{"DST":3.7},"ROS-STD":{"ALL":191.8,"DST":10.4},"ROS-PPR":{"DST":10.4,"ALL":192.8},"ROS-HALF":{"DST":10.4,"ALL":191},"DYN":{"ALL":289.8,"DST":12.8}},"ECR_STD":{"STD":{"DST":0.8},"PPR":{"DST":0.8},"HALF":{"DST":0.8},"ROS-STD":{"ALL":6.5,"DST":2.3},"ROS-PPR":{"DST":2.3,"ALL":6.5},"ROS-HALF":{"DST":2.3,"ALL":6.6},"DYN":{"ALL":20.9,"DST":2}}}},{"id":8030,"rank":{"ECR":{"STD":{"DST":17},"PPR":{"DST":17},"HALF":{"DST":17},"ROS-STD":{"ALL":240,"DST":13},"ROS-PPR":{"DST":13,"ALL":238},"ROS-HALF":{"DST":13,"ALL":236},"DYN":{"ALL":271,"DST":17}},"ECR_MIN":{"STD":{"DST":10},"PPR":{"DST":10},"HALF":{"DST":10},"ROS-STD":{"ALL":205,"DST":13},"ROS-PPR":{"DST":13,"ALL":206},"ROS-HALF":{"DST":13,"ALL":202},"DYN":{"ALL":250,"DST":10}},"ECR_MAX":{"STD":{"DST":22},"PPR":{"DST":22},"HALF":{"DST":22},"ROS-STD":{"ALL":336,"DST":22},"ROS-PPR":{"DST":22,"ALL":337},"ROS-HALF":{"DST":22,"ALL":323},"DYN":{"ALL":289,"DST":20}},"ECR_AVG":{"STD":{"DST":17.4},"PPR":{"DST":17.4},"HALF":{"DST":17.4},"ROS-STD":{"ALL":246,"DST":15.6},"ROS-PPR":{"DST":15.6,"ALL":246.8},"ROS-HALF":{"DST":15.6,"ALL":243.3},"DYN":{"ALL":277.4,"DST":15.6}},"ECR_STD":{"STD":{"DST":2.3},"PPR":{"DST":2.3},"HALF":{"DST":2.3},"ROS-STD":{"ALL":44,"DST":3.6},"ROS-PPR":{"DST":3.6,"ALL":44},"ROS-HALF":{"DST":3.6,"ALL":40.1},"DYN":{"ALL":14.7,"DST":3.2}}}},{"id":8040,"rank":{"ECR":{"STD":{"DST":13},"PPR":{"DST":13},"HALF":{"DST":13},"ROS-STD":{"ALL":368,"DST":23},"ROS-PPR":{"DST":23,"ALL":367},"ROS-HALF":{"DST":23,"ALL":363},"DYN":{"DST":20}},"ECR_MIN":{"STD":{"DST":4},"PPR":{"DST":4},"HALF":{"DST":4},"ROS-STD":{"ALL":278,"DST":17},"ROS-PPR":{"DST":17,"ALL":279},"ROS-HALF":{"DST":17,"ALL":270},"DYN":{"DST":19}},"ECR_MAX":{"STD":{"DST":21},"PPR":{"DST":21},"HALF":{"DST":21},"ROS-STD":{"ALL":278,"DST":25},"ROS-PPR":{"DST":25,"ALL":279},"ROS-HALF":{"DST":25,"ALL":270},"DYN":{"DST":24}},"ECR_AVG":{"STD":{"DST":11.9},"PPR":{"DST":11.9},"HALF":{"DST":11.9},"ROS-STD":{"ALL":278,"DST":21},"ROS-PPR":{"DST":21,"ALL":279},"ROS-HALF":{"DST":21,"ALL":270},"DYN":{"DST":20.5}},"ECR_STD":{"STD":{"DST":3.7},"PPR":{"DST":3.7},"HALF":{"DST":3.7},"ROS-STD":{"ALL":0,"DST":2.8},"ROS-PPR":{"DST":2.8,"ALL":0},"ROS-HALF":{"DST":2.8,"ALL":0},"DYN":{"DST":1.8}}}}],"ecr_experts":{"STD":{"QB":[960,317],"RB":[96,1080],"WR":[96,1080],"TE":[96,1080],"FLX":[96,1080],"OP":[96,1080],"K":[960,317],"DST":[960,317],"IDP":[220,5598],"DL":[220,5598],"LB":[220,5598],"DB":[220,5598]},"PPR":{"RB":[317,96],"WR":[317,96],"TE":[317,96],"FLX":[317,96],"OP":[96,1080]},"HALF":{"RB":[960,317],"WR":[960,317],"TE":[960,317],"FLX":[317,96],"OP":[96,1080]},"ROS-STD":{"ALL":[22,1139],"QB":[22,1139],"RB":[1204,22],"WR":[1204,22],"TE":[1204,22],"FLX":[1204,22],"K":[22,7662],"DST":[1080,22],"IDP":[5598,263],"DL":[386,5598],"LB":[386,5598],"DB":[386,5598]},"ROS-PPR":{"ALL":[22,1139],"RB":[1204,22],"WR":[1204,22],"TE":[1204,22],"FLX":[1204,22]},"ROS-HALF":{"ALL":[22,1139],"RB":[1204,22],"WR":[1204,22],"TE":[1204,22],"FLX":[1204,22]},"DYN":{"ALL":[7639,22],"QB":[1204,7494],"RB":[7639,1204],"WR":[7639,22],"TE":[1204,7494],"K":[7,220],"DST":[7,220],"OP":[7639,22],"IDP":[4317,5598],"DL":[4317,5598],"LB":[4317,5598],"DB":[4317,5598]}},"public_api":true,"tier":"premium"}'
+    headers:
+      Content-Type:
+      - application/json
+      cache-control:
+      - max-age=600
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - application/json
+      x-api-key:
+      - REDACTED
+    method: GET
+    uri: https://api.fantasypros.com/public/v2/json/nfl/2026/projections?week=6&positions=RB
+  response:
+    body:
+      string: '{"season":"2026","week":"6","count":"5","positions":"RB","scoring":"STD","experts":[71,72,11,7493,7689],"players":[{"fpid":23133,"mflid":16161,"name":"Bijan
+        Robinson","position_id":"RB","team_id":"ATL","filename":"bijan-robinson.php","stats":{"points":19.27,"points_ppr":23.13,"points_half":21.2,"rush_att":18.69,"rush_yds":98.39,"rush_tds":0.75,"rush_yds_100":0,"rush_yds_200":0,"scrimage_yards_100":0,"scrimage_yards_200":0,"rec_rec":3.86,"rec_yds":39.01,"rec_tds":0.21,"rec_yds_100":0,"rec_yds_200":0,"fumbles":0.1,"ret_tds":0,"2pt_tds":0.1}},{"fpid":19217,"mflid":14802,"name":"Jonathan
+        Taylor","position_id":"RB","team_id":"IND","filename":"jonathan-taylor.php","stats":{"points":18.24,"points_ppr":20.85,"points_half":19.55,"rush_att":20.97,"rush_yds":90.31,"rush_tds":1.11,"rush_yds_100":0,"rush_yds_200":0,"scrimage_yards_100":0,"scrimage_yards_200":0,"rec_rec":2.6,"rec_yds":22,"rec_tds":0.1,"rec_yds_100":0,"rec_yds_200":0,"fumbles":0.1,"ret_tds":0,"2pt_tds":0.1}},{"fpid":23021,"mflid":15711,"name":"Kenneth
+        Walker III","position_id":"RB","team_id":"KC","filename":"kenneth-walker-rb.php","stats":{"points":17.98,"points_ppr":21.02,"points_half":19.5,"rush_att":20.33,"rush_yds":95.81,"rush_tds":0.79,"rush_yds_100":0,"rush_yds_200":0,"scrimage_yards_100":0,"scrimage_yards_200":0,"rec_rec":3.04,"rec_yds":24.56,"rec_tds":0.23,"rec_yds_100":0,"rec_yds_200":0,"fumbles":0.09,"ret_tds":0,"2pt_tds":0}},{"fpid":23059,"mflid":15710,"name":"Kyren
+        Williams","position_id":"RB","team_id":"LAR","filename":"kyren-williams.php","stats":{"points":16.81,"points_ppr":19.98,"points_half":18.39,"rush_att":16.49,"rush_yds":81.29,"rush_tds":0.85,"rush_yds_100":0,"rush_yds_200":0,"scrimage_yards_100":0,"scrimage_yards_200":0,"rec_rec":3.17,"rec_yds":24.75,"rec_tds":0.22,"rec_yds_100":0,"rec_yds_200":0,"fumbles":0.12,"ret_tds":0,"2pt_tds":0}},{"fpid":15514,"mflid":12626,"name":"Derrick
+        Henry","position_id":"RB","team_id":"BAL","filename":"derrick-henry.php","stats":{"points":16.68,"points_ppr":17.93,"points_half":17.3,"rush_att":20.2,"rush_yds":99.77,"rush_tds":0.89,"rush_yds_100":0,"rush_yds_200":0,"scrimage_yards_100":0,"scrimage_yards_200":0,"rec_rec":1.24,"rec_yds":11.09,"rec_tds":0.07,"rec_yds_100":0,"rec_yds_200":0,"fumbles":0.09,"ret_tds":0,"2pt_tds":0.1}}],"public_api":true,"tier":"premium"}'
+    headers:
+      Content-Type:
+      - application/json
+      cache-control:
+      - max-age=600
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - application/json
+      x-api-key:
+      - REDACTED
+    method: GET
+    uri: https://api.fantasypros.com/public/v2/json/nfl/2026/projections?positions=RB&ros=true
+  response:
+    body:
+      string: '{"season":"2026","week":"6","count":"5","positions":"RB","scoring":"STD","experts":[71,72,11,7493,7689],"ros_projections":true,"players":[{"fpid":22968,"mflid":16162,"name":"Jahmyr
+        Gibbs","position_id":"RB","team_id":"DET","filename":"jahmyr-gibbs.php","stats":{"points":219.34,"points_ppr":266.18,"points_half":242.76,"rush_att":172.51,"rush_yds":929.8,"rush_tds":11.98,"rush_yds_100":0,"rush_yds_200":0,"scrimage_yards_100":0,"scrimage_yards_200":0,"rec_rec":46.84,"rec_yds":398.28,"rec_tds":2.8,"rec_yds_100":0,"rec_yds_200":0,"fumbles":1.07,"ret_tds":0,"2pt_tds":0}},{"fpid":23021,"mflid":15711,"name":"Kenneth
+        Walker III","position_id":"RB","team_id":"KC","filename":"kenneth-walker-rb.php","stats":{"points":211.54,"points_ppr":246.2,"points_half":228.87,"rush_att":218.63,"rush_yds":1096.23,"rush_tds":10.84,"rush_yds_100":0,"rush_yds_200":0,"scrimage_yards_100":0,"scrimage_yards_200":0,"rec_rec":34.67,"rec_yds":292.36,"rec_tds":1.3,"rec_yds_100":0,"rec_yds_200":0,"fumbles":0.09,"ret_tds":0,"2pt_tds":0}},{"fpid":23133,"mflid":16161,"name":"Bijan
+        Robinson","position_id":"RB","team_id":"ATL","filename":"bijan-robinson.php","stats":{"points":201.9,"points_ppr":254.15,"points_half":228.03,"rush_att":210.8,"rush_yds":1038.45,"rush_tds":7.05,"rush_yds_100":0,"rush_yds_200":0,"scrimage_yards_100":0,"scrimage_yards_200":0,"rec_rec":52.25,"rec_yds":434.72,"rec_tds":2.51,"rec_yds_100":0,"rec_yds_200":0,"fumbles":1.37,"ret_tds":0,"2pt_tds":0}},{"fpid":19217,"mflid":14802,"name":"Jonathan
+        Taylor","position_id":"RB","team_id":"IND","filename":"jonathan-taylor.php","stats":{"points":193.59,"points_ppr":222.64,"points_half":208.12,"rush_att":234.72,"rush_yds":1067.27,"rush_tds":10.61,"rush_yds_100":0,"rush_yds_200":0,"scrimage_yards_100":0,"scrimage_yards_200":0,"rec_rec":29.05,"rec_yds":197.88,"rec_tds":1,"rec_yds_100":0,"rec_yds_200":0,"fumbles":1.28,"ret_tds":0,"2pt_tds":0}},{"fpid":22958,"mflid":15715,"name":"James
+        Cook III","position_id":"RB","team_id":"BUF","filename":"james-cook.php","stats":{"points":171.6,"points_ppr":199.7,"points_half":185.65,"rush_att":185.33,"rush_yds":974.94,"rush_tds":7.4,"rush_yds_100":0,"rush_yds_200":0,"scrimage_yards_100":0,"scrimage_yards_200":0,"rec_rec":28.1,"rec_yds":226.64,"rec_tds":1.7,"rec_yds_100":0,"rec_yds_200":0,"fumbles":1.6,"ret_tds":0,"2pt_tds":0}}],"public_api":true,"tier":"premium"}'
+    headers:
+      Content-Type:
+      - application/json
+      cache-control:
+      - max-age=600
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - application/json
+      x-api-key:
+      - REDACTED
+    method: GET
+    uri: https://api.fantasypros.com/public/v2/json/nfl/injuries?year=2026&week=6&include_probabilities=true
+  response:
+    body:
+      string: '{"sport":"NFL","count":5,"injuries":[{"player_id":23070,"yahoo_id":"40041","name":"Jaxon
+        Smith-Njigba","status":"","injury_type":"","comment":"","injury_update_date":null,"team_id":"SEA","position_id":"WR","rank":3,"status_short":"","filename":"jaxon-smith-njigba.php","ir_weeks":[],"probability_of_playing":"1","practice_1":"Limit","practice_2":"Limit","practice_3":"Full","practice_report_injury_type":"ankle","team_practice_1_submitted":true,"team_practice_2_submitted":true,"team_practice_3_submitted":true},{"player_id":19217,"yahoo_id":"32711","name":"Jonathan
+        Taylor","status":"","injury_type":"","comment":"","injury_update_date":null,"team_id":"IND","position_id":"RB","rank":5,"status_short":"","filename":"jonathan-taylor.php","ir_weeks":[],"probability_of_playing":null,"practice_1":"Limit","practice_2":"Full","practice_3":null,"practice_report_injury_type":"NIR","team_practice_1_submitted":true,"team_practice_2_submitted":true,"team_practice_3_submitted":false},{"player_id":16393,"yahoo_id":"30121","name":"Christian
+        McCaffrey","status":"","injury_type":"","comment":"","injury_update_date":null,"team_id":"SF","position_id":"RB","rank":8,"status_short":"","filename":"christian-mccaffrey.php","ir_weeks":[],"probability_of_playing":null,"practice_1":"DNP","practice_2":null,"practice_3":null,"practice_report_injury_type":"NIR","team_practice_1_submitted":true,"team_practice_2_submitted":false,"team_practice_3_submitted":false},{"player_id":19202,"yahoo_id":"32687","name":"CeeDee
+        Lamb","status":"","injury_type":"","comment":"","injury_update_date":null,"team_id":"DAL","position_id":"WR","rank":13,"status_short":"","filename":"ceedee-lamb.php","ir_weeks":[],"probability_of_playing":"0.98993","practice_1":"Full","practice_2":"Full","practice_3":null,"practice_report_injury_type":"thigh","team_practice_1_submitted":true,"team_practice_2_submitted":true,"team_practice_3_submitted":false},{"player_id":20111,"yahoo_id":"33966","name":"Chris
+        Olave","status":"Questionable","injury_type":"Illness","comment":"","injury_update_date":"2026-10-15
+        00:00:00","team_id":"NO","position_id":"WR","rank":15,"status_short":"Q","filename":"chris-olave.php","ir_weeks":[],"probability_of_playing":"0.74144","practice_1":"DNP","practice_2":"DNP","practice_3":null,"practice_report_injury_type":"illness","team_practice_1_submitted":true,"team_practice_2_submitted":true,"team_practice_3_submitted":false}],"covids":[],"public_api":true,"tier":"premium"}'
+    headers:
+      Content-Type:
+      - application/json
+      cache-control:
+      - max-age=600
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - application/json
+      x-api-key:
+      - REDACTED
+    method: GET
+    uri: https://api.fantasypros.com/public/v2/json/nfl/news?limit=5&category=injury
+  response:
+    body:
+      string: '{"sport":"NFL","title":"Fantasy Player News","description":"Breaking
+        Fantasy Football player news along with the impact for fantasy managers","count":5,"items":[{"id":614121,"created":"2026-10-15
+        23:33:14","created_formated":"Thu, Oct 15th 11:33pm UTC","author":"Garrett
+        Ball","player_id":25459,"team_id":"DEN","title":"Riley Moss (ribs) active
+        on Thursday night","sport_id":"NFL","categories":["Commentary","News","Injury"],"link":"https://www.fantasypros.com/nfl/news/614121/riley-moss-ribs-active-on-thursday-night.php","desc":"Riley
+        Moss (ribs) is active for the Broncos on Thursday night against the Seahawks.","impact":"Moss
+        was initially questionable for the contest, but he will play and reinforce
+        the Broncos secondary. He will try to step up in Pat Surtain''s absence, but
+        gets a tough assignment in JSN and company."},{"id":614120,"created":"2026-10-15
+        23:16:06","created_formated":"Thu, Oct 15th 11:16pm UTC","author":"Garrett
+        Ball","player_id":22915,"team_id":"SEA","title":"George Holani active for
+        Thursday Night Football","sport_id":"NFL","categories":["Commentary","News","Injury"],"link":"https://www.fantasypros.com/nfl/news/614120/george-holani-active-thursday-night-football.php","desc":"George
+        Holani is active for Seattle''s Thursday Night Football game against the Broncos.","impact":"Holani
+        was able to get back from a rib injury after missing the past several weeks.
+        He will split the backfield workload with Emanuel Wilson, but Wilson is the
+        better fantasy option, with Holani being primarily a third down back with
+        little upside."},{"id":614119,"created":"2026-10-15 21:57:56","created_formated":"Thu,
+        Oct 15th 9:57pm UTC","author":"Nate Miller","player_id":25361,"team_id":"HOU","title":"Tank
+        Dell (knee) will not return in Week 6","sport_id":"NFL","categories":["Commentary","News","Injury"],"link":"https://www.fantasypros.com/nfl/news/614119/tank-dell-knee-will-not-return-week-6.php","desc":"Tank
+        Dell (knee) will not play in Sunday''s matchup against the Jaguars. ","impact":"There
+        was some thought that Dell would finally make his long-awaited return for
+        the Texans on Sunday. Instead, even after practicing in full on Wednesday,
+        he will remain behind as the team travels to London. Dell seems likely to
+        play in Week 7 against the Giants. "},{"id":614118,"created":"2026-10-15 21:55:03","created_formated":"Thu,
+        Oct 15th 9:55pm UTC","author":"Nate Miller","player_id":18239,"team_id":"HOU","title":"David
+        Montgomery (groin) out for Week 6","sport_id":"NFL","categories":["Commentary","News","Injury"],"link":"https://www.fantasypros.com/nfl/news/614118/david-montgomery-groin-out-week-6.php","desc":"David
+        Montgomery (groin) will not play against the Jaguars on Sunday. ","impact":"As
+        expected, Montgomery will not play in Sunday''s divisional matchup in London.
+        The veteran back has not practiced this week due to a groin injury and will
+        cede the lead RB role to Woody Marks."},{"id":614117,"created":"2026-10-15
+        21:52:37","created_formated":"Thu, Oct 15th 9:52pm UTC","author":"Nate Miller","player_id":23721,"team_id":"HOU","title":"Jalen
+        Pitre (shoulder) to miss Week 6","sport_id":"NFL","categories":["Commentary","News","Injury"],"link":"https://www.fantasypros.com/nfl/news/614117/jalen-pitre-shoulder-to-miss-week-6.php","desc":"Jalen
+        Pitre (shoulder) will not play in Sunday''s game against the Jaguars. ","impact":"Pitre
+        will remain behind as the Texans travel to London to face the division-rival
+        Jaguars. Kamari Ramsey is likely to see an uptick in snaps. "}],"public_api":true,"tier":"premium"}'
+    headers:
+      Content-Type:
+      - application/json
+      cache-control:
+      - max-age=600
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - application/json
+      x-api-key:
+      - REDACTED
+    method: GET
+    uri: https://api.fantasypros.com/public/v2/json/nfl/2026/rankings/experts
+  response:
+    body:
+      string: '{"sport":"NFL","count":5,"season":"2026","week":"6","accuracy_weekly_season":"2026","accuracy_draft_season":"2025","accuracy_weekly_last_season":"2024","experts":[{"expert_id":6,"name":"Brandon
+        Funston","source":"The Athletic","url":"https://theathletic.com","twitter":"BrandonFunston","bio":"","accuracy_weekly":{"ALL":164,"QB":147,"RB":160,"WR":165,"TE":88},"accuracy_draft":{"ALL":178,"DST":51,"K":33,"QB":185,"RB":158,"TE":40,"WR":185},"positions":{"FLX":"2026-10-14
+        21:29:09","OP":"2026-10-14 21:29:09","QB":"2026-10-14 21:28:34","RB":"2026-10-14
+        21:29:08","TE":"2026-10-14 21:28:34","WR":"2026-10-14 21:28:34"},"default":{"FLX":false,"OP":false,"QB":false,"RB":false,"TE":false,"WR":false}},{"expert_id":7,"name":"Andy
+        Behrens","source":"The Deep Shot","url":"https://www.thedeepshot.com/","twitter":"andybehrens","bio":"Andy
+        Behrens wrote for Yahoo Sports for over 18 years, providing fantasy football
+        and fantasy baseball coverage. Before joining Yahoo, Andy wrote for ESPN,
+        the Chicago Sports Review and the Chicago Reader. He is the president of the
+        Fantasy Sports Writers Association and also the author of three novels for
+        young readers.  ","accuracy_weekly":{"ALL":70,"QB":51,"RB":27,"WR":73,"TE":142,"DST":99,"K":43},"accuracy_draft":{"ALL":170,"DST":21,"K":11,"QB":145,"RB":178,"TE":100,"WR":135},"accuracy_weekly_last_season":{"ALL":71,"QB":102,"RB":52,"WR":58,"TE":106,"K":64,"DST":72},"positions":{"DST":"2026-10-13
+        02:19:58","FLX":"2026-10-15 18:20:45","K":"2026-10-13 02:19:58","OP":"2026-10-15
+        18:20:45","QB":"2026-10-15 18:20:45","RB":"2026-10-13 12:39:12","TE":"2026-10-15
+        18:20:45","WR":"2026-10-15 18:20:45"},"default":{"DST":false,"FLX":false,"K":false,"OP":false,"QB":false,"RB":false,"TE":false,"WR":false}},{"expert_id":8,"name":"Brad
+        Evans","source":"Bally Sports","url":"https://www.ballysports.com/","twitter":"NoisyHuevos","bio":"","accuracy_weekly":{"ALL":73,"QB":39,"RB":115,"WR":82,"TE":11},"accuracy_draft":{"ALL":175,"QB":153,"RB":115,"TE":209,"WR":165},"positions":{"FLX":"2026-10-15
+        17:37:48","OP":"2026-10-15 17:37:48","QB":"2026-10-15 17:37:48","RB":"2026-10-14
+        17:32:38","TE":"2026-10-14 17:32:38","WR":"2026-10-14 17:32:38"},"default":{"FLX":false,"OP":false,"QB":false,"RB":false,"TE":false,"WR":false}},{"expert_id":9,"name":"Scott
+        Pianowski","source":"Yahoo! Sports","url":"https://sports.yahoo.com/fantasy/","twitter":"scott_pianowski","bio":"","accuracy_weekly":{"ALL":68,"QB":124,"RB":6,"WR":87,"TE":46,"DST":77,"K":62},"accuracy_draft":{"ALL":108,"DST":70,"K":6,"QB":119,"RB":143,"TE":144,"WR":31},"accuracy_weekly_last_season":{"ALL":75,"QB":79,"RB":101,"WR":57,"TE":70,"K":55,"DST":77},"positions":{"DST":"2026-10-15
+        01:38:12","FLX":"2026-10-16 00:12:17","K":"2026-10-15 01:38:12","OP":"2026-10-16
+        00:12:17","QB":"2026-10-15 17:45:48","RB":"2026-10-16 00:12:17","TE":"2026-10-15
+        17:45:49","WR":"2026-10-16 00:12:17"},"default":{"DST":false,"FLX":false,"K":false,"OP":false,"QB":false,"RB":false,"TE":false,"WR":false}},{"expert_id":22,"name":"Pat
+        Fitzmaurice","source":"FantasyPros","url":"https://www.fantasypros.com/","twitter":"Fitz_FF","bio":"Pat
+        Fitzmaurice is the managing editor and a fantasy football analyst at FantasyPros.","accuracy_weekly":{"ALL":60,"QB":134,"RB":26,"WR":66,"TE":10,"DST":28,"K":50},"accuracy_draft":{"ALL":47,"DST":115,"K":91,"QB":42,"RB":97,"TE":49,"WR":70},"accuracy_weekly_last_season":{"ALL":31,"QB":42,"RB":45,"WR":20,"TE":47,"K":35,"DST":37},"positions":{"DST":"2026-10-15
+        18:39:02","FLX":"2026-10-15 23:30:12","K":"2026-10-15 18:39:02","OP":"2026-10-15
+        23:30:12","QB":"2026-10-15 18:39:02","RB":"2026-10-15 10:55:58","TE":"2026-10-15
+        18:39:02","WR":"2026-10-15 18:39:02"},"default":{"DST":false,"FLX":false,"K":false,"OP":false,"QB":false,"RB":false,"TE":false,"WR":false}}],"public_api":true,"tier":"premium"}'
+    headers:
+      Content-Type:
+      - application/json
+      cache-control:
+      - max-age=600
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - application/json
+      x-api-key:
+      - REDACTED
+    method: GET
+    uri: https://api.fantasypros.com/public/v2/json/nfl/2026/player-points?position=RB&scoring=PPR&start=5&end=5
+  response:
+    body:
+      string: '{"season":"2026","scoring":"PPR","players":[{"player_id":25885,"player_name":"Emanuel
+        Wilson","position_id":"RB","team_id":"SEA","filename":"emanuel-wilson.php","games":1,"points":13.2,"average":13.2,"weeks":{"5":13.2}},{"player_id":24351,"player_name":"Raheim
+        Sanders","position_id":"RB","team_id":"CLE","filename":"raheim-sanders.php","games":1,"points":2.3,"average":2.3,"weeks":{"5":2.3}},{"player_id":27320,"player_name":"Jonah
+        Coleman","position_id":"RB","team_id":"DEN","filename":"jonah-coleman.php"},{"player_id":27285,"player_name":"LeQuint
+        Allen Jr.","position_id":"RB","team_id":"JAC","filename":"lequint-allen-jr.php","games":1,"points":0,"average":0,"weeks":{"5":0}},{"player_id":25360,"player_name":"Keaton
+        Mitchell","position_id":"RB","team_id":"LAC","filename":"keaton-mitchell.php","games":1,"points":5.9,"average":5.9,"weeks":{"5":5.9}}],"public_api":true,"tier":"premium"}'
+    headers:
+      Content-Type:
+      - application/json
+      cache-control:
+      - max-age=600
+    status:
+      code: 200
+      message: OK
+version: 1

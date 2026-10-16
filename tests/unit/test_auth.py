@@ -902,3 +902,74 @@ def test_keyring_is_imported_lazily_and_only_where_it_is_needed():
                 assert "keyring" not in {a.name.split(".")[0] for a in node.names}, path
             if isinstance(node, ast.ImportFrom) and node.module:
                 assert node.module.split(".")[0] != "keyring", path
+
+
+# --------------------------------------------------------------------------- #
+# Optional credentials (ADR-0011): reported, never counted against `complete`
+# --------------------------------------------------------------------------- #
+
+
+def test_an_absent_optional_credential_leaves_the_report_complete_and_quiet():
+    credentials = chain.resolve_credentials(
+        chain.ALL_CREDENTIALS,
+        environ={
+            "FANTASY_SPORTS_ESPN_S2": "A" * 64,
+            "FANTASY_SPORTS_SWID": "{" + "0" * 8 + "-0000-0000-0000-000000000000}",
+        },
+        keychain_reader=_keychain({}),
+        config={},
+    )
+    status = staleness.build_auth_status(
+        credentials,
+        state=staleness.AuthState(entries={}),
+        now=NOW,
+        environ={},
+        optional={"fantasypros_api_key"},
+    )
+    rows = {row.name: row for row in status.credentials}
+    assert set(rows) == {"espn_s2", "swid", "fantasypros_api_key"}
+    assert rows["fantasypros_api_key"].present is False
+    assert rows["fantasypros_api_key"].required is False
+    assert rows["espn_s2"].required is True
+    assert status.complete is True
+    assert status.warnings == ()
+    payload = status.to_payload()
+    assert payload["complete"] is True
+    assert {row["name"]: row["required"] for row in payload["credentials"]} == {
+        "espn_s2": True,
+        "swid": True,
+        "fantasypros_api_key": False,
+    }
+
+
+def test_a_present_optional_credential_is_reported_like_any_other():
+    credentials = chain.resolve_credentials(
+        chain.FANTASYPROS_CREDENTIALS,
+        environ={},
+        keychain_reader=_keychain({"fantasypros_api_key": "fpk-" + "x" * 40}),
+        config={},
+    )
+    status = staleness.build_auth_status(
+        credentials,
+        state=staleness.AuthState(entries={}),
+        now=NOW,
+        environ={},
+        optional={"fantasypros_api_key"},
+    )
+    (row,) = status.credentials
+    assert row.present is True and row.required is False
+    assert row.source is chain.CredentialSource.KEYCHAIN
+    assert status.complete is True
+
+
+def test_an_absent_required_credential_still_breaks_completeness_beside_an_optional_one():
+    credentials = chain.CredentialSet(missing=("espn_s2", "fantasypros_api_key"))
+    status = staleness.build_auth_status(
+        credentials,
+        state=staleness.AuthState(entries={}),
+        now=NOW,
+        environ={},
+        optional={"fantasypros_api_key"},
+    )
+    assert status.complete is False
+    assert [w.split(":")[0] for w in status.warnings] == ["espn_s2"]

@@ -38,6 +38,7 @@ from fantasy_sports.cache.tags import (
     RequestContext,
     Resource,
     TagScope,
+    facet_tag,
     league_tag,
     scope_of,
     scoring_period_tag,
@@ -268,6 +269,49 @@ def test_a_league_resource_without_a_league_id_is_a_programming_error():
 def test_scope_of_rejects_an_unknown_tag():
     with pytest.raises(ValueError):
         scope_of("nonsense:whatever")
+
+
+def test_a_season_resource_with_facets_carries_one_season_scoped_tag_per_facet():
+    """ADR-0011: a source with no leagues still needs a week to be purgeable."""
+    context = RequestContext(
+        provider="fantasypros",
+        resource=Resource.FANTASYPROS_CONSENSUS,
+        season=2026,
+        week=6,
+        facets=(("sport", "nfl"), ("week", "6"), ("position", "RB"), ("scoring", "PPR")),
+    )
+    tags = tags_for(context)
+    assert tags == (
+        season_tag("fantasypros", 2026),
+        facet_tag("fantasypros", 2026, "sport", "nfl"),
+        facet_tag("fantasypros", 2026, "week", "6"),
+        facet_tag("fantasypros", 2026, "position", "RB"),
+        facet_tag("fantasypros", 2026, "scoring", "PPR"),
+    )
+    assert all(scope_of(tag) is TagScope.SEASON for tag in tags)
+    assert facet_tag("fantasypros", 2026, "week", "6") == "season:fantasypros:2026:week=6"
+
+
+def test_facets_are_ignored_for_a_league_resource():
+    """The league class already has its finer grain: the scoring-period tag."""
+    tags = tags_for(
+        RequestContext(
+            provider="espn",
+            resource=Resource.ROSTER,
+            season=2026,
+            league_id="123456",
+            week=3,
+            facets=(("position", "RB"),),
+        )
+    )
+    assert not any("position=" in tag for tag in tags)
+    assert scoring_period_tag("espn", "123456", 2026, 3) in tags
+
+
+def test_a_facet_tag_is_refused_by_the_league_purge(tmp_path: Path):
+    store = CacheStore(tmp_path / "cache.sqlite3")
+    with pytest.raises(ValueError, match="not league-scoped"):
+        store.purge_by_league_tag(facet_tag("fantasypros", 2026, "week", "6"))
 
 
 # --------------------------------------------------------------------------- #

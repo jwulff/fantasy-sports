@@ -28,8 +28,8 @@ from __future__ import annotations
 import json
 import os
 import tempfile
-from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
+from collections.abc import Collection, Iterable, Mapping
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from pathlib import Path
@@ -321,6 +321,10 @@ class CredentialStatus:
     stored_at: datetime | None
     last_success_at: datetime | None
     freshness: Freshness
+    required: bool = True
+    """Whether this tool needs the credential at all. ESPN's cookies are
+    required; the FantasyPros API key is optional (ADR-0011), so its absence
+    is reported but never makes the report incomplete."""
 
     @property
     def age_days(self) -> float | None:
@@ -330,6 +334,7 @@ class CredentialStatus:
         return {
             "name": self.name,
             "present": self.present,
+            "required": self.required,
             "source": self.source.value if self.source else None,
             "age_days": self.age_days,
             "age_basis": self.age_basis,
@@ -355,14 +360,15 @@ class AuthStatus:
 
     @property
     def complete(self) -> bool:
-        return all(status.present for status in self.credentials)
+        """Every *required* credential is present. An optional one never counts."""
+        return all(status.present for status in self.credentials if status.required)
 
     @property
     def warnings(self) -> tuple[str, ...]:
         """Human-readable warnings, in the order a user should act on them."""
         notes: list[str] = []
         for status in self.credentials:
-            if not status.present:
+            if not status.present and status.required:
                 notes.append(f"{status.name}: not configured. Run `fantasy-sports auth login`.")
             elif status.freshness is Freshness.STALE:
                 notes.append(
@@ -395,6 +401,7 @@ def build_auth_status(
     now: datetime | None = None,
     threshold: timedelta | None = None,
     environ: Mapping[str, str] | None = None,
+    optional: Collection[str] = (),
 ) -> AuthStatus:
     """Assemble the `auth status` report for an already-resolved credential set.
 
@@ -402,6 +409,10 @@ def build_auth_status(
     than resolving one itself, so the report and the thing it reports on can
     never disagree, and so a caller can render status for credentials it has
     already loaded without a second Keychain round-trip.
+
+    ``optional`` names the credentials whose absence is a fact, not a gap:
+    they appear in the report with ``required: false`` and neither
+    :attr:`AuthStatus.complete` nor the warnings count them.
     """
     moment = now or datetime.now(UTC)
     loaded = load_auth_state(state_path) if state is None else state
@@ -412,7 +423,10 @@ def build_auth_status(
     for name in sorted(names):
         resolved = credentials.get(name)
         events = loaded.for_name(name)
-        rows.append(_status_for(name, resolved, events, moment, limit))
+        row = _status_for(name, resolved, events, moment, limit)
+        if name in optional:
+            row = replace(row, required=False)
+        rows.append(row)
     return AuthStatus(
         credentials=tuple(rows),
         threshold=limit,

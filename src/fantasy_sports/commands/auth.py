@@ -24,6 +24,12 @@ because ESPN answers 401 identically for an expired cookie, a malformed one,
 and a league the account was never in
 (``docs/memory/espn-401-tells-you-nothing.md``).
 
+All three cover every credential in ``auth.chain.ALL_CREDENTIALS``: ESPN's two
+cookies and the optional FantasyPros API key (ADR-0011). The key is optional
+*to this tool*, so ``status`` reports it with ``required: false`` and leaves
+``complete`` to the cookies, ``login`` lets its prompt be skipped with Enter,
+and ``logout`` clears it wherever it is stored.
+
 Nothing here imports typer (ADR-0003).
 """
 
@@ -41,7 +47,8 @@ __all__ = ["login", "logout", "status"]
 
 PROVIDER = "espn"
 """The only provider v0.1 ships. ``auth`` is not league-scoped, so there is no
-profile to read one from."""
+profile to read one from. The FantasyPros key rides along in the same report
+because it is one credential chain, not a second provider (ADR-0011)."""
 
 
 def status() -> Envelope:
@@ -55,11 +62,13 @@ def status() -> Envelope:
     library source, or community post states a cookie lifetime, so the
     threshold is an admitted heuristic rather than a prediction.
     """
-    from fantasy_sports.auth.chain import ESPN_CREDENTIALS, resolve_credentials
+    from fantasy_sports.auth.chain import ALL_CREDENTIALS, resolve_credentials
     from fantasy_sports.auth.staleness import build_auth_status
     from fantasy_sports.output.envelope import Envelope
 
-    report = build_auth_status(resolve_credentials(ESPN_CREDENTIALS))
+    report = build_auth_status(
+        resolve_credentials(ALL_CREDENTIALS), optional=_optional_names(ALL_CREDENTIALS)
+    )
     data = report.to_payload()
     require_shape(data, command="auth status")
     return Envelope.success(provider=PROVIDER, data=data)
@@ -76,25 +85,29 @@ def login() -> Envelope:
     ``data`` is a mapping naming which credentials were ``stored`` and which
     were ``repaired`` on the way in — a SWID pasted without its braces is
     repaired rather than rejected. It contains no values.
+
+    The optional FantasyPros API key is prompted for last; an empty answer
+    skips it and stores the cookies alone. Only a *required* credential left
+    blank refuses the whole login.
     """
-    from fantasy_sports.auth.chain import ESPN_CREDENTIALS, save_credentials
+    from fantasy_sports.auth.chain import ALL_CREDENTIALS, save_credentials
     from fantasy_sports.core.errors import AuthMissingError
     from fantasy_sports.output.envelope import Envelope
 
     values: dict[str, str] = {}
-    for spec in ESPN_CREDENTIALS:
+    for spec in ALL_CREDENTIALS:
         entered = _prompt(spec)
         if entered:
             values[spec.name] = entered
 
-    missing = [spec.name for spec in ESPN_CREDENTIALS if spec.required and spec.name not in values]
+    missing = [spec.name for spec in ALL_CREDENTIALS if spec.required and spec.name not in values]
     if missing:
         raise AuthMissingError(
             f"Nothing entered for: {', '.join(missing)}. Nothing was stored.",
             remediation="Run `fantasy-sports auth login` again and paste both cookies.",
         )
 
-    repaired = save_credentials(values, specs=ESPN_CREDENTIALS)
+    repaired = save_credentials(values, specs=ALL_CREDENTIALS)
     data = {
         "stored": sorted(values),
         "repaired": sorted(repaired),
@@ -139,12 +152,12 @@ def logout() -> Envelope:
     Nothing stored anywhere is a success, not an error: the outcome the user
     wanted is the one they have.
     """
-    from fantasy_sports.auth.chain import ESPN_CREDENTIALS
+    from fantasy_sports.auth.chain import ALL_CREDENTIALS
     from fantasy_sports.auth.logout import clear_credentials
     from fantasy_sports.core.errors import ConfigInvalidError
     from fantasy_sports.output.envelope import Envelope
 
-    report = clear_credentials(ESPN_CREDENTIALS)
+    report = clear_credentials(ALL_CREDENTIALS)
     data = report.to_payload()
     require_shape(data, command="auth logout")
     if report.unavailable:
@@ -182,3 +195,7 @@ def _service() -> str:
     from fantasy_sports.auth.chain import SERVICE
 
     return SERVICE
+
+
+def _optional_names(specs: object) -> frozenset[str]:
+    return frozenset(spec.name for spec in specs if not spec.required)  # type: ignore[attr-defined]

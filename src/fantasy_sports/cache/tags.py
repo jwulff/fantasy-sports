@@ -33,6 +33,20 @@ The two classes are distinguishable from the tag string alone — see
 :func:`scope_of` — so the store can refuse a league purge that was handed a
 season tag, rather than quietly wiping the shared entries.
 
+A source with no leagues at all (ADR-0011)
+------------------------------------------
+
+FantasyPros is an expert *source*, not a league provider: nothing it serves is
+about a league, so every one of its resources is season-scoped. That alone
+would make a week of rankings purgeable only by throwing away the whole
+season. :attr:`RequestContext.facets` closes the gap without a third class: a
+season-scoped entry additionally carries one **facet tag** per
+``(name, value)`` the caller supplies — week, position, scoring — each spelled
+``season:<provider>:<season>:<name>=<value>``. They start with the season
+prefix, so :func:`scope_of` classifies them as season-scoped and a league purge
+still cannot touch them; a caller that wants one week gone purges the week's
+facet tag. ESPN's two season resources pass no facets and are unchanged.
+
 This module imports only the standard library.
 """
 
@@ -43,12 +57,14 @@ from enum import StrEnum
 from typing import Final
 
 __all__ = [
+    "FANTASYPROS_RESOURCES",
     "FOREVER",
     "SEASON_SCOPED_RESOURCES",
     "TTL_SECONDS",
     "RequestContext",
     "Resource",
     "TagScope",
+    "facet_tag",
     "league_tag",
     "scope_of",
     "scoring_period_tag",
@@ -89,15 +105,50 @@ class Resource(StrEnum):
     UNKNOWN = "unknown"
     """A raw passthrough (``fetch_raw``). Cached briefly and league-scoped."""
 
+    # FantasyPros (ADR-0011). An expert source has no leagues, so every one of
+    # these is season-scoped; the week/position/scoring that make one entry
+    # distinct from the next travel as facet tags.
+    FANTASYPROS_PLAYERS = "fantasypros_players"
+    """``/nfl/players?external_ids=espn`` — the 8,500-row id crosswalk."""
 
-SEASON_SCOPED_RESOURCES: Final[frozenset[Resource]] = frozenset(
-    {Resource.PLAYERS, Resource.PRO_TEAM_SCHEDULES}
+    FANTASYPROS_RANKINGS = "fantasypros_rankings"
+    """``/nfl/{season}/rankings`` — every position and scoring in one call."""
+
+    FANTASYPROS_CONSENSUS = "fantasypros_consensus"
+    """``/nfl/{season}/consensus-rankings`` — one position, one scoring, per expert."""
+
+    FANTASYPROS_PROJECTIONS = "fantasypros_projections"
+    """``/nfl/{season}/projections`` — weekly or rest-of-season."""
+
+    FANTASYPROS_INJURIES = "fantasypros_injuries"
+    FANTASYPROS_NEWS = "fantasypros_news"
+    FANTASYPROS_EXPERTS = "fantasypros_experts"
+    FANTASYPROS_PLAYER_POINTS = "fantasypros_player_points"
+
+
+FANTASYPROS_RESOURCES: Final[frozenset[Resource]] = frozenset(
+    {
+        Resource.FANTASYPROS_PLAYERS,
+        Resource.FANTASYPROS_RANKINGS,
+        Resource.FANTASYPROS_CONSENSUS,
+        Resource.FANTASYPROS_PROJECTIONS,
+        Resource.FANTASYPROS_INJURIES,
+        Resource.FANTASYPROS_NEWS,
+        Resource.FANTASYPROS_EXPERTS,
+        Resource.FANTASYPROS_PLAYER_POINTS,
+    }
+)
+"""Everything the FantasyPros source fetches. All season-scoped: no leagues."""
+
+SEASON_SCOPED_RESOURCES: Final[frozenset[Resource]] = (
+    frozenset({Resource.PLAYERS, Resource.PRO_TEAM_SCHEDULES}) | FANTASYPROS_RESOURCES
 )
 """The resources that belong to a season rather than to a league.
 
 Membership here is the whole two-class distinction. Adding a resource means
 asserting that its payload is byte-identical for every league in the season —
-if it is not, two leagues would serve each other stale or wrong data.
+if it is not, two leagues would serve each other stale or wrong data. A
+FantasyPros payload mentions no league, so the assertion is trivially true.
 """
 
 TTL_SECONDS: Final[dict[Resource, int]] = {
@@ -116,6 +167,20 @@ TTL_SECONDS: Final[dict[Resource, int]] = {
     # An unrecognised passthrough gets the shortest TTL. Guessing long on
     # something whose volatility we do not know is the expensive direction.
     Resource.UNKNOWN: 5 * 60,
+    # FantasyPros (ADR-0011, jwulff/fantasy-sports#128). Premium is 500
+    # requests a day, so these are budget decisions as much as freshness ones.
+    # The id crosswalk changes when a player is added; rankings and
+    # projections move as experts file during the week; injuries move with
+    # the practice reports; news is news. FantasyPros' own response carries
+    # ``cache-control: max-age=600``, so nothing here goes under ten minutes.
+    Resource.FANTASYPROS_PLAYERS: 24 * 60 * 60,
+    Resource.FANTASYPROS_RANKINGS: 6 * 60 * 60,
+    Resource.FANTASYPROS_CONSENSUS: 6 * 60 * 60,
+    Resource.FANTASYPROS_PROJECTIONS: 6 * 60 * 60,
+    Resource.FANTASYPROS_EXPERTS: 6 * 60 * 60,
+    Resource.FANTASYPROS_PLAYER_POINTS: 6 * 60 * 60,
+    Resource.FANTASYPROS_INJURIES: 60 * 60,
+    Resource.FANTASYPROS_NEWS: 15 * 60,
 }
 
 
@@ -152,6 +217,14 @@ class RequestContext:
     is merely slower, never wrong.
     """
 
+    facets: tuple[tuple[str, str], ...] = ()
+    """Extra ``(name, value)`` dimensions a season-scoped entry is purgeable by.
+
+    Used by the FantasyPros source for week, position and scoring (ADR-0011).
+    Each becomes one :func:`facet_tag`; ignored for a league-scoped resource,
+    whose finer grain is already the scoring-period tag.
+    """
+
 
 def league_tag(provider: str, league_id: str, season: int) -> str:
     """Everything fetched for one league in one season."""
@@ -166,6 +239,17 @@ def scoring_period_tag(provider: str, league_id: str, season: int, week: int) ->
 def season_tag(provider: str, season: int) -> str:
     """Everything belonging to a season regardless of league."""
     return f"{TagScope.SEASON.value}:{provider}:{season}"
+
+
+def facet_tag(provider: str, season: int, name: str, value: str) -> str:
+    """One facet of a season's data — a week, a position, a scoring format.
+
+    Season-scoped by construction: it starts with the season prefix, so
+    :meth:`~fantasy_sports.cache.store.CacheStore.purge_by_league_tag` refuses
+    it exactly as it refuses :func:`season_tag`. Finer than the season, so a
+    caller can evict one week's rankings without the rest.
+    """
+    return f"{season_tag(provider, season)}:{name}={value}"
 
 
 _LEAGUE_PREFIXES: Final[tuple[str, ...]] = (f"{TagScope.LEAGUE.value}:", "period:")
@@ -189,12 +273,19 @@ def scope_of(tag: str) -> TagScope:
 def tags_for(context: RequestContext) -> tuple[str, ...]:
     """Every tag the entry for ``context`` carries.
 
-    A season-scoped resource gets **only** the season tag, even when the caller
-    supplied a ``league_id`` — it did the fetch on behalf of some league, but
-    the payload is not that league's.
+    A season-scoped resource gets the season tag and one facet tag per entry
+    of ``context.facets`` — never a league tag, even when the caller supplied
+    a ``league_id``: it did the fetch on behalf of some league, but the
+    payload is not that league's.
     """
     if context.resource in SEASON_SCOPED_RESOURCES:
-        return (season_tag(context.provider, context.season),)
+        return (
+            season_tag(context.provider, context.season),
+            *(
+                facet_tag(context.provider, context.season, name, value)
+                for name, value in context.facets
+            ),
+        )
 
     if not context.league_id:
         raise ValueError(

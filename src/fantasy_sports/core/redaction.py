@@ -298,6 +298,21 @@ _ESPN_S2_RE = re.compile(
     re.IGNORECASE | re.VERBOSE,
 )
 
+# An API key sitting under an ``x-api-key`` header or an ``api_key``-ish key —
+# the shape the FantasyPros credential takes on the wire and in a config file
+# (ADR-0011). The separator also admits vcrpy's YAML list form
+# (``x-api-key:\n  - value``), so a header the name filter missed is still a
+# finding for the repo-wide scan. Same value class as ``espn_s2`` above, for the
+# same ``${{ secrets.… }}`` reason.
+_API_KEY_RE = re.compile(
+    r"""(x-api-key|api[_-]?key)
+        (["']?\s*[:=]\s*(?:-\s*)?["']?)
+        (?!REDACTED\b)
+        [^\s"';,&{}$\[\]]{8,}
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
 # The complement of the lookahead above: what this module emits, and the one
 # GUID shape the scrubber and the scanner both agree to leave alone.
 _SWID_PSEUDONYM_RE = re.compile(
@@ -320,6 +335,7 @@ CREDENTIAL_PATTERNS: dict[str, re.Pattern[str]] = {
     "SWID GUID": _SWID_GUID_RE,
     "GUID under a swid key": _SWID_KEYED_RE,
     "espn_s2 value": _ESPN_S2_RE,
+    "API key under an api-key header or key": _API_KEY_RE,
 }
 """Name -> pattern. Names appear in failure output; matched text never does."""
 
@@ -359,7 +375,8 @@ def scrub_credential_patterns(text: str, *, swid_salt: str = CASSETTE_SWID_SALT)
     """
     text = _SWID_GUID_RE.sub(lambda match: swid_pseudonym(match.group(0), salt=swid_salt), text)
     text = _SWID_KEYED_RE.sub(rf"\1\2{SWID_PLACEHOLDER}", text)
-    return _ESPN_S2_RE.sub(rf"\1\2{CREDENTIAL_PLACEHOLDER}", text)
+    text = _ESPN_S2_RE.sub(rf"\1\2{CREDENTIAL_PLACEHOLDER}", text)
+    return _API_KEY_RE.sub(rf"\1\2{CREDENTIAL_PLACEHOLDER}", text)
 
 
 def decode_body(body: bytes | str) -> str:

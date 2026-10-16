@@ -340,8 +340,10 @@ def test_no_keyring_backend_is_unavailable_config_is_still_cleared_and_it_fails(
     assert rows["swid"]["keychain"] == "unavailable"
     assert rows["espn_s2"]["config"] == "removed", "the reachable link was still cleared"
     assert data["removed"] == ["espn_s2", "swid"]
-    assert data["unavailable"] == ["espn_s2", "swid"]
-    assert sum("Keychain could not be reached" in note for note in data["warnings"]) == 2
+    assert data["unavailable"] == ["espn_s2", "swid", "fantasypros_api_key"]
+    # One warning per credential whose Keychain link could not be reached --
+    # the optional FantasyPros key included, because a value may be there too.
+    assert sum("Keychain could not be reached" in note for note in data["warnings"]) == 3
     assert "again" in (caught.value.remediation or "")
     _assert_no_values(data)
     _assert_no_values(caught.value.to_dict())
@@ -401,7 +403,7 @@ def test_an_unavailable_link_exits_nonzero_through_the_cli_with_the_report(
     assert payload["error"]["code"] == "CONFIG_INVALID"
     report = payload["error"]["details"]["report"]
     assert report["removed"] == ["espn_s2", "swid"]
-    assert report["unavailable"] == ["espn_s2", "swid"]
+    assert report["unavailable"] == ["espn_s2", "swid", "fantasypros_api_key"]
     for stream in (captured.out, captured.err):
         assert FAKE_S2 not in stream
         assert FAKE_SWID not in stream
