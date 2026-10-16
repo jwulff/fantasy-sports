@@ -3,7 +3,7 @@
   "provider": "espn",
   "league_id": null,
   "season": null,
-  "generated_at": "2026-09-12T19:31:30Z",
+  "generated_at": "2026-10-16T02:48:00Z",
   "data_as_of": null,
   "data_age_seconds": null,
   "sources": [],
@@ -29,6 +29,13 @@
         "env": "absent",
         "env_vars": [],
         "keychain": "removed",
+        "config": "absent"
+      },
+      {
+        "name": "fantasypros_api_key",
+        "env": "absent",
+        "env_vars": [],
+        "keychain": "absent",
         "config": "absent"
       }
     ],

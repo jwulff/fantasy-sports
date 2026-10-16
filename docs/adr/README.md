@@ -15,5 +15,6 @@ is the narrative; these are the citable, individually-supersedable records.
 | [0008](0008-performance-and-quality-budgets.md) | Performance and quality budgets, enforced in CI | Accepted |
 | [0009](0009-config-invalid-covers-a-bad-argument-too.md) | `CONFIG_INVALID` covers a provider-rejected argument too, no eighth code | Accepted |
 | [0010](0010-write-codes-one-code-with-a-kind-discriminator.md) | `WRITE_REJECTED` is one code with a `kind` discriminator; `WRITE_DIVERGED` is separate | Accepted |
+| [0011](0011-fantasypros-is-a-source-not-a-provider.md) | FantasyPros is an expert *source*, not a `Provider`; it shares the cache and the credential chain | Accepted |
 
 Use `0000-template.md` for new records.

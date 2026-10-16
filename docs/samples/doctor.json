@@ -137,6 +137,17 @@
             "public"
           ]
         }
+      },
+      {
+        "name": "fantasypros",
+        "status": "skipped",
+        "summary": "No FantasyPros API key configured (optional). Set FANTASY_SPORTS_FANTASYPROS_API_KEY or run `fantasy-sports auth login` to enable expert rankings.",
+        "details": {
+          "present": false,
+          "source": null,
+          "tier": null,
+          "probed": false
+        }
       }
     ]
   },

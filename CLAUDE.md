@@ -97,6 +97,7 @@ in `gh issue list`; every PR carries `Closes #N` or `Refs #N`.
 | `track:health` | Canary, health manifest, telemetry, `doctor` |
 | `track:reports` | The scheduled-artifact layer |
 | `track:infra` | Packaging, CI, release, distribution |
+| `track:fantasypros` | The FantasyPros expert source (`sources/`), its commands, and the ESPN join |
 
 `auto-error` is reserved for issues filed automatically by the canary or client
 telemetry. `user-feedback` for issues originating from users.

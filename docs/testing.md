@@ -409,3 +409,58 @@ what the tool does with each answer rather than the answer itself.
   (`docs/memory/espn-lineup-write-authority-is-broader-than-team-ownership.md`).
   The ownership guard is tested as what it is, a unit test of the guard: an
   unowned team is `WRITE_REJECTED` `not_owned` and no POST was made.
+
+---
+
+## 10. FantasyPros: a trimmed recording, one cassette, no league in it
+
+`tests/cassettes/fantasypros/premium_2026.yaml` is the fixture for the expert
+source (ADR-0011). It is neither of the two kinds above exactly: every body
+started as a **real premium-tier response**, captured 2026-10-16 with John's
+key, and was then **trimmed** to five rows per list by
+`scripts/build_fantasypros_cassette.py`, with `count` rewritten to match. It
+proves the client reads the shapes FantasyPros actually sent that day; it does
+not prove FantasyPros still sends them.
+
+```bash
+uv run python scripts/build_fantasypros_cassette.py --captures /path/to/fp-shapes
+```
+
+The raw captures are not committed (the players table alone is 4 MB), so the
+script takes the directory they live in. It scrubs each body through the
+cassette hooks, writes the file, runs `scan_file` over the finished bytes, and
+deletes it if anything credential-shaped survived — the same read-back rule as
+§7.
+
+What is in it, and why it is committable:
+
+- **Eleven interactions**, one per client call the unit tests make: the
+  players table and the one-row `?player=` probe `doctor --live` spends,
+  consensus rankings with and without `experts=show`, the all-positions
+  rankings, weekly and rest-of-season projections, injuries, news, the expert
+  panel, and player-points. Every request URI is exactly what
+  `sources/fantasypros.py` sends, so `test_the_committed_cassette_replays_through_real_requests`
+  drives real `requests` through `build_vcr(record_mode="none")` against it.
+- **The `x-api-key` header is present with its value replaced**, the way a
+  recording that went through the hooks would look (`SENSITIVE_HEADERS` and
+  `filter_headers` both name it). A cassette with no key header at all is
+  indistinguishable from one recorded unauthenticated.
+- **No league, no member, no SWID.** FantasyPros payloads name players,
+  teams (`ARI`), experts and their public accuracy ranks. §6's provenance
+  test allows the FantasyPros host under this one directory and nowhere else;
+  its league-id check is vacuous here by construction.
+
+What it cannot cover, and what stands in instead:
+
+- **The free tier, a refused argument, a 401/403/429/5xx.** Injected through the
+  client's `http` seam (`tests/_harness.py::RecordedFantasyPros`'s
+  `overrides`), per §4. The free-tier fixture is the recorded consensus body
+  with `"tier": "free", "limit": 10` written in; the refused-argument fixtures
+  are the two shapes observed on 2026-10-16 — a 200 carrying
+  `{"message": "Invalid Position"}` and a 400 carrying `message`, `parameter`
+  and `valid_format`.
+- **A body that echoes the key.** FantasyPros does not, but
+  `test_a_body_that_echoes_the_key_reaches_sqlite_redacted` and
+  `test_a_recorded_cassette_cannot_carry_the_key_in_header_or_body` make one
+  up, because the key has no shape of its own: the scrub that catches it is the
+  registry (`redact`), which the cassette hooks now apply after the patterns.
