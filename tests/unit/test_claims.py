@@ -242,6 +242,213 @@ def test_the_adapter_reads_the_queue_view_through_the_transactions_ttl(espn: Wri
     assert provider.fetch_pending_claims("99", 2026, "2") == []
 
 
+# --------------------------------------------------------------------------- #
+# The adapter: a body that omits the queue (jwulff/fantasy-sports#144)
+# --------------------------------------------------------------------------- #
+
+
+def _omitted_body() -> dict[str, Any]:
+    """``view=mPendingTransactions`` as a private league served it on
+    2026-10-18 with nothing queued: the envelope, no ``pendingTransactions``."""
+    capture = json.loads(
+        (ADD_DROP_CAPTURES / "pending-transactions-omitted.json").read_text("utf-8")
+    )
+    return capture["response"]["body"]
+
+
+def _logged_claim(claim_id: str, team: int, **extra: Any) -> dict[str, Any]:
+    """A claim's own ``mTransactions2`` row, which reads ``PENDING`` for good."""
+    return {
+        "id": claim_id,
+        "teamId": team,
+        "type": "WAIVER",
+        "status": "PENDING",
+        "isPending": True,
+        "executionType": "EXECUTE",
+        "scoringPeriodId": 2,
+        "proposedDate": PROPOSED_DATE_MS,
+        "bidAmount": 0,
+        "items": [{"playerId": 3002, "type": "ADD"}],
+        **extra,
+    }
+
+
+def _retiring_row(claim_id: str, team: int, *, execution: str, status: str) -> dict[str, Any]:
+    """The ``CANCEL`` or ``PROCESS`` row ESPN adds, naming the claim it retired."""
+    return {
+        **_logged_claim(f"{execution.lower()}-of-{claim_id}", team),
+        "executionType": execution,
+        "status": status,
+        "isPending": False,
+        "relatedTransactionId": claim_id,
+    }
+
+
+def _provider() -> Any:
+    from fantasy_sports.providers.espn import EspnProvider
+
+    return EspnProvider({"espn_s2": "AEB" + "q" * 200, "swid": FAKE_SWID})
+
+
+def test_the_captured_omitted_body_is_this_leagues_envelope_without_the_queue():
+    """The parser still refuses it; only the adapter, with the log's help, may
+    call it empty."""
+    from fantasy_sports.providers.espn import _pending_claims, _queue_omitted
+
+    body = _omitted_body()
+    assert "pendingTransactions" not in body
+    assert {"id", "seasonId", "scoringPeriodId", "status"} <= set(body)
+    assert _queue_omitted(body, league_id="99", season=2026) is True
+    assert _queue_omitted(body, league_id="100", season=2026) is False, "another league"
+    assert _queue_omitted(body, league_id="99", season=2025) is False, "another season"
+    assert _queue_omitted({**body, "pendingTransactions": []}, league_id="99", season=2026) is False
+    assert _queue_omitted({**body, "status": None}, league_id="99", season=2026) is False
+    assert _queue_omitted({"id": 99}, league_id="99", season=2026) is False
+    assert _queue_omitted([], league_id="99", season=2026) is False
+    with pytest.raises(SchemaDriftError, match="has no pendingTransactions"):
+        _pending_claims(body, team_id=None)
+
+
+@pytest.mark.parametrize(
+    ("current", "transaction", "periods"),
+    [
+        (6, 6, [5, 6]),  # the captured body: the transaction period and the one before
+        (6, 7, [6, 7]),  # the week has rolled over for writes but not for play
+        (7, 6, [5, 6, 7]),  # the other way round
+        (1, 1, [1]),  # nothing before the first period
+        (3, None, [2, 3]),  # no transaction period: bracket the current one
+        (None, None, [None]),  # neither: ESPN's default period, once
+    ],
+)
+def test_the_log_is_read_for_the_periods_a_queued_claim_can_carry(current, transaction, periods):
+    from fantasy_sports.providers.espn import _log_periods
+
+    body = {"scoringPeriodId": current, "status": {"transactionScoringPeriod": transaction}}
+    assert _log_periods(body) == periods
+
+
+def test_an_omitted_queue_is_empty_when_the_log_holds_no_live_claim(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """No claim was ever queued, so the log has no ``transactions`` key at all,
+    which is ESPN's quiet period and not drift."""
+    espn = install_writable_espn(monkeypatch, omit_empty_queue=True)
+    assert "pendingTransactions" not in espn.overrides["mPendingTransactions"]
+    assert espn.overrides["mPendingTransactions"]["id"] == 99
+    assert "mTransactions2" not in espn.overrides
+
+    assert _provider().fetch_pending_claims("99", 2026, "1") == []
+
+    views = espn.views()
+    assert "mPendingTransactions" in views
+    log_calls = [c for c in espn.calls if c["params"].get("view") == "mTransactions2"]
+    assert [c["params"]["scoringPeriodId"] for c in log_calls] == ["1", "2"]
+    for call in log_calls:
+        assert json.loads(call["headers"]["x-fantasy-filter"]) == {
+            "transactions": {"filterType": {"value": ["WAIVER"]}}
+        }
+
+
+@pytest.mark.parametrize(
+    "rows",
+    [
+        pytest.param([], id="an empty log"),
+        pytest.param(
+            [_logged_claim("a", 1), _retiring_row("a", 1, execution="CANCEL", status="CANCELED")],
+            id="a cancelled claim, still PENDING in its own row",
+        ),
+        pytest.param(
+            [_logged_claim("a", 1), _retiring_row("a", 1, execution="PROCESS", status="EXECUTED")],
+            id="a processed claim, still PENDING in its own row",
+        ),
+        pytest.param(
+            [
+                _logged_claim("a", 1),
+                _retiring_row("a", 1, execution="PROCESS", status="FAILED_INVALIDPLAYERSOURCE"),
+            ],
+            id="a failed claim, still PENDING in its own row",
+        ),
+        pytest.param(
+            [_retiring_row("gone", 1, execution="PROCESS", status="EXECUTED")],
+            id="a processed claim whose own row the log no longer carries",
+        ),
+        pytest.param([_logged_claim("theirs", 2)], id="another team's live claim"),
+        pytest.param(
+            [{**_logged_claim("a", 1), "status": "EXECUTED", "isPending": False}],
+            id="a row that is not pending",
+        ),
+    ],
+)
+def test_an_omitted_queue_is_empty_when_every_logged_claim_is_retired(
+    monkeypatch: pytest.MonkeyPatch, rows: list[dict[str, Any]]
+):
+    """Seen live in three leagues (#144): every ``PENDING`` row was named by a
+    later ``CANCEL`` or ``PROCESS`` row's ``relatedTransactionId``."""
+    espn = install_writable_espn(monkeypatch, omit_empty_queue=True)
+    espn.overrides["mTransactions2"] = {"transactions": rows}
+    assert _provider().fetch_pending_claims("99", 2026, "1") == []
+
+
+def test_an_omitted_queue_with_a_live_claim_in_the_log_is_drift_naming_it(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """A ``PENDING`` row nothing retired is a claim ESPN still holds that the
+    queue view did not list -- the one case "nothing queued" would be a lie."""
+    espn = install_writable_espn(monkeypatch, omit_empty_queue=True)
+    espn.overrides["mTransactions2"] = {
+        "transactions": [
+            _logged_claim("live", 1),
+            _logged_claim("theirs", 2),
+            _logged_claim("done", 1),
+            _retiring_row("done", 1, execution="PROCESS", status="EXECUTED"),
+        ]
+    }
+    with pytest.raises(SchemaDriftError) as caught:
+        _provider().fetch_pending_claims("99", 2026, "1")
+    error = caught.value
+    assert "mTransactions2 still lists 1 pending WAIVER" in str(error)
+    assert error.details["path"] == ["mPendingTransactions", "pendingTransactions"]
+    assert error.details["corroboration"] == "mTransactions2"
+    assert error.details["unlisted"] == [{"id": "live", "team_id": "1", "scoring_period": 2}]
+    assert "Do not resubmit or cancel blind" in (error.remediation or "")
+    assert exit_code_for(error) == 9
+
+    # Every team's queue: the other team's live claim counts too.
+    with pytest.raises(SchemaDriftError) as caught:
+        _provider().fetch_pending_claims("99", 2026)
+    assert [u["id"] for u in caught.value.details["unlisted"]] == ["live", "theirs"]
+
+
+@pytest.mark.parametrize(
+    ("log", "what"),
+    [
+        (42, "is not an object"),
+        ({"transactions": {}}, "non-list transactions"),
+        ({"transactions": ["x"]}, "transactions[0] that is not an object"),
+    ],
+)
+def test_a_log_that_cannot_corroborate_an_omitted_queue_is_drift(
+    monkeypatch: pytest.MonkeyPatch, log: Any, what: str
+):
+    espn = install_writable_espn(monkeypatch, omit_empty_queue=True)
+    espn.overrides["mTransactions2"] = log
+    with pytest.raises(SchemaDriftError) as caught:
+        _provider().fetch_pending_claims("99", 2026, "1")
+    assert "corroborating mTransactions2" in str(caught.value)
+    assert what in str(caught.value)
+
+
+def test_a_body_without_the_key_that_is_not_this_leagues_envelope_is_still_drift(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    espn = install_writable_espn(monkeypatch, omit_empty_queue=True)
+    espn.overrides["mPendingTransactions"] = {**espn.queue_envelope(), "id": 98}
+    with pytest.raises(SchemaDriftError, match="has no pendingTransactions") as caught:
+        _provider().fetch_pending_claims("99", 2026, "1")
+    assert "unlisted" not in caught.value.details
+    assert not any(c["params"].get("view") == "mTransactions2" for c in espn.calls)
+
+
 def test_the_pending_claim_model_is_frozen_and_built_from_a_payload():
     import dataclasses
 
@@ -341,6 +548,58 @@ def test_claims_reads_another_teams_queue_when_asked(espn: WritableEspn):
     espn._publish(espn.bootstrap)
     assert [c["provider_id"] for c in _claims(team="Team Bravo")] == ["theirs"]
     assert [c["provider_id"] for c in _claims(team="1")] == ["mine"]
+
+
+def test_claims_is_empty_when_espn_omits_an_empty_queue(monkeypatch: pytest.MonkeyPatch):
+    """#144's acceptance criterion: ``claims --team 3`` returns an empty list,
+    not exit 9, for the private-league shape."""
+    install_writable_espn(monkeypatch, omit_empty_queue=True)
+    assert _claims() == []
+    assert _claims(team="Team Bravo") == []
+
+
+def test_a_queued_claim_is_listed_and_a_processed_one_is_gone(monkeypatch: pytest.MonkeyPatch):
+    """The key comes back the moment something is queued; after the waiver run
+    the claim's own log row still reads ``PENDING`` and the queue is empty
+    again, and ``claims`` says so rather than resurrecting the ghost."""
+    espn = install_writable_espn(monkeypatch, omit_empty_queue=True)
+    _claim(bid=3)
+    assert [c["provider_id"] for c in _claims()] == [TRANSACTION_ID]
+    espn.process(TRANSACTION_ID)
+    assert sorted(r["status"] for r in espn.overrides["mTransactions2"]["transactions"]) == [
+        "EXECUTED",
+        "PENDING",
+    ]
+    assert "pendingTransactions" not in espn.overrides["mPendingTransactions"]
+    # Fresh: the waiver run is ESPN's, not a write of ours, so nothing purged
+    # the 15-minute cache the first read filled.
+    assert _claims(fresh=True) == []
+
+
+def test_a_cancel_against_an_omitted_queue_is_refused_and_never_sent(
+    monkeypatch: pytest.MonkeyPatch, isolated_home: Path
+):
+    espn = install_writable_espn(monkeypatch, omit_empty_queue=True)
+    with pytest.raises(ConfigInvalidError, match="nothing to cancel") as caught:
+        _cancel(id=TRANSACTION_ID)
+    assert caught.value.details["pending_ids"] == []
+    assert espn.posts == []
+    assert not _journal_file(isolated_home).exists()
+
+
+def test_a_claim_espn_accepted_but_left_out_of_the_queue_is_unverified_drift(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """ESPN answered ``PENDING``, the log holds the claim, and the queue view
+    omitted it: the read-back reports drift rather than ``verified: null``,
+    because a body saying "nothing queued" over a live claim is the lie this
+    check exists to catch. The write is still journaled ``executed``."""
+    install_writable_espn(monkeypatch, pending_view=False, omit_empty_queue=True)
+    data = _claim()
+    assert data["read_back"] == {"verified": False, "diverged": [], "error": "SCHEMA_DRIFT"}
+    assert any("could not be read back" in w for w in data.get("warnings", []))
+    (entry,) = _entries()
+    assert entry.kind == "claim" and entry.status == "executed"
 
 
 def test_claims_without_team_needs_a_team_the_session_owns(monkeypatch: pytest.MonkeyPatch):

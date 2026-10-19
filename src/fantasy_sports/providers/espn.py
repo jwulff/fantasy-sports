@@ -1733,13 +1733,25 @@ class EspnProvider:
         keeps one team's claims. A read, so not ownership-guarded: another
         team's queue is visible to any member, as in the ESPN app.
 
+        **A body with no ``pendingTransactions`` key at all** is what ESPN
+        serves a private league whose queue is empty (jwulff/fantasy-sports#144;
+        ``pending-transactions-omitted.json``), while the throwaway league
+        answered the same state with ``[]``. Absence alone is not read as
+        empty: :meth:`_corroborate_empty_queue` reads the transaction log and
+        returns ``[]`` only when no claim of the requested team is still
+        pending there. See it for what is, and is not, proven.
+
         :raises SchemaDriftError: when the body is not the captured shape -- not
             an object, ``pendingTransactions`` not a list, or a pending claim
-            without an ``id``, a ``teamId``, or an ``items`` list.
+            without an ``id``, a ``teamId``, or an ``items`` list -- or when it
+            omits the queue while the transaction log still holds a live claim.
         """
         with self._read(league_id, season, "fetch_pending_claims") as league:
             payload = league.espn_request.league_get(params={"view": PENDING_VIEW})
             wanted = None if team_id is None else str(team_id).strip()
+            if _queue_omitted(payload, league_id=league_id, season=season):
+                self._corroborate_empty_queue(league, payload, kind="WAIVER", team_id=wanted)
+                return []
             return _pending_claims(payload, team_id=wanted)
 
     def fetch_pending_trades(
@@ -1754,12 +1766,81 @@ class EspnProvider:
         made or received. A read, so not ownership-guarded.
 
         :raises SchemaDriftError: when the body or a proposal row is not the
-            captured shape.
+            captured shape, or when the body omits the queue while the
+            transaction log still holds a live proposal (see
+            :meth:`fetch_pending_claims`).
         """
         with self._read(league_id, season, "fetch_pending_trades") as league:
             payload = league.espn_request.league_get(params={"view": PENDING_VIEW})
             wanted = None if team_id is None else str(team_id).strip()
+            if _queue_omitted(payload, league_id=league_id, season=season):
+                self._corroborate_empty_queue(
+                    league, payload, kind="TRADE_PROPOSAL", team_id=wanted
+                )
+                return []
             return _pending_trades(payload, team_id=wanted)
+
+    def _corroborate_empty_queue(
+        self, league: Any, payload: Mapping[str, Any], *, kind: str, team_id: str | None
+    ) -> None:
+        """Allow an omitted ``pendingTransactions`` to mean "nothing queued", or raise.
+
+        What is known (#144, 2026-10-18): three private leagues, read as a
+        creator, a manager, and a plain member, all answer
+        ``view=mPendingTransactions`` with the league envelope and no
+        ``pendingTransactions`` key while their transaction logs show no claim
+        still live. The throwaway league answered the same state with ``[]``
+        two days earlier. Whether a private league's view *lists* a live
+        claim, or omits the key regardless, has not been observed, so absence
+        is not taken as empty on its own.
+
+        The check reads ``mTransactions2`` for the periods a queued row can
+        carry -- the transaction scoring period, the one before it (a claim
+        queued before the Tuesday rollover still processes after it), and the
+        current scoring period -- and folds it the way brief 06 §2 says to: a
+        ``PENDING`` row is retired by any row whose ``relatedTransactionId``
+        names it. That covers a ``CANCEL`` and, as seen live in all three
+        leagues, a ``PROCESS`` row -- a processed claim's own row keeps reading
+        ``PENDING`` too. A ``PENDING`` row nothing retired is a live
+        transaction the queue view did not list, and that is
+        ``SCHEMA_DRIFT`` with the unlisted ids in ``details``: an agent told
+        "nothing is queued" would resubmit or re-cancel blind.
+
+        ``team_id`` scopes the fold to that team's rows. The queue view was
+        only ever captured listing the reading member's own claims, so another
+        team's live claim is not evidence that this team's read is wrong.
+
+        An absent ``transactions`` key in the log is ESPN's quiet period, as
+        ``_espn_transactions`` already reads it. Any other shape there means
+        the empty queue cannot be corroborated, which is drift too, never
+        silence.
+        """
+        # Every period's rows are folded together: ESPN clamps a future period
+        # to the current one, so the same row can come back twice, and the row
+        # that retires a claim may be logged a period after the claim itself.
+        rows: list[Mapping[str, Any]] = []
+        for period in _log_periods(payload):
+            params: dict[str, Any] = {"view": LOG_VIEW}
+            if period is not None:
+                params["scoringPeriodId"] = period
+            body = league.espn_request.league_get(
+                params=params, headers={"x-fantasy-filter": _log_filter(kind)}
+            )
+            rows.extend(_log_rows(body))
+        unlisted = _unretired_pending(rows, kind=kind, team_id=team_id)
+        if unlisted:
+            raise _pending_drift(
+                f"has no pendingTransactions while {LOG_VIEW} still lists "
+                f"{len(unlisted)} pending {kind} transaction(s) the queue did not",
+                ["pendingTransactions"],
+                remediation=(
+                    "ESPN's queue view omitted a transaction its log still holds as "
+                    "pending. Do not resubmit or cancel blind: read "
+                    f"`fantasy-sports raw --view {LOG_VIEW}` and file an issue with this "
+                    "error payload."
+                ),
+                details={"corroboration": LOG_VIEW, "unlisted": unlisted},
+            )
 
     def credential_report(self) -> dict[str, Any]:
         """``{"espn_s2_age_seconds", "warning"}`` -- the R12a block every write
@@ -2874,30 +2955,167 @@ def _write_result(payload: Any, *, write: _Write) -> WriteResult:
 PENDING_VIEW: Final[str] = "mPendingTransactions"
 """ESPN's waiver queue (brief 06 §2): the claims still to process, by id."""
 
+LOG_VIEW: Final[str] = "mTransactions2"
+"""ESPN's transaction log, read to corroborate a queue body that omits the queue."""
 
-def _pending_drift(message: str, path: list[str]) -> SchemaDriftError:
+_LOG_TYPES: Final[Mapping[str, tuple[str, ...]]] = {
+    "WAIVER": ("WAIVER",),
+    "TRADE_PROPOSAL": (
+        "TRADE_PROPOSAL",
+        "TRADE_ACCEPT",
+        "TRADE_DECLINE",
+        "TRADE_VETO",
+        "TRADE_UPHOLD",
+        "TRADE_ERROR",
+    ),
+}
+"""The ``mTransactions2`` type filter that returns a queued kind *and* every
+row that can retire it. A waiver cancel and a waiver processing row both carry
+``type: "WAIVER"``; what retires a proposal is uncaptured (#142), so the whole
+trade family is read."""
+
+
+def _pending_drift(
+    message: str,
+    path: list[str],
+    *,
+    remediation: str | None = None,
+    details: Mapping[str, Any] | None = None,
+) -> SchemaDriftError:
     return SchemaDriftError(
         f"ESPN's {PENDING_VIEW} response {message}.",
         path=[PENDING_VIEW, *path],
         provider=PROVIDER,
-        remediation=(
+        remediation=remediation
+        or (
             "File an issue with this error payload; the waiver queue's shape changed. "
             "Until it is fixed, read the queue with `fantasy-sports raw --view "
             f"{PENDING_VIEW}`."
         ),
-        details={"view": PENDING_VIEW},
+        details={"view": PENDING_VIEW, **dict(details or {})},
     )
+
+
+def _queue_omitted(payload: Any, *, league_id: str, season: int) -> bool:
+    """Whether ``payload`` is this league's envelope with the queue left out.
+
+    True only for the shape #144 captured: a JSON object with no
+    ``pendingTransactions`` key whose ``id`` and ``seasonId`` are the league
+    and season asked for, carrying the ``status`` block every league document
+    has. Anything else without the key -- another league, a body with no
+    envelope, a bare ``{}`` -- is as unrecognised as before and stays drift.
+    """
+    return (
+        isinstance(payload, Mapping)
+        and "pendingTransactions" not in payload
+        and _as_int(payload.get("id")) == _as_int(league_id)
+        and _as_int(payload.get("seasonId")) == int(season)
+        and isinstance(payload.get("status"), Mapping)
+    )
+
+
+def _log_periods(payload: Mapping[str, Any]) -> list[int | None]:
+    """The scoring periods a live queued transaction can be logged under.
+
+    ``status.transactionScoringPeriod`` is the period a write is stamped with,
+    ``scoringPeriodId`` the one being played; the period before the transaction
+    period is included because a claim queued just before the rollover
+    processes just after it. ``[None]`` -- ESPN's default period -- only when
+    the envelope names neither, which no capture has shown.
+    """
+    status = payload.get("status")
+    current = _as_int(payload.get("scoringPeriodId"))
+    transaction = (
+        _as_int(status.get("transactionScoringPeriod")) if isinstance(status, Mapping) else None
+    )
+    anchor = transaction if transaction is not None else current
+    candidates = [anchor - 1 if anchor is not None else None, transaction, current]
+    periods = sorted({p for p in candidates if p is not None and p >= 1})
+    return list(periods) or [None]
+
+
+def _log_filter(kind: str) -> str:
+    return json.dumps(
+        {"transactions": {"filterType": {"value": list(_LOG_TYPES[kind])}}}, sort_keys=True
+    )
+
+
+def _log_rows(body: Any) -> list[Mapping[str, Any]]:
+    """One ``mTransactions2`` body's rows, or drift.
+
+    An absent ``transactions`` key is a quiet period, as
+    :meth:`EspnProvider._espn_transactions` already reads it; a body that is
+    not an object, or a ``transactions`` that is not a list of objects, cannot
+    corroborate anything and is drift.
+    """
+    where = f"corroborating {LOG_VIEW}"
+    if not isinstance(body, Mapping):
+        raise _pending_drift(f"has no pendingTransactions, and the {where} is not an object", [])
+    rows = body.get("transactions", [])
+    if not isinstance(rows, list):
+        raise _pending_drift(
+            f"has no pendingTransactions, and the {where} has a non-list transactions",
+            ["pendingTransactions"],
+        )
+    for index, row in enumerate(rows):
+        if not isinstance(row, Mapping):
+            raise _pending_drift(
+                f"has no pendingTransactions, and the {where} has a transactions[{index}] "
+                "that is not an object",
+                ["pendingTransactions"],
+            )
+    return list(rows)
+
+
+def _unretired_pending(
+    rows: Sequence[Mapping[str, Any]], *, kind: str, team_id: str | None
+) -> list[dict[str, Any]]:
+    """The ``PENDING`` rows of ``kind`` that no row retires, once each.
+
+    Folded by ``relatedTransactionId`` (brief 06 §2): a ``CANCEL`` row names
+    the claim it withdrew, and a ``PROCESS`` row names the claim it executed
+    or failed, while the claim's own row reads ``PENDING`` either way.
+    ``team_id`` keeps one team's rows. A row seen under two periods counts
+    once, by id.
+    """
+    retired = {
+        row["relatedTransactionId"]
+        for row in rows
+        if isinstance(row.get("relatedTransactionId"), str) and row["relatedTransactionId"]
+    }
+    found: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for row in rows:
+        if row.get("type") != kind or row.get("status") != "PENDING":
+            continue
+        team = _as_int(row.get("teamId"))
+        if team_id is not None and (team is None or str(team) != team_id):
+            continue
+        row_id = row.get("id")
+        if isinstance(row_id, str) and (row_id in retired or row_id in seen):
+            continue
+        if isinstance(row_id, str):
+            seen.add(row_id)
+        found.append(
+            {
+                "id": row_id if isinstance(row_id, str) else None,
+                "team_id": None if team is None else str(team),
+                "scoring_period": _as_int(row.get("scoringPeriodId")),
+            }
+        )
+    return found
 
 
 def _pending_claims(payload: Any, *, team_id: str | None) -> list[PendingClaim]:
     """The ``WAIVER``/``PENDING`` rows of an ``mPendingTransactions`` body.
 
     The captured body is an object whose ``pendingTransactions`` is a list of
-    transaction rows shaped like a claim's own write response. ESPN sends the
-    key for an empty queue too (an empty list; observed live in the test
-    league for #109), so an absent key is drift, not an empty queue: an agent
-    told "nothing is queued" by a body that no longer says so would resubmit
-    a claim it still has.
+    transaction rows shaped like a claim's own write response. This parser
+    reads only that shape: a body without the key is not read as an empty
+    queue here, because an agent told "nothing is queued" by a body that does
+    not say so would resubmit a claim it still has. The adapter decides what
+    an omitted key means, with the transaction log's help
+    (:meth:`EspnProvider._corroborate_empty_queue`, #144).
     """
     found: list[PendingClaim] = []
     for where, row in _pending_rows(payload):
@@ -2922,8 +3140,9 @@ def _pending_claims(payload: Any, *, team_id: str | None) -> list[PendingClaim]:
 def _pending_rows(payload: Any) -> Iterator[tuple[str, Mapping[str, Any]]]:
     """Each row of an ``mPendingTransactions`` body with its path, or drift.
 
-    ESPN sends ``pendingTransactions`` for an empty queue too (an empty list),
-    so an absent key is drift, not an empty queue.
+    The throwaway league sent ``pendingTransactions: []`` for an empty queue;
+    a private league leaves the key out (#144). This parser treats an absent
+    key as unrecognised either way; see :func:`_pending_claims`.
     """
     if not isinstance(payload, Mapping):
         raise _pending_drift("is not a JSON object", [])

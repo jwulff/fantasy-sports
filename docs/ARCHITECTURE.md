@@ -598,9 +598,17 @@ shared with `lineup set` in `commands/writes.py`). What differs:
 --id ID` withdraws one. (It is `cancel-claim`, not `claim cancel`, because a
 typer group named `claim` shadows the top-level `claim` command.) The queue
 view, not `mTransactions2`, because a cancelled claim leaves the queue at once
-while its own `mTransactions2` row keeps reading `PENDING`. A body without the
-`pendingTransactions` key is `SCHEMA_DRIFT`, not an empty queue, since an
-empty queue invites a duplicate claim.
+while its own `mTransactions2` row keeps reading `PENDING`. A private league
+answers the view with no `pendingTransactions` key at all when nothing is
+queued (#144; the throwaway league sent `[]`), and absence alone is not read
+as empty, since an empty queue invites a duplicate claim: the adapter reads
+`mTransactions2` for the surrounding scoring periods, retires every `PENDING`
+row that a `CANCEL` or `PROCESS` row's `relatedTransactionId` names, and
+returns an empty queue only when nothing live remains for the requested team.
+A live row the queue view did not list is `SCHEMA_DRIFT` with the unlisted
+ids in `details`; so is a body without the key that is not this league's
+envelope, or a log that cannot be read
+(`docs/memory/espn-omits-an-empty-pending-queue.md`).
 
 An id that is not in the owning team's queue is `CONFIG_INVALID` and never
 sent; an unowned `--team` is `not_owned`. A cancel needs no

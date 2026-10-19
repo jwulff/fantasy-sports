@@ -62,6 +62,15 @@ irreversible class (`add`, `drop`, `claim`) additionally needs
   `transactions` is removed, because a cancelled claim's row there reads
   `PENDING` forever and could verify a new identical claim. New model
   `PendingClaim`; `WritingProvider` gains `fetch_pending_claims`.
+- **An empty queue a private league serves without the key** (#144). ESPN
+  answers `view=mPendingTransactions` for a private league with no
+  `pendingTransactions` key when nothing is queued, which `claims`,
+  `cancel-claim`, `trades`, and the pending read-backs reported as
+  `SCHEMA_DRIFT`. The adapter now corroborates that body against
+  `mTransactions2`, folding out every `PENDING` row a `CANCEL` or `PROCESS`
+  row names, and returns an empty queue only when nothing live remains for
+  the team; a live row the queue did not list stays `SCHEMA_DRIFT`, with the
+  ids in `details.unlisted`.
 - **Trades: `trade propose`, `trade cancel`, and `trades`** (#112).
   `trade propose --team T --with U --give P --get Q [--comment C]
   [--expires-hours H]` offers players for another team's in one

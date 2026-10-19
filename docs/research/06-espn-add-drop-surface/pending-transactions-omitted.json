@@ -1,0 +1,66 @@
+{
+  "note": "view=mPendingTransactions as ESPN served it for a private league on 2026-10-18 while that league's waiver queue was empty (#144): the league envelope with no pendingTransactions key at all. Every other top-level key is exactly as served. The throwaway public league answered the same state with pendingTransactions: [] on 2026-10-15/16 (pending-transactions.json, ../07-espn-trade-surface/t2-pending.json).",
+  "redactions": [
+    "league id replaced with 99, the repository's invented synthetic league (docs/testing.md section 6); nothing else in the body names a member or a player"
+  ],
+  "request": {
+    "method": "GET",
+    "url": "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/segments/0/leagues/99?view=mPendingTransactions"
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "draftDetail": {
+        "drafted": true,
+        "inProgress": false
+      },
+      "gameId": 1,
+      "id": 99,
+      "scoringPeriodId": 6,
+      "seasonId": 2026,
+      "segmentId": 0,
+      "status": {
+        "activatedDate": 1787277685633,
+        "createdAsLeagueType": 0,
+        "currentLeagueType": 0,
+        "currentMatchupPeriod": 6,
+        "finalScoringPeriod": 17,
+        "firstScoringPeriod": 1,
+        "isActive": true,
+        "isExpired": false,
+        "isFull": true,
+        "isPlayoffMatchupEdited": false,
+        "isToBeDeleted": false,
+        "isViewable": false,
+        "isWaiverOrderEdited": false,
+        "latestScoringPeriod": 6,
+        "previousSeasons": [
+          2018,
+          2019,
+          2020,
+          2021,
+          2022,
+          2023,
+          2024,
+          2025
+        ],
+        "standingsUpdateDate": 1792307986986,
+        "teamsJoined": 12,
+        "transactionScoringPeriod": 6,
+        "waiverLastExecutionDate": 1792307986746,
+        "waiverProcessStatus": {
+          "2026-09-08T07:14:55.212+00:00": 1,
+          "2026-09-16T07:05:20.715+00:00": 8,
+          "2026-09-17T07:03:46.837+00:00": 1,
+          "2026-09-23T07:39:19.120+00:00": 8,
+          "2026-09-25T07:45:16.199+00:00": 1,
+          "2026-09-30T07:47:42.271+00:00": 2,
+          "2026-10-07T07:33:51.731+00:00": 2,
+          "2026-10-09T07:58:38.079+00:00": 1,
+          "2026-10-14T07:38:29.494+00:00": 3,
+          "2026-10-18T07:19:46.746+00:00": 1
+        }
+      }
+    }
+  }
+}

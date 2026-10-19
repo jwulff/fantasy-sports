@@ -21,11 +21,25 @@ that, or fold `mTransactions2` by `relatedTransactionId` before trusting a
 `PENDING` status. A processed claim was not observed, so how its row reads
 afterwards is unknown.
 
-The view answers with the league envelope plus `pendingTransactions`, and
-sends that key as `[]` when nothing is queued (seen live, #109). So a body
-without the key is drift, not an empty queue: `_pending_claims` raises
-rather than tell an agent nothing is queued. The queue row carries
-`processDate`, when waivers will run it, but not `subOrder`.
+The view answers with the league envelope plus `pendingTransactions`. The
+throwaway league sent that key as `[]` when nothing was queued (brief 06/07
+probes, 2026-10-15/16; note both probes read it with `.get()`). **John's
+three private leagues leave the key out entirely** (#144, 2026-10-16 and
+10-18), so absence is not the drift signal it was taken for, and it is not
+proof of an empty queue either; see
+[[espn-omits-an-empty-pending-queue]] for what the adapter does instead.
+The queue row carries `processDate`, when waivers will run it, but not
+`subOrder`.
+
+**A processed claim's own row reads `PENDING` too.** Seen live in all three
+leagues on 2026-10-18: a waiver run adds a new row with `executionType:
+"PROCESS"`, `status: "EXECUTED"` or a `FAILED_*` value, and
+`relatedTransactionId` naming the claim, and the claim's own row stays
+`status: "PENDING"`, `isPending: true`. Most processed claims' own rows then
+disappear from the period's log while their `PROCESS` rows remain, so the
+log is a partial record: it can prove a claim is still live, never that none
+is. Fold `mTransactions2` by `relatedTransactionId` whatever the retiring
+row's `executionType`.
 
 **The second, smaller trap: a just-drafted league has no free agents.** Every
 unrostered player is `WAIVERS` until the first waiver run after the draft, so a

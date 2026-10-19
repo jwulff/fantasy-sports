@@ -3052,7 +3052,12 @@ captured.
 This is the queue, not the transaction log. A cancelled claim leaves the
 queue at once, while its own row in `transactions` keeps reading `PENDING`
 (`docs/memory/a-cancelled-claim-still-reads-pending.md`). To ask whether a
-claim is still live, ask `claims`.
+claim is still live, ask `claims`. When ESPN answers the queue view without
+a `pendingTransactions` key, as a private league does with nothing queued
+(#144), the empty list is corroborated against the transaction log first;
+a claim the log still holds as pending but the queue did not list is
+`SCHEMA_DRIFT` with the unlisted ids in `error.details.unlisted`, not an
+empty list.
 
 `--team` defaults to the team the session owns. With no SWID, or a session
 that owns more than one team, it is required, and leaving it out is

@@ -254,6 +254,11 @@ class WritableEspn(RecordedEspn):
     one, as ESPN did. ``show_pending`` off hides queued claims from both
     views, as an ESPN that did not list them would; ``pending_view`` off
     empties only the queue, to play the queue lagging the transaction log.
+    ``omit_empty_queue`` serves an empty queue the way a private league does
+    (#144, ``pending-transactions-omitted.json``): the league envelope with no
+    ``pendingTransactions`` key, rather than ``[]``. :meth:`process` plays a
+    waiver run: the claim leaves the queue, its log row stays ``PENDING``, and
+    a ``PROCESS`` row naming it is added, as seen live.
     """
 
     #: The free-agent pool the move tests resolve against: one free agent per
@@ -276,6 +281,7 @@ class WritableEspn(RecordedEspn):
         reject_capture: str | None = None,
         show_pending: bool = True,
         pending_view: bool = True,
+        omit_empty_queue: bool = False,
     ) -> None:
         super().__init__()
         self.mode = mode
@@ -284,11 +290,13 @@ class WritableEspn(RecordedEspn):
         self.reject_capture = reject_capture
         self.show_pending = show_pending
         self.pending_view = pending_view
+        self.omit_empty_queue = omit_empty_queue
         self.posts: list[dict[str, Any]] = []
         self.pending: list[dict[str, Any]] = []
         self.withdrawn: list[dict[str, Any]] = []
-        """Rows ``mTransactions2`` keeps after a cancel: the claim, still
-        ``PENDING``, and the ``CANCELED`` row naming it."""
+        """Rows ``mTransactions2`` keeps after a cancel or a waiver run: the
+        claim, still ``PENDING``, and the ``CANCELED`` or ``PROCESS`` row
+        naming it."""
         self._bootstrap_key = next(
             key
             for key in self.bodies
@@ -334,13 +342,50 @@ class WritableEspn(RecordedEspn):
         self.overrides["mRoster"] = bootstrap
         self.overrides["kona_player_info"] = {"players": self.pool}
         queue = self.pending if self.show_pending and self.pending_view else []
-        self.overrides["mPendingTransactions"] = {"pendingTransactions": list(queue)}
+        if queue or not self.omit_empty_queue:
+            self.overrides["mPendingTransactions"] = {"pendingTransactions": list(queue)}
+        else:
+            self.overrides["mPendingTransactions"] = self.queue_envelope()
         logged = [_logged(row) for row in self.pending] if self.show_pending else []
         logged += [_logged(row) for row in self.withdrawn]
         if logged:
             self.overrides["mTransactions2"] = {"transactions": logged}
         else:
             self.overrides.pop("mTransactions2", None)
+
+    def queue_envelope(self) -> dict[str, Any]:
+        """``view=mPendingTransactions`` with the queue omitted, as #144 captured
+        it: the synthetic league's envelope, every top-level key the capture
+        has, and no ``pendingTransactions``."""
+        period = self.bootstrap["scoringPeriodId"]
+        status = dict(self.bootstrap.get("status") or {})
+        status.setdefault("transactionScoringPeriod", period)
+        return {
+            "draftDetail": dict(self.bootstrap.get("draftDetail") or {}),
+            "gameId": 1,
+            "id": int(LEAGUE_ID),
+            "scoringPeriodId": period,
+            "seasonId": SEASON,
+            "segmentId": 0,
+            "status": status,
+        }
+
+    def process(self, claim_id: str, status: str = "EXECUTED") -> None:
+        """Play a waiver run on one queued claim, as the live logs showed it:
+        the claim leaves the queue, its own log row keeps reading ``PENDING``,
+        and a new ``PROCESS`` row with ``relatedTransactionId`` names it."""
+        claim = next(t for t in self.pending if t.get("id") == claim_id)
+        self.pending = [t for t in self.pending if t.get("id") != claim_id]
+        processed = {
+            **claim,
+            "id": f"{claim_id[:-3]}p{len(self.withdrawn):02d}",
+            "executionType": "PROCESS",
+            "status": status,
+            "isPending": False,
+            "relatedTransactionId": claim_id,
+        }
+        self.withdrawn += [claim, processed]
+        self._publish(self.bootstrap)
 
     def slots(self, team_id: int = 1) -> dict[str, int]:
         """``{player_id: lineupSlotId}`` for one team, as the next read will see it."""
