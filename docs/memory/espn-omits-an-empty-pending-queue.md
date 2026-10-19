@@ -38,7 +38,11 @@ row the queue did not list is `SCHEMA_DRIFT` with `details.unlisted`, never
 an empty list: that is the one case "nothing queued" would send an agent
 into a duplicate claim or a blind cancel. The fold is team-scoped on
 purpose: the view was only ever captured listing the reader's own claims,
-so another team's live claim is not evidence this team's read is wrong.
+so another team's live claim is not evidence this team's read is wrong. For
+proposals the team test is either side of the offer, the window reaches back
+three periods (an offer may stay open two weeks), and a row whose
+`expirationDate` has passed is not live, because what ESPN logs when an offer
+lapses, is accepted, or is declined is uncaptured (#142).
 
 **Traps.** The period before the transaction period caches forever once it
 is a completed week (`completed_through`), so a claim queued just before a

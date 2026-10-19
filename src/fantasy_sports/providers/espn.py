@@ -1806,8 +1806,9 @@ class EspnProvider:
         ``SCHEMA_DRIFT`` with the unlisted ids in ``details``: an agent told
         "nothing is queued" would resubmit or re-cancel blind.
 
-        ``team_id`` scopes the fold to that team's rows. The queue view was
-        only ever captured listing the reading member's own claims, so another
+        ``team_id`` scopes the fold to that team's rows -- a claim it made, or
+        a proposal it is on either side of. The queue view was only ever
+        captured listing the reading member's own transactions, so another
         team's live claim is not evidence that this team's read is wrong.
 
         An absent ``transactions`` key in the log is ESPN's quiet period, as
@@ -1819,7 +1820,7 @@ class EspnProvider:
         # to the current one, so the same row can come back twice, and the row
         # that retires a claim may be logged a period after the claim itself.
         rows: list[Mapping[str, Any]] = []
-        for period in _log_periods(payload):
+        for period in _log_periods(payload, lookback=_LOG_LOOKBACK[kind]):
             params: dict[str, Any] = {"view": LOG_VIEW}
             if period is not None:
                 params["scoringPeriodId"] = period
@@ -1827,7 +1828,7 @@ class EspnProvider:
                 params=params, headers={"x-fantasy-filter": _log_filter(kind)}
             )
             rows.extend(_log_rows(body))
-        unlisted = _unretired_pending(rows, kind=kind, team_id=team_id)
+        unlisted = _unretired_pending(rows, kind=kind, team_id=team_id, now=self._now())
         if unlisted:
             raise _pending_drift(
                 f"has no pendingTransactions while {LOG_VIEW} still lists "
@@ -3014,14 +3015,23 @@ def _queue_omitted(payload: Any, *, league_id: str, season: int) -> bool:
     )
 
 
-def _log_periods(payload: Mapping[str, Any]) -> list[int | None]:
+_LOG_LOOKBACK: Final[Mapping[str, int]] = {"WAIVER": 1, "TRADE_PROPOSAL": 3}
+"""Scoring periods before the transaction period the corroborating log read
+covers. A claim processes within days, so one period back catches the one
+queued just before a rollover. A proposal stays open for up to
+``commands.trades.MAX_EXPIRES_HOURS`` (two weeks), so two periods back plus
+the rollover one; a test pins the two constants together."""
+
+
+def _log_periods(payload: Mapping[str, Any], *, lookback: int = 1) -> list[int | None]:
     """The scoring periods a live queued transaction can be logged under.
 
     ``status.transactionScoringPeriod`` is the period a write is stamped with,
-    ``scoringPeriodId`` the one being played; the period before the transaction
-    period is included because a claim queued just before the rollover
-    processes just after it. ``[None]`` -- ESPN's default period -- only when
-    the envelope names neither, which no capture has shown.
+    ``scoringPeriodId`` the one being played; ``lookback`` periods before the
+    transaction period are included because a claim queued just before the
+    rollover processes just after it, and a proposal can sit open across
+    several. ``[None]`` -- ESPN's default period -- only when the envelope
+    names neither, which no capture has shown.
     """
     status = payload.get("status")
     current = _as_int(payload.get("scoringPeriodId"))
@@ -3029,7 +3039,9 @@ def _log_periods(payload: Mapping[str, Any]) -> list[int | None]:
         _as_int(status.get("transactionScoringPeriod")) if isinstance(status, Mapping) else None
     )
     anchor = transaction if transaction is not None else current
-    candidates = [anchor - 1 if anchor is not None else None, transaction, current]
+    candidates: list[int | None] = [transaction, current]
+    if anchor is not None:
+        candidates += [anchor - back for back in range(1, lookback + 1)]
     periods = sorted({p for p in candidates if p is not None and p >= 1})
     return list(periods) or [None]
 
@@ -3068,15 +3080,19 @@ def _log_rows(body: Any) -> list[Mapping[str, Any]]:
 
 
 def _unretired_pending(
-    rows: Sequence[Mapping[str, Any]], *, kind: str, team_id: str | None
+    rows: Sequence[Mapping[str, Any]], *, kind: str, team_id: str | None, now: datetime
 ) -> list[dict[str, Any]]:
     """The ``PENDING`` rows of ``kind`` that no row retires, once each.
 
     Folded by ``relatedTransactionId`` (brief 06 §2): a ``CANCEL`` row names
     the claim it withdrew, and a ``PROCESS`` row names the claim it executed
     or failed, while the claim's own row reads ``PENDING`` either way.
-    ``team_id`` keeps one team's rows. A row seen under two periods counts
-    once, by id.
+    ``team_id`` keeps one team's rows: a claim's ``teamId``, or either side of
+    a proposal, the same test :func:`_pending_trades` applies, because an
+    offer made *to* this team is in its queue too. A proposal whose
+    ``expirationDate`` has passed is not live, whatever its row still says;
+    what ESPN logs when an offer lapses, is accepted, or is declined is
+    uncaptured (#142). A row seen under two periods counts once, by id.
     """
     retired = {
         row["relatedTransactionId"]
@@ -3089,7 +3105,12 @@ def _unretired_pending(
         if row.get("type") != kind or row.get("status") != "PENDING":
             continue
         team = _as_int(row.get("teamId"))
-        if team_id is not None and (team is None or str(team) != team_id):
+        if team_id is not None:
+            named = _teams_named(row) if kind == "TRADE_PROPOSAL" else {str(team)}
+            if team_id not in named:
+                continue
+        expires = _as_int(row.get("expirationDate"))
+        if expires is not None and from_epoch_millis(expires) <= now:
             continue
         row_id = row.get("id")
         if isinstance(row_id, str) and (row_id in retired or row_id in seen):

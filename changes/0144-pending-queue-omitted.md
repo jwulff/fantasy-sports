@@ -45,7 +45,17 @@ league answers the same state with the league envelope and no key at all.
 - **Team-scoped on purpose.** The view was only ever captured listing the
   reading member's own claims, so another team's live claim is not evidence
   that this team's read is wrong; raising on it would fail `claims` every
-  weekday of the season.
+  weekday of the season. For proposals the team test is either side of the
+  offer, as `trades` itself reads them.
+- **Preflight's two findings, both taken.** The trade fold matched only the
+  proposer, so an incoming offer the queue omitted would have read as `[]`;
+  it now uses the same either-side test as `_pending_trades`. And the
+  one-period lookback could miss a proposal still open from two weeks ago,
+  while a lapsed one inside the window would have raised on every read: the
+  trade read now looks back three periods (a test pins that to
+  `MAX_EXPIRES_HOURS`), and a row whose `expirationDate` has passed is not
+  live. What ESPN logs for an accepted, declined, or lapsed offer is still
+  uncaptured (#142).
 - **Safety of the writes is untouched.** `cancel-claim` and `trade cancel`
   still need the id in the queue they read, so an omitted queue refuses them
   as `CONFIG_INVALID` with nothing sent. A `claim` whose queue omits the claim

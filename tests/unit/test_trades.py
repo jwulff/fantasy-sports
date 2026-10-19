@@ -169,7 +169,14 @@ def test_a_proposal_that_is_not_the_captured_shape_is_drift(mutate, path):
 # --------------------------------------------------------------------------- #
 
 
-def _logged_proposal(trade_id: str, team: int, **extra: Any) -> dict[str, Any]:
+#: Two days after the harness's frozen clock (``UNLOCKED_AT``), and two days before it.
+OPEN_UNTIL_MS = 1789214400000  # 2026-09-12T12:00:00Z
+LAPSED_AT_MS = 1788868800000  # 2026-09-08T12:00:00Z
+
+
+def _logged_proposal(trade_id: str, team: int, other: int, **extra: Any) -> dict[str, Any]:
+    """A proposal from ``team`` to ``other`` as ``mTransactions2`` logs it, open
+    for two more days unless ``expirationDate`` says otherwise."""
     return {
         "id": trade_id,
         "teamId": team,
@@ -178,7 +185,11 @@ def _logged_proposal(trade_id: str, team: int, **extra: Any) -> dict[str, Any]:
         "isPending": True,
         "executionType": "EXECUTE",
         "scoringPeriodId": 2,
-        "items": [],
+        "expirationDate": OPEN_UNTIL_MS,
+        "items": [
+            {"type": "TRADE", "playerId": 2001, "fromTeamId": team, "toTeamId": other},
+            {"type": "TRADE", "playerId": 2011, "fromTeamId": other, "toTeamId": team},
+        ],
         **extra,
     }
 
@@ -191,35 +202,56 @@ def test_an_omitted_queue_is_an_empty_trade_queue_when_the_log_agrees(
 
     espn = install_writable_espn(monkeypatch, omit_empty_queue=True)
     provider = EspnProvider({"espn_s2": FAKE_S2, "swid": FAKE_SWID})
+    # The cassette's own log holds an open offer *to* team 1 (`proposal-0002`),
+    # which an omitted queue must not swallow -- the parametrized test below.
+    # Here the log is controlled: retired, lapsed, or between two other
+    # teams, so none of it is live for team 1.
+    espn.overrides["mTransactions2"] = {
+        "transactions": [
+            _logged_proposal("p", 1, 2),
+            _logged_proposal(
+                "p-cancel",
+                1,
+                2,
+                executionType="CANCEL",
+                status="CANCELED",
+                relatedTransactionId="p",
+            ),
+            _logged_proposal("lapsed", 1, 2, expirationDate=LAPSED_AT_MS),
+            _logged_proposal("bystanders", 3, 4),
+        ]
+    }
     assert provider.fetch_pending_trades("99", 2026, "1") == []
+    assert _run("trades", team="1")["data"] == []
     log_calls = [c for c in espn.calls if c["params"].get("view") == "mTransactions2"]
-    assert log_calls, "the log was read to corroborate the empty queue"
+    assert [c["params"]["scoringPeriodId"] for c in log_calls[:2]] == ["1", "2"]
     types = json.loads(log_calls[0]["headers"]["x-fantasy-filter"])["transactions"]["filterType"]
     assert "TRADE_PROPOSAL" in types["value"] and "TRADE_ACCEPT" in types["value"]
 
-    # A proposal that something later retired is not live.
-    espn.overrides["mTransactions2"] = {
-        "transactions": [
-            _logged_proposal("p", 1),
-            _logged_proposal("p-cancel", 1, executionType="CANCEL", status="CANCELED"),
-        ]
-    }
-    espn.overrides["mTransactions2"]["transactions"][1]["relatedTransactionId"] = "p"
-    assert provider.fetch_pending_trades("99", 2026, "1") == []
-    assert _run("trades", team="1")["data"] == []
 
-
+@pytest.mark.parametrize(
+    ("row", "team_id"),
+    [
+        pytest.param(_logged_proposal("open", 1, 2), "1", id="made by this team"),
+        pytest.param(_logged_proposal("open", 2, 1), "1", id="made to this team"),
+        pytest.param(_logged_proposal("open", 1, 2), "2", id="read from the other side"),
+    ],
+)
 def test_an_omitted_queue_with_a_live_proposal_in_the_log_is_drift(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, row: dict[str, Any], team_id: str
 ):
+    """Either side of an open offer is in that team's queue, so an incoming
+    proposal the queue view omitted is drift too (preflight on #144)."""
     from fantasy_sports.providers.espn import EspnProvider
 
     espn = install_writable_espn(monkeypatch, omit_empty_queue=True)
-    espn.overrides["mTransactions2"] = {"transactions": [_logged_proposal("open", 1)]}
+    espn.overrides["mTransactions2"] = {"transactions": [row]}
     provider = EspnProvider({"espn_s2": FAKE_S2, "swid": FAKE_SWID})
     with pytest.raises(SchemaDriftError) as caught:
-        provider.fetch_pending_trades("99", 2026, "1")
-    assert caught.value.details["unlisted"] == [{"id": "open", "team_id": "1", "scoring_period": 2}]
+        provider.fetch_pending_trades("99", 2026, team_id)
+    assert caught.value.details["unlisted"] == [
+        {"id": "open", "team_id": str(row["teamId"]), "scoring_period": 2}
+    ]
     assert "TRADE_PROPOSAL" in str(caught.value)
 
 

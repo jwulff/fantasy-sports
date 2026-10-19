@@ -321,10 +321,24 @@ def test_the_captured_omitted_body_is_this_leagues_envelope_without_the_queue():
     ],
 )
 def test_the_log_is_read_for_the_periods_a_queued_claim_can_carry(current, transaction, periods):
-    from fantasy_sports.providers.espn import _log_periods
+    from fantasy_sports.providers.espn import _LOG_LOOKBACK, _log_periods
 
     body = {"scoringPeriodId": current, "status": {"transactionScoringPeriod": transaction}}
-    assert _log_periods(body) == periods
+    assert _log_periods(body, lookback=_LOG_LOOKBACK["WAIVER"]) == periods
+    assert _log_periods(body) == periods, "one period back is the default"
+
+
+def test_the_trade_lookback_covers_the_longest_open_proposal():
+    """A proposal may stay open for ``MAX_EXPIRES_HOURS``; the log read for an
+    omitted trade queue must reach back that far plus the rollover period."""
+    from fantasy_sports.commands.trades import MAX_EXPIRES_HOURS
+    from fantasy_sports.providers.espn import _LOG_LOOKBACK, _log_periods
+
+    hours_per_period = 7 * 24
+    assert (_LOG_LOOKBACK["TRADE_PROPOSAL"] - 1) * hours_per_period >= MAX_EXPIRES_HOURS
+    body = {"scoringPeriodId": 6, "status": {"transactionScoringPeriod": 6}}
+    assert _log_periods(body, lookback=_LOG_LOOKBACK["TRADE_PROPOSAL"]) == [3, 4, 5, 6]
+    assert _log_periods({"scoringPeriodId": 2, "status": {}}, lookback=3) == [1, 2]
 
 
 def test_an_omitted_queue_is_empty_when_the_log_holds_no_live_claim(
