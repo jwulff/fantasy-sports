@@ -56,6 +56,14 @@ league answers the same state with the league envelope and no key at all.
   `MAX_EXPIRES_HOURS`), and a row whose `expirationDate` has passed is not
   live. What ESPN logs for an accepted, declined, or lapsed offer is still
   uncaptured (#142).
+- **The second round's finding, also taken.** A completed period's log
+  caches forever, and the day after a rollover the transaction period is one,
+  so a corroborating read answered from the store could never show a claim
+  queued after it was cached and would have corroborated `[]` over a live
+  claim. The corroborating reads now bypass the cache (`CacheMode.BYPASS`,
+  as the write path's live roster read does); a test counts the live reads.
+  The non-object log body now reports the same `details.path` as the other
+  malformed-log cases.
 - **Safety of the writes is untouched.** `cancel-claim` and `trade cancel`
   still need the id in the queue they read, so an omitted queue refuses them
   as `CONFIG_INVALID` with nothing sent. A `claim` whose queue omits the claim

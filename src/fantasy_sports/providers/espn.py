@@ -1750,7 +1750,9 @@ class EspnProvider:
             payload = league.espn_request.league_get(params={"view": PENDING_VIEW})
             wanted = None if team_id is None else str(team_id).strip()
             if _queue_omitted(payload, league_id=league_id, season=season):
-                self._corroborate_empty_queue(league, payload, kind="WAIVER", team_id=wanted)
+                self._corroborate_empty_queue(
+                    league, payload, league_id, season, kind="WAIVER", team_id=wanted
+                )
                 return []
             return _pending_claims(payload, team_id=wanted)
 
@@ -1775,13 +1777,20 @@ class EspnProvider:
             wanted = None if team_id is None else str(team_id).strip()
             if _queue_omitted(payload, league_id=league_id, season=season):
                 self._corroborate_empty_queue(
-                    league, payload, kind="TRADE_PROPOSAL", team_id=wanted
+                    league, payload, league_id, season, kind="TRADE_PROPOSAL", team_id=wanted
                 )
                 return []
             return _pending_trades(payload, team_id=wanted)
 
     def _corroborate_empty_queue(
-        self, league: Any, payload: Mapping[str, Any], *, kind: str, team_id: str | None
+        self,
+        league: Any,
+        payload: Mapping[str, Any],
+        league_id: str,
+        season: int,
+        *,
+        kind: str,
+        team_id: str | None,
     ) -> None:
         """Allow an omitted ``pendingTransactions`` to mean "nothing queued", or raise.
 
@@ -1815,19 +1824,28 @@ class EspnProvider:
         ``_espn_transactions`` already reads it. Any other shape there means
         the empty queue cannot be corroborated, which is drift too, never
         silence.
+
+        The log reads bypass the cache, as the write path's live roster read
+        does. A completed period's log caches forever, and the day after a
+        rollover the transaction period is one, so a body answered from the
+        store could never show a claim queued after it was cached and would
+        corroborate an empty queue over a live claim.
         """
+        from fantasy_sports.cache.store import CacheMode
+
         # Every period's rows are folded together: ESPN clamps a future period
         # to the current one, so the same row can come back twice, and the row
         # that retires a claim may be logged a period after the claim itself.
         rows: list[Mapping[str, Any]] = []
-        for period in _log_periods(payload, lookback=_LOG_LOOKBACK[kind]):
-            params: dict[str, Any] = {"view": LOG_VIEW}
-            if period is not None:
-                params["scoringPeriodId"] = period
-            body = league.espn_request.league_get(
-                params=params, headers={"x-fantasy-filter": _log_filter(kind)}
-            )
-            rows.extend(_log_rows(body))
+        with self._transport(league_id, season).mode_for_call(CacheMode.BYPASS):
+            for period in _log_periods(payload, lookback=_LOG_LOOKBACK[kind]):
+                params: dict[str, Any] = {"view": LOG_VIEW}
+                if period is not None:
+                    params["scoringPeriodId"] = period
+                body = league.espn_request.league_get(
+                    params=params, headers={"x-fantasy-filter": _log_filter(kind)}
+                )
+                rows.extend(_log_rows(body))
         unlisted = _unretired_pending(rows, kind=kind, team_id=team_id, now=self._now())
         if unlisted:
             raise _pending_drift(
@@ -3062,7 +3080,10 @@ def _log_rows(body: Any) -> list[Mapping[str, Any]]:
     """
     where = f"corroborating {LOG_VIEW}"
     if not isinstance(body, Mapping):
-        raise _pending_drift(f"has no pendingTransactions, and the {where} is not an object", [])
+        raise _pending_drift(
+            f"has no pendingTransactions, and the {where} is not an object",
+            ["pendingTransactions"],
+        )
     rows = body.get("transactions", [])
     if not isinstance(rows, list):
         raise _pending_drift(

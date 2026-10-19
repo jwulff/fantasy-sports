@@ -450,6 +450,22 @@ def test_a_log_that_cannot_corroborate_an_omitted_queue_is_drift(
         _provider().fetch_pending_claims("99", 2026, "1")
     assert "corroborating mTransactions2" in str(caught.value)
     assert what in str(caught.value)
+    assert caught.value.details["path"] == ["mPendingTransactions", "pendingTransactions"]
+
+
+def test_the_corroborating_log_reads_bypass_the_cache(monkeypatch: pytest.MonkeyPatch):
+    """A completed period's log caches forever, so a cached body could never
+    show a claim queued after it was stored and would corroborate an empty
+    queue over a live one. Every corroborating read goes to ESPN."""
+    espn = install_writable_espn(monkeypatch, omit_empty_queue=True)
+    assert _claims() == []
+    first = len([c for c in espn.calls if c["params"].get("view") == "mTransactions2"])
+    assert first == 2, "one read per bracketed period"
+    assert _claims() == []
+    second = len([c for c in espn.calls if c["params"].get("view") == "mTransactions2"])
+    assert second == 2 * first, "read live again, not served from the store"
+    # The queue view itself keeps its ordinary 15-minute cache.
+    assert espn.views().count("mPendingTransactions") == 1
 
 
 def test_a_body_without_the_key_that_is_not_this_leagues_envelope_is_still_drift(

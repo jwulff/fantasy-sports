@@ -44,13 +44,16 @@ three periods (an offer may stay open two weeks), and a row whose
 `expirationDate` has passed is not live, because what ESPN logs when an offer
 lapses, is accepted, or is declined is uncaptured (#142).
 
-**Traps.** The period before the transaction period caches forever once it
-is a completed week (`completed_through`), so a claim queued just before a
-rollover and processed just after it can keep reading live from the cached
-body until `--fresh`; the write read-backs already read fresh. And the log
-drops a processed claim's own row after a while while keeping its `PROCESS`
-row, so the log can prove a claim live, never that the queue is empty: the
-corroboration is one-directional by construction.
+**Traps.** A completed period's log caches forever (`completed_through`),
+and the day after a rollover the transaction period itself is a completed
+week, so a corroborating read served from the store could never show a claim
+queued after the body was cached, and would corroborate an empty queue over
+a live claim. The corroborating reads therefore bypass the cache
+(`CacheMode.BYPASS`, as the write path's live roster read does) and cost a
+few live GETs per read of an omitted queue. And the log drops a processed
+claim's own row after a while while keeping its `PROCESS` row, so the log
+can prove a claim live, never that the queue is empty: the corroboration is
+one-directional by construction.
 
 **Next evidence to gather.** The first time a claim of John's is live, run
 `fantasy-sports raw --view mPendingTransactions --fresh` and record whether
