@@ -464,8 +464,68 @@ def test_the_corroborating_log_reads_bypass_the_cache(monkeypatch: pytest.Monkey
     assert _claims() == []
     second = len([c for c in espn.calls if c["params"].get("view") == "mTransactions2"])
     assert second == 2 * first, "read live again, not served from the store"
-    # The queue view itself keeps its ordinary 15-minute cache.
-    assert espn.views().count("mPendingTransactions") == 1
+    # The second omitted body came from the store, so it was read again live
+    # before the log was trusted (see the rollover test below).
+    assert espn.views().count("mPendingTransactions") == 2
+
+
+def test_an_omitted_queue_served_from_the_cache_is_read_again_live(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """The queue view keeps a 15-minute cache, but the log check is live. A
+    cached omitted body could predate a claim queued in the ESPN app, or a
+    weekly rollover, so its periods would bracket the wrong log and
+    corroborate an empty queue over a live claim. A cached omitted body is
+    re-read live, and the log periods come from that fresh body."""
+    espn = install_writable_espn(monkeypatch, omit_empty_queue=True)
+    assert _claims() == []
+    assert espn.views().count("mPendingTransactions") == 1, "a live read is not repeated"
+
+    rolled = espn.queue_envelope()
+    rolled["scoringPeriodId"] = 3
+    rolled["status"] = {**rolled["status"], "transactionScoringPeriod": 3}
+    espn.overrides["mPendingTransactions"] = rolled
+    espn.overrides["mTransactions2"] = {
+        "transactions": [_logged_claim("queued-in-the-app", 1, scoringPeriodId=3)]
+    }
+    before = len(espn.calls)
+    with pytest.raises(SchemaDriftError) as caught:
+        _claims()
+    assert [u["id"] for u in caught.value.details["unlisted"]] == ["queued-in-the-app"]
+    assert espn.views().count("mPendingTransactions") == 2
+    periods = [
+        c["params"]["scoringPeriodId"]
+        for c in espn.calls[before:]
+        if c["params"].get("view") == "mTransactions2"
+    ]
+    assert periods == ["2", "3"], "bracketed from the fresh envelope, not the cached one"
+
+
+@pytest.mark.parametrize(
+    "team", [pytest.param(None, id="null"), pytest.param("x", id="not a number")]
+)
+def test_a_live_logged_claim_with_no_readable_team_is_drift_for_a_team_read(
+    monkeypatch: pytest.MonkeyPatch, team: Any
+):
+    """A pending row that names no team cannot be ruled out as this team's, so
+    it is not skipped: it fails the corroboration rather than vanishing."""
+    espn = install_writable_espn(monkeypatch, omit_empty_queue=True)
+    espn.overrides["mTransactions2"] = {
+        "transactions": [{**_logged_claim("unowned", 1), "teamId": team}]
+    }
+    with pytest.raises(SchemaDriftError) as caught:
+        _provider().fetch_pending_claims("99", 2026, "1")
+    assert caught.value.details["unlisted"] == [
+        {"id": "unowned", "team_id": None, "scoring_period": 2}
+    ]
+
+
+def test_a_live_logged_proposal_naming_no_team_is_not_skipped():
+    from fantasy_sports.providers.espn import _unretired_pending
+
+    row = {"id": "p", "type": "TRADE_PROPOSAL", "status": "PENDING", "items": [{}]}
+    found = _unretired_pending([row], kind="TRADE_PROPOSAL", team_id="1", now=datetime.now(UTC))
+    assert [u["id"] for u in found] == ["p"]
 
 
 def test_a_body_without_the_key_that_is_not_this_leagues_envelope_is_still_drift(

@@ -50,7 +50,11 @@ week, so a corroborating read served from the store could never show a claim
 queued after the body was cached, and would corroborate an empty queue over
 a live claim. The corroborating reads therefore bypass the cache
 (`CacheMode.BYPASS`, as the write path's live roster read does) and cost a
-few live GETs per read of an omitted queue. And the log drops a processed
+few live GETs per read of an omitted queue. The queue body must be live too:
+it keeps a 15-minute cache, and the log periods are read off it, so a cached
+omitted body from before a rollover, or before a claim queued in the ESPN
+app, brackets the wrong weeks. A cached omitted body is re-read live first.
+And the log drops a processed
 claim's own row after a while while keeping its `PROCESS` row, so the log
 can prove a claim live, never that the queue is empty: the corroboration is
 one-directional by construction.

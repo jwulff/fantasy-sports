@@ -64,6 +64,16 @@ league answers the same state with the league envelope and no key at all.
   as the write path's live roster read does); a test counts the live reads.
   The non-object log body now reports the same `details.path` as the other
   malformed-log cases.
+- **The cross-model review's findings, taken.** Codex and Claude, reviewing
+  independently, both found that the queue body itself kept its 15-minute
+  cache while the log check was live. A cached omitted body could predate a
+  claim queued in the ESPN app, an offer made to this team, or a weekly
+  rollover. Because the log periods come from that body, a rollover could
+  bracket the wrong weeks and corroborate `[]` over a live claim. A cached
+  omitted body is now read again live before the log is consulted, and a
+  live one is not read twice. Codex also found that a pending log row with
+  no readable `teamId` was skipped by a team-scoped read; such a row now
+  fails the check instead of vanishing.
 - **Safety of the writes is untouched.** `cancel-claim` and `trade cancel`
   still need the id in the queue they read, so an omitted queue refuses them
   as `CONFIG_INVALID` with nothing sent. A `claim` whose queue omits the claim
@@ -78,12 +88,13 @@ league answers the same state with the league envelope and no key at all.
 
 ## Validation
 
-- `uv run pytest -m 'not live'`: 2154 passed. New tests cover the captured
+- `uv run pytest -m 'not live'`: 2162 passed. New tests cover the captured
   envelope, the period bracketing, every retiring-row shape seen live, a live
   claim the queue omitted (drift, with ids), a log that cannot corroborate,
   a body without the key that is not this league's envelope, `claims` and
   `trades` returning `[]`, a refused cancel, and the accepted-but-omitted
-  claim read-back.
+  claim read-back, a cached omitted body re-read live across a rollover, and
+  a pending log row that names no team.
 - `ruff check`, `ruff format --check`, `scripts/check_startup.py`, and
   `scripts/check_budgets.py` pass.
 - Live, read-only, from the worktree: `claims --fresh` on dragon-slayers,

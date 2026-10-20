@@ -1747,14 +1747,9 @@ class EspnProvider:
             omits the queue while the transaction log still holds a live claim.
         """
         with self._read(league_id, season, "fetch_pending_claims") as league:
-            payload = league.espn_request.league_get(params={"view": PENDING_VIEW})
             wanted = None if team_id is None else str(team_id).strip()
-            if _queue_omitted(payload, league_id=league_id, season=season):
-                self._corroborate_empty_queue(
-                    league, payload, league_id, season, kind="WAIVER", team_id=wanted
-                )
-                return []
-            return _pending_claims(payload, team_id=wanted)
+            payload = self._pending_queue(league, league_id, season, kind="WAIVER", team_id=wanted)
+            return [] if payload is None else _pending_claims(payload, team_id=wanted)
 
     def fetch_pending_trades(
         self, league_id: str, season: int, team_id: str | None = None
@@ -1773,14 +1768,42 @@ class EspnProvider:
             :meth:`fetch_pending_claims`).
         """
         with self._read(league_id, season, "fetch_pending_trades") as league:
-            payload = league.espn_request.league_get(params={"view": PENDING_VIEW})
             wanted = None if team_id is None else str(team_id).strip()
-            if _queue_omitted(payload, league_id=league_id, season=season):
-                self._corroborate_empty_queue(
-                    league, payload, league_id, season, kind="TRADE_PROPOSAL", team_id=wanted
-                )
-                return []
-            return _pending_trades(payload, team_id=wanted)
+            payload = self._pending_queue(
+                league, league_id, season, kind="TRADE_PROPOSAL", team_id=wanted
+            )
+            return [] if payload is None else _pending_trades(payload, team_id=wanted)
+
+    def _pending_queue(
+        self, league: Any, league_id: str, season: int, *, kind: str, team_id: str | None
+    ) -> Any | None:
+        """The ``mPendingTransactions`` body to parse, or ``None`` for an
+        omitted queue the transaction log corroborates as empty.
+
+        The queue view keeps its 15-minute cache, but the log check is live. An
+        omitted body served from the store may predate a claim queued in the
+        ESPN app, an offer made to this team, or a weekly rollover -- and its
+        periods are the ones the log is read for -- so a cached omitted body is
+        read again live before anything is concluded from it. A live omitted
+        body is not read twice.
+        """
+        from fantasy_sports.cache.store import CacheMode
+
+        params = {"view": PENDING_VIEW}
+        payload = league.espn_request.league_get(params=params)
+        if not _queue_omitted(payload, league_id=league_id, season=season):
+            return payload
+        transport = self._transport(league_id, season)
+        first = transport.responses.get(PENDING_VIEW)
+        if first is None or first.cached:
+            with transport.mode_for_call(CacheMode.BYPASS):
+                payload = league.espn_request.league_get(params=params)
+            if not _queue_omitted(payload, league_id=league_id, season=season):
+                return payload
+        self._corroborate_empty_queue(
+            league, payload, league_id, season, kind=kind, team_id=team_id
+        )
+        return None
 
     def _corroborate_empty_queue(
         self,
@@ -3110,7 +3133,8 @@ def _unretired_pending(
     or failed, while the claim's own row reads ``PENDING`` either way.
     ``team_id`` keeps one team's rows: a claim's ``teamId``, or either side of
     a proposal, the same test :func:`_pending_trades` applies, because an
-    offer made *to* this team is in its queue too. A proposal whose
+    offer made *to* this team is in its queue too. A row naming no readable
+    team is kept, since it cannot be shown to be another team's. A proposal whose
     ``expirationDate`` has passed is not live, whatever its row still says;
     what ESPN logs when an offer lapses, is accepted, or is declined is
     uncaptured (#142). A row seen under two periods counts once, by id.
@@ -3127,8 +3151,10 @@ def _unretired_pending(
             continue
         team = _as_int(row.get("teamId"))
         if team_id is not None:
-            named = _teams_named(row) if kind == "TRADE_PROPOSAL" else {str(team)}
-            if team_id not in named:
+            # A row that names no readable team cannot be ruled out as this
+            # team's, so it is kept: it fails the check rather than vanishing.
+            named = (_teams_named(row) if kind == "TRADE_PROPOSAL" else {str(team)}) - {"None"}
+            if named and team_id not in named:
                 continue
         expires = _as_int(row.get("expirationDate"))
         if expires is not None and from_epoch_millis(expires) <= now:
