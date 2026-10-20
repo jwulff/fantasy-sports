@@ -238,11 +238,15 @@ def test_a_transport_failure_is_provider_unavailable_without_a_retry(store: Cach
         attempts += 1
         raise TimeoutError("read timed out")
 
+    client = _client(_dead, store)
     with pytest.raises(ProviderUnavailableError) as caught:
-        _client(_dead, store).experts()
+        client.experts()
     assert attempts == 1
     assert caught.value.retryable is True
     assert caught.value.details == {"cause": "TimeoutError", "endpoint": "experts"}
+    # A request that timed out after dispatch may still have been served and
+    # charged against the daily quota, so the budget counter counts it.
+    assert client.requests_made == 1
 
 
 def test_a_taxonomy_error_raised_by_the_transport_passes_through_untouched(store: CacheStore):

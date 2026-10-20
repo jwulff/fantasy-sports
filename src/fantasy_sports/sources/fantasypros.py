@@ -586,13 +586,16 @@ class FantasyProsClient:
         **before** the fetcher can store the body."""
         key = self.api_key()
         self.pacer.wait()
+        # Counted at dispatch, not on return: a request that times out after
+        # it was sent may still have been served and charged against the
+        # 500-a-day quota, so the budget counter must not under-report it.
+        self.requests_made += 1
         response = self._send(
             url,
             params,
             {API_KEY_HEADER: key, "Accept": "application/json"},
             endpoint=endpoint,
         )
-        self.requests_made += 1
         status = int(getattr(response, "status_code", 0))
 
         if status == 429:
