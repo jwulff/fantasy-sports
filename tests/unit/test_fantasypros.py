@@ -277,6 +277,47 @@ def test_requests_are_spaced_at_least_a_second_apart_in_process(
     assert client.requests_made == 3
 
 
+def test_concurrent_requests_on_one_pacer_queue_rather_than_send_together():
+    import threading
+
+    clock = {"t": 100.0}
+    stamps: list[float] = []
+    guard = threading.Lock()
+
+    def _sleep(seconds: float) -> None:
+        with guard:
+            clock["t"] += seconds
+
+    pacer = Pacer(monotonic=lambda: clock["t"], sleep=_sleep)
+    pacer.wait()  # the first request stamps t=100
+    barrier = threading.Barrier(4)
+
+    def _go() -> None:
+        barrier.wait()
+        pacer.wait()
+        stamps.append(pacer.last_request_at or 0.0)
+
+    threads = [threading.Thread(target=_go) for _ in range(4)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    ordered = sorted(stamps)
+    assert all(b - a >= 1.0 - 1e-9 for a, b in zip(ordered, ordered[1:], strict=False))
+    assert len(set(stamps)) == 4
+
+
+@pytest.mark.parametrize("position", ["OP", "IDP", "DL", "LB", "DB", "FLX"])
+def test_superflex_and_idp_formats_reach_the_wire(store: CacheStore, position: str):
+    """Not refused locally. The stub answers with a body only the server could give."""
+    wire = RecordedFantasyPros(
+        overrides={"consensus-rankings": (200, {"message": "stub: not recorded"})}
+    )
+    with pytest.raises(ConfigInvalidError):
+        _client(wire, store).consensus_rankings(week=WEEK, position=position)
+    assert [c["params"]["position"] for c in wire.calls] == [position]
+
+
 def test_the_pacer_is_shared_across_clients_in_one_process():
     assert fantasypros.shared_pacer() is fantasypros.shared_pacer()
     a = FantasyProsClient(season=SEASON)

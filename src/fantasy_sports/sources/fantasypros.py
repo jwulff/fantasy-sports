@@ -56,6 +56,7 @@ or ``espn_api``.
 from __future__ import annotations
 
 import json
+import threading
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
@@ -111,9 +112,25 @@ SPORT: Final[str] = "nfl"
 PREMIUM_TIER: Final[str] = "premium"
 """The only ``tier`` whose lists are complete. Anything else is truncated."""
 
-POSITIONS: Final[tuple[str, ...]] = ("QB", "RB", "WR", "TE", "K", "DST", "FLX")
-"""What ``consensus-rankings`` accepts for ``position``. Anything else is a 200
-with ``{"message": "Invalid Position"}``, so it is refused before sending."""
+POSITIONS: Final[tuple[str, ...]] = (
+    "QB",
+    "RB",
+    "WR",
+    "TE",
+    "K",
+    "DST",
+    "FLX",
+    "OP",
+    "IDP",
+    "DL",
+    "LB",
+    "DB",
+)
+"""The ranking formats FantasyPros lists for itself (the premium capture's
+``ecr_experts`` keys): the offensive slots, ``OP`` for superflex, and the IDP
+groups. Anything else is a 200 or 400 with ``{"message": "Invalid Position"}``,
+so a typo is refused before sending. The server stays the authority: a format
+this list misses still comes back as ``CONFIG_INVALID`` carrying its message."""
 
 SCORINGS: Final[tuple[str, ...]] = ("STD", "HALF", "PPR")
 
@@ -190,6 +207,7 @@ class Pacer:
         self._sleep = sleep
         self.last_request_at: float | None = None
         """When the previous request went out, on the monotonic clock."""
+        self._lock = threading.Lock()
 
     def wait(self) -> float:
         """Block until the next request may go, then stamp it. Returns the wait."""
@@ -200,16 +218,19 @@ class Pacer:
         monotonic = self._monotonic or time.monotonic
         sleep = self._sleep or time.sleep
 
-        now = monotonic()
-        waited = 0.0
-        if self.last_request_at is not None:
-            remaining = self.last_request_at + self.min_interval - now
-            if remaining > 0:
-                sleep(remaining)
-                waited = remaining
-                now = monotonic()
-        self.last_request_at = now
-        return waited
+        # Held through the sleep and the stamp: two threads sharing the pacer
+        # must queue, or both read the same last_request_at and send together.
+        with self._lock:
+            now = monotonic()
+            waited = 0.0
+            if self.last_request_at is not None:
+                remaining = self.last_request_at + self.min_interval - now
+                if remaining > 0:
+                    sleep(remaining)
+                    waited = remaining
+                    now = monotonic()
+            self.last_request_at = now
+            return waited
 
 
 _SHARED_PACER: Pacer | None = None

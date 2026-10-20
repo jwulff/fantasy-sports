@@ -82,6 +82,10 @@ records the shape.
 - Rebased onto main on 2026-10-20 (one conflict, the `docs/memory/MEMORY.md` index, kept both
   lines) and the suite re-run offline: 2278 passed, 19 skipped, 99.22% total coverage
   (`sources/fantasypros.py` 100%).
+- Preflight (Codex) caught two defects, both fixed: the position whitelist refused the
+  superflex and IDP formats (`OP`, `IDP`, `DL`, `LB`, `DB`) that the premium capture's
+  `ecr_experts` lists, and the shared pacer could let two threads send together, so it now
+  holds a lock through the wait and the stamp. Each has a test.
 - Not done, filed as follow-ups: `auth login --only <name>` so the key can be
   added without re-pasting the cookies; generalising
   `AuthExpiredError.agent_action`'s ESPN wording.
