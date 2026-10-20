@@ -1,0 +1,89 @@
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "fantasypros",
+  "league_id": null,
+  "season": 2026,
+  "generated_at": "2026-10-20T16:09:09Z",
+  "data_as_of": "2026-10-20T16:09:09Z",
+  "data_age_seconds": 0,
+  "sources": [
+    {
+      "name": "fantasypros:players",
+      "fetched_at": "2026-10-20T16:09:09Z",
+      "age_seconds": 0,
+      "cached": true
+    },
+    {
+      "name": "fantasypros:projections",
+      "fetched_at": "2026-10-20T16:09:09Z",
+      "age_seconds": 0,
+      "cached": false
+    }
+  ],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": [
+    {
+      "fp_id": 22968,
+      "name": "Jahmyr Gibbs",
+      "pro_team": "DET",
+      "position": "RB",
+      "espn_id": "4429795",
+      "points_std": 20.53,
+      "points_half": 23.07,
+      "points_ppr": 25.6,
+      "stats": {
+        "points": 20.53,
+        "points_ppr": 25.6,
+        "points_half": 23.07,
+        "rush_att": 19.36,
+        "rush_yds": 88.46,
+        "rush_tds": 1.04,
+        "rush_yds_100": 0,
+        "rush_yds_200": 0,
+        "scrimage_yards_100": 0,
+        "scrimage_yards_200": 0,
+        "rec_rec": 5.07,
+        "rec_yds": 39.59,
+        "rec_tds": 0.28,
+        "rec_yds_100": 0,
+        "rec_yds_200": 0,
+        "fumbles": 0.1,
+        "ret_tds": 0,
+        "2pt_tds": 0.1
+      }
+    },
+    {
+      "fp_id": 23133,
+      "name": "Bijan Robinson",
+      "pro_team": "ATL",
+      "position": "RB",
+      "espn_id": "4430807",
+      "points_std": 17.08,
+      "points_half": 19.06,
+      "points_ppr": 21.05,
+      "stats": {
+        "points": 17.08,
+        "points_ppr": 21.05,
+        "points_half": 19.06,
+        "rush_att": 17.58,
+        "rush_yds": 84.54,
+        "rush_tds": 0.68,
+        "rush_yds_100": 0,
+        "rush_yds_200": 0,
+        "scrimage_yards_100": 0,
+        "scrimage_yards_200": 0,
+        "rec_rec": 3.97,
+        "rec_yds": 33.5,
+        "rec_tds": 0.24,
+        "rec_yds_100": 0,
+        "rec_yds_200": 0,
+        "fumbles": 0.1,
+        "ret_tds": 0,
+        "2pt_tds": 0.1
+      }
+    },
+    "… 6 more items"
+  ],
+  "error": null
+}

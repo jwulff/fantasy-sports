@@ -25,6 +25,9 @@ Three sources, and every sample says which one it came from:
   in-memory store and whose prompt is answered with placeholder cookies, and
   the write commands, whose write host is a stub answering the way brief 05
   captured ESPN answering. No sample ever writes to a real league.
+* **replayed, FantasyPros** — the ``experts`` commands, served offline from
+  ``tests/cassettes/fantasypros/experts_2026.yaml``. No league is involved,
+  so these samples name none.
 * **synthetic** — an error envelope built directly from the exception class
   in ``core/errors.py`` and rendered by the output layer, for the four codes
   that need a live failure nobody can safely provoke: an expired cookie, an
@@ -40,6 +43,7 @@ Usage::
     uv run python scripts/render_readme_samples.py           # regenerate + splice
     uv run python scripts/render_readme_samples.py --splice  # splice committed samples
     uv run python scripts/render_readme_samples.py --check   # exit 1 if the docs drifted
+    uv run python scripts/render_readme_samples.py --only-experts  # offline; keeps live samples
 
 This is a development script. It is not part of the wheel and nothing in
 ``src/`` imports it; the test imports only its pure functions.
@@ -79,6 +83,12 @@ SYNTHETIC_LEAGUE = "synthetic league 99, season 2026"
 #: the chain repairs a malformed one and would otherwise pass it through.
 PLACEHOLDER_S2 = "placeholder-not-a-real-cookie"
 PLACEHOLDER_SWID = "{00000000-0000-0000-0000-000000000000}"
+
+PLACEHOLDER_FP_KEY = "placeholder-not-a-real-fantasypros-key"
+"""The FantasyPros key the expert samples run under. The recording is served from
+disk, so no request carries it anywhere."""
+
+EXPERTS_LEAGUE = "no league, FantasyPros recording of 2026-10-20"
 
 PUBLIC_CONFIG = """\
 default = "public"
@@ -734,7 +744,76 @@ def replayed_samples(recorder: Recorder) -> None:
     _auth_samples(recorder)
     _journal_samples(recorder)
     _write_samples(recorder)
+    experts_samples(recorder)
     sandbox.write_config(PUBLIC_CONFIG)
+
+
+def experts_samples(recorder: Recorder) -> None:
+    """The ``experts`` commands, replayed from the trimmed FantasyPros recording.
+
+    No league is involved, so nothing here reads ESPN: ``requests.get`` is
+    pointed at ``tests/cassettes/fantasypros/experts_2026.yaml`` through the
+    same stub the unit tests use, and the shared pacer's sleep is removed so
+    the second request of a command does not wait out a real second. The
+    invocations run in a fixed order in a fresh cache, which is why the
+    players table reads ``cached: false`` once and ``cached: true`` after.
+    """
+    sys.path.insert(0, str(REPO / "tests"))
+    import requests
+    from _harness import RecordedFantasyPros
+
+    from fantasy_sports.sources import fantasypros
+
+    sandbox = recorder.sandbox
+    env = {**sandbox.env(), "FANTASY_SPORTS_FANTASYPROS_API_KEY": PLACEHOLDER_FP_KEY}
+    replayed = {"source": "replayed", "league": EXPERTS_LEAGUE, "env": env}
+
+    original_get, original_pacer = requests.get, fantasypros._SHARED_PACER
+    requests.get = RecordedFantasyPros("fantasypros/experts_2026.yaml")
+    fantasypros._SHARED_PACER = fantasypros.Pacer(monotonic=lambda: 0.0, sleep=lambda _: None)
+    try:
+        recorder.run(
+            "experts-rankings", ["experts", "rankings", "--pos", "RB"], **replayed, items=2
+        )
+        recorder.run(
+            "experts-rankings.table",
+            ["experts", "rankings", "--pos", "RB", "--output", "table"],
+            **replayed,
+        )
+        recorder.run(
+            "experts-rankings.week",
+            ["experts", "rankings", "--pos", "RB", "--week", "5"],
+            **replayed,
+            items=1,
+            note="Week 5 is closed; FantasyPros serves it as published before kickoff",
+        )
+        recorder.run(
+            "experts-rankings.ros",
+            ["experts", "rankings", "--pos", "RB", "--ros"],
+            **replayed,
+            items=1,
+        )
+        recorder.run(
+            "experts-projections", ["experts", "projections", "--pos", "RB"], **replayed, items=2
+        )
+        recorder.run(
+            "experts-projections.player",
+            ["experts", "projections", "--player", "4430807"],
+            **replayed,
+            note="--player takes an ESPN id here; a FantasyPros id or a name works too",
+        )
+        recorder.run("experts-injuries", ["experts", "injuries"], **replayed, items=3)
+        recorder.run("experts-news", ["experts", "news"], **replayed, items=2)
+        recorder.run("experts-news.table", ["experts", "news", "--output", "table"], **replayed)
+        recorder.run(
+            "error-config-invalid.player",
+            ["experts", "projections", "--player", "Josh A"],
+            **replayed,
+            expect=6,
+            note="Four players start with that name, so the command lists them and sends nothing",
+        )
+    finally:
+        requests.get, fantasypros._SHARED_PACER = original_get, original_pacer
 
 
 JOURNAL_SALT = "fantasy-sports/sample-journal/v1"
@@ -1264,6 +1343,48 @@ def splice_docs(*, check: bool) -> int:
     return 0
 
 
+def generate_experts() -> None:
+    """Regenerate only the ``experts`` samples (and ``--help``), keeping the rest.
+
+    Every other committed sample is left byte-for-byte as it is, which is the
+    point: the live ones are ESPN's public league as of the day they were
+    generated, and regenerating them to add a command would rewrite them all.
+    The ``experts`` samples and ``help`` need no network.
+    """
+    with tempfile.TemporaryDirectory(prefix="fantasy-sports-samples-") as tmp:
+        recorder = Recorder(Sandbox(Path(tmp)))
+        recorder.sandbox.write_config(SYNTHETIC_CONFIG)
+        experts_samples(recorder)
+        help_text = subprocess.run(
+            [str(console_script()), "--help"],
+            check=True,
+            capture_output=True,
+            text=True,
+            env={**os.environ, **recorder.sandbox.env()},
+        ).stdout
+        recorder.add(
+            "help", ["--help"], "live", "no league", 0, "stdout", help_text, None, {}, offline=False
+        )
+        fresh = recorder.samples
+    merge_samples(fresh)
+    print(f"wrote {len(fresh)} samples to {SAMPLES_DIR.relative_to(REPO)}")
+
+
+def merge_samples(samples: list[Sample]) -> None:
+    """Write ``samples`` over their namesakes and append the new ones to the index."""
+    entries = json.loads(INDEX_FILE.read_text(encoding="utf-8"))
+    by_name = {entry["name"]: i for i, entry in enumerate(entries)}
+    for sample in samples:
+        (SAMPLES_DIR / sample.file).write_text(sample.text, encoding="utf-8")
+        if sample.name in by_name:
+            entries[by_name[sample.name]] = sample.index_entry()
+        else:
+            entries.append(sample.index_entry())
+    INDEX_FILE.write_text(
+        json.dumps(entries, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
+
+
 def generate() -> None:
     with tempfile.TemporaryDirectory(prefix="fantasy-sports-samples-") as tmp:
         recorder = Recorder(Sandbox(Path(tmp)))
@@ -1279,8 +1400,15 @@ def main(argv: list[str] | None = None) -> int:
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--splice", action="store_true", help="splice the committed samples only")
     mode.add_argument("--check", action="store_true", help="fail if the docs are out of date")
+    mode.add_argument(
+        "--only-experts",
+        action="store_true",
+        help="regenerate just the experts samples and --help, keeping every other sample",
+    )
     args = parser.parse_args(argv)
-    if not (args.splice or args.check):
+    if args.only_experts:
+        generate_experts()
+    elif not (args.splice or args.check):
         generate()
     return splice_docs(check=args.check)
 

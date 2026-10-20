@@ -167,7 +167,7 @@ def _dispatch(spec: CommandSpec, ctx: Any, values: Mapping[str, Any]) -> int:
     # returned above — so `raw` needs no `envelope.ok` guard of its own.
     if no_raw and spec.honors_no_raw:
         envelope = envelope.without_raw()
-    return emit(envelope, fmt=fmt)
+    return emit(envelope, fmt=fmt, columns=spec.table_columns)
 
 
 def _merge_globals(spec: CommandSpec, ctx: Any, values: Mapping[str, Any]) -> dict[str, Any]:
@@ -191,8 +191,9 @@ def _merge_globals(spec: CommandSpec, ctx: Any, values: Mapping[str, Any]) -> di
 def _provider_hint(spec: CommandSpec) -> str | None:
     """The provider to name on a failure, when one can be known without a read.
 
-    Only the ``auth`` commands can answer this before resolving a league, and
-    they are single-provider in v0.1. Everything else leaves it null rather
+    Only the ``auth`` commands and the ``experts`` group can answer this before
+    resolving a league: the first are single-provider in v0.1, and the second
+    is FantasyPros by construction. Everything else leaves it null rather
     than guessing: a ``CONFIG_INVALID`` failure happens before a provider is
     chosen, which is exactly why the envelope allows a null one.
     """
@@ -200,6 +201,8 @@ def _provider_hint(spec: CommandSpec) -> str | None:
         from fantasy_sports.commands.auth import PROVIDER
 
         return PROVIDER
+    if spec.group == "experts":
+        return "fantasypros"
     return None
 
 

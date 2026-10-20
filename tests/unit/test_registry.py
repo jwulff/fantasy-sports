@@ -52,6 +52,10 @@ V01_SURFACE = frozenset(
         "journal reverse",
         "journal show",
         "league info",
+        "experts injuries",
+        "experts news",
+        "experts projections",
+        "experts rankings",
         "lineup set",
         "matchups",
         "raw",
@@ -82,7 +86,9 @@ def test_the_v01_surface_is_registered_and_nothing_else_is():
     behind an acknowledgement gate. `claims` and `cancel-claim` (#109) are
     the waiver queue: what is pending, and withdrawing one. `trades`, `trade
     propose`, and `trade cancel` (#112) are the proposing half of trades;
-    accepting and declining are #142.
+    accepting and declining are #142. The four `experts`
+    commands (jwulff/fantasy-sports#129) are the FantasyPros reads: rankings,
+    projections, injuries and news.
     """
     assert set(REGISTRY) == V01_SURFACE
 
@@ -116,7 +122,10 @@ def test_common_options_reach_every_league_reading_command():
     for spec in REGISTRY.values():
         names = {param.name for param in spec.handler_params}
         common = {param.name for param in COMMON_PARAMS}
-        assert (common <= names) is spec.takes_league, spec.invocation
+        # `experts` reads FantasyPros, which has no leagues: it declares the
+        # options it honours itself, and `--league` there is never required.
+        if spec.group != "experts":
+            assert (common <= names) is spec.takes_league, spec.invocation
         assert "output" not in names, f"{spec.invocation}: rendering is not a handler concern"
         assert "no_raw" not in names, f"{spec.invocation}: raw-stripping is not a handler concern"
 

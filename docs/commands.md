@@ -688,6 +688,7 @@ Commands:
   claims        List a team's pending waiver claims by transaction id, newest first.
   doctor        Run every health check: config, credentials, cache, journal, version, provider.
   drop          Release a player from your own team to waivers. Irreversible.
+  experts       4 subcommands: injuries, news, projections, rankings
   free-agents   List unrostered players, optionally filtered to one position.
   journal       4 subcommands: digest, list, reverse, show
   league        1 subcommand: info
@@ -4310,6 +4311,768 @@ fantasy-sports journal reverse --id 6e1f0b3a-2c4d-4e8f-9a1b-3c5d7e9f1a2b
   },
   "error": null
 }
+```
+<!-- /sample -->
+
+### `experts rankings`
+
+Consensus expert rankings for one position, best first. Rankings and
+projections by FantasyPros. The four `experts` commands read the FantasyPros
+API, not a league: FantasyPros is a *source*, so there is no league to resolve,
+the envelope's `provider` is `fantasypros`, `league_id` is `null`, and every
+entry in `sources[]` is named `fantasypros:<endpoint>` so a consumer can tell
+it from an ESPN source by prefix. They need the FantasyPros API key
+(`FANTASY_SPORTS_FANTASYPROS_API_KEY`, or `auth login`), and a cache hit does
+not read it. Premium is 500 requests a day at one a second; the cache is what
+keeps an agent inside that, and `sources[].cached` says which reads were free.
+
+`data` is a list of rows, and the field names below are an API: another tool
+builds its facts from them. Every row carries `espn_id`, a string joined from
+FantasyPros' players table (one cached request a day), or `null` when
+FantasyPros has no ESPN id for that player.
+
+This command ranks one position, because FantasyPros is read one position at a
+time; `--pos FLX` is the flex pool. Rows are ordered by `rank_ecr`. `--week`
+defaults to the week FantasyPros reports in progress, and a closed week is
+served as it was published before kickoff, with `game_status: "closed"`.
+`--ros` ranks the rest of the season and has no week. With `--league`, the
+league's receptions setting picks the scoring (1.0 is PPR, 0.5 is half-PPR,
+anything else standard); `--scoring` overrides that; with neither it is PPR.
+
+| Option | |
+|---|---|
+| `--pos TEXT` | **Required.** `QB`, `RB`, `WR`, `TE`, `K`, `DST` (or `D/ST`), `FLX` |
+| `--week INTEGER` | NFL week. Omitted: the week in progress. Closed weeks are served |
+| `--scoring TEXT` | `STD`, `HALF` or `PPR`. Omitted: the league's, else `PPR` |
+| `--ros` | Rest-of-season ranking. Cannot be combined with `--week` |
+| `--league`, `-l` | Used only to read the league's receptions setting. Never required |
+| `--season`, `--fresh`, `--no-cache` | As for every read |
+
+Each row: `fp_id`, `name`, `pro_team`, `position`, `rank_ecr`, `rank_min`,
+`rank_max`, `rank_ave`, `rank_std`, `tier` (null unless FantasyPros sends one),
+`ecr_delta`, `opponent` (`vs. GB`, `at SEA`), `kickoff` (UTC), `bye_week`,
+`owned_espn_pct`, `espn_id`, `start_sit_grade`, `pos_rank`, `r2p_pts`,
+`game_status`.
+
+<!-- sample: experts-rankings -->
+```bash
+fantasy-sports experts rankings --pos RB
+# no league, FantasyPros recording of 2026-10-20 (replayed). Exit 0, stdout, trimmed with …:
+```
+```json
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "fantasypros",
+  "league_id": null,
+  "season": 2026,
+  "generated_at": "2026-10-20T16:09:09Z",
+  "data_as_of": "2026-10-20T16:09:09Z",
+  "data_age_seconds": 0,
+  "sources": [
+    {
+      "name": "fantasypros:players",
+      "fetched_at": "2026-10-20T16:09:09Z",
+      "age_seconds": 0,
+      "cached": false
+    },
+    {
+      "name": "fantasypros:consensus-rankings",
+      "fetched_at": "2026-10-20T16:09:09Z",
+      "age_seconds": 0,
+      "cached": false
+    }
+  ],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": [
+    {
+      "fp_id": 22968,
+      "name": "Jahmyr Gibbs",
+      "pro_team": "DET",
+      "position": "RB",
+      "rank_ecr": 1,
+      "rank_min": 1,
+      "rank_max": 2,
+      "rank_ave": 1.17,
+      "rank_std": 0.37,
+      "tier": null,
+      "ecr_delta": null,
+      "opponent": "vs. GB",
+      "kickoff": "2026-10-25T20:25:00Z",
+      "bye_week": 6,
+      "owned_espn_pct": 99.8,
+      "espn_id": "4429795",
+      "start_sit_grade": "A+",
+      "pos_rank": "RB1",
+      "r2p_pts": 25.8,
+      "game_status": "scheduled"
+    },
+    {
+      "fp_id": 23133,
+      "name": "Bijan Robinson",
+      "pro_team": "ATL",
+      "position": "RB",
+      "rank_ecr": 2,
+      "rank_min": 1,
+      "rank_max": 3,
+      "rank_ave": 1.94,
+      "rank_std": 0.4,
+      "tier": null,
+      "ecr_delta": null,
+      "opponent": "vs. SF",
+      "kickoff": "2026-10-25T17:00:00Z",
+      "bye_week": 11,
+      "owned_espn_pct": 99.8,
+      "espn_id": "4430807",
+      "start_sit_grade": "A+",
+      "pos_rank": "RB2",
+      "r2p_pts": 19.7,
+      "game_status": "scheduled"
+    },
+    "… 6 more items"
+  ],
+  "error": null
+}
+```
+<!-- /sample -->
+
+<!-- sample: experts-rankings.week -->
+```bash
+fantasy-sports experts rankings --pos RB --week 5
+# no league, FantasyPros recording of 2026-10-20 (replayed). Exit 0, stdout, trimmed with …. Week 5 is closed; FantasyPros serves it as published before kickoff:
+```
+```json
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "fantasypros",
+  "league_id": null,
+  "season": 2026,
+  "generated_at": "2026-10-20T16:09:09Z",
+  "data_as_of": "2026-10-20T16:09:09Z",
+  "data_age_seconds": 0,
+  "sources": [
+    {
+      "name": "fantasypros:players",
+      "fetched_at": "2026-10-20T16:09:09Z",
+      "age_seconds": 0,
+      "cached": true
+    },
+    {
+      "name": "fantasypros:consensus-rankings",
+      "fetched_at": "2026-10-20T16:09:09Z",
+      "age_seconds": 0,
+      "cached": false
+    }
+  ],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": [
+    {
+      "fp_id": 22968,
+      "name": "Jahmyr Gibbs",
+      "pro_team": "DET",
+      "position": "RB",
+      "rank_ecr": 1,
+      "rank_min": 1,
+      "rank_max": 2,
+      "rank_ave": 1.05,
+      "rank_std": 0.22,
+      "tier": null,
+      "ecr_delta": null,
+      "opponent": "at ARI",
+      "kickoff": "2026-10-11T20:25:00Z",
+      "bye_week": 6,
+      "owned_espn_pct": 99.8,
+      "espn_id": "4429795",
+      "start_sit_grade": "A+",
+      "pos_rank": "RB1",
+      "r2p_pts": 26.7,
+      "game_status": "closed"
+    },
+    "… 7 more items"
+  ],
+  "error": null
+}
+```
+<!-- /sample -->
+
+<!-- sample: experts-rankings.ros -->
+```bash
+fantasy-sports experts rankings --pos RB --ros
+# no league, FantasyPros recording of 2026-10-20 (replayed). Exit 0, stdout, trimmed with …:
+```
+```json
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "fantasypros",
+  "league_id": null,
+  "season": 2026,
+  "generated_at": "2026-10-20T16:09:09Z",
+  "data_as_of": "2026-10-20T16:09:09Z",
+  "data_age_seconds": 0,
+  "sources": [
+    {
+      "name": "fantasypros:players",
+      "fetched_at": "2026-10-20T16:09:09Z",
+      "age_seconds": 0,
+      "cached": true
+    },
+    {
+      "name": "fantasypros:consensus-rankings",
+      "fetched_at": "2026-10-20T16:09:09Z",
+      "age_seconds": 0,
+      "cached": false
+    }
+  ],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": [
+    {
+      "fp_id": 22968,
+      "name": "Jahmyr Gibbs",
+      "pro_team": "DET",
+      "position": "RB",
+      "rank_ecr": 1,
+      "rank_min": 1,
+      "rank_max": 1,
+      "rank_ave": 1.0,
+      "rank_std": 0.0,
+      "tier": null,
+      "ecr_delta": null,
+      "opponent": null,
+      "kickoff": null,
+      "bye_week": 6,
+      "owned_espn_pct": 99.8,
+      "espn_id": "4429795",
+      "start_sit_grade": null,
+      "pos_rank": "RB1",
+      "r2p_pts": 267.6,
+      "game_status": null
+    },
+    "… 7 more items"
+  ],
+  "error": null
+}
+```
+<!-- /sample -->
+
+`--output table` shows the columns an agent scans (rank, name, team, position
+rank, average, opponent, ownership, ESPN id); JSON and CSV carry every field.
+
+<!-- sample: experts-rankings.table -->
+```bash
+fantasy-sports experts rankings --pos RB --output table
+# no league, FantasyPros recording of 2026-10-20 (replayed). Exit 0, stdout:
+```
+```text
+fantasypros · season 2026 · generated 2026-10-20T16:09:09Z · data age 0s
+rank_ecr   name                 pro_team   pos_rank   rank_ave   opponent   owned_espn_pct   espn_id
+────────────────────────────────────────────────────────────────────────────────────────────────────
+1          Jahmyr Gibbs         DET        RB1        1.17       vs. GB     99.8             4429795
+2          Bijan Robinson       ATL        RB2        1.94       vs. SF     99.8             4430807
+3          Kenneth Walker III   KC         RB3        2.89       at SEA     99.8             4567048
+4          Christian            SF         RB4        4.17       at ATL     99.9             3117251
+           McCaffrey                                                                                
+5          Kyren Williams       LAR        RB5        5.11       at LV      99.5             4430737
+6          Derrick Henry        BAL        RB6        7.67       vs. CIN    99.8             3043078
+7          Jonathan Taylor      IND        RB7        7.94       at MIN     99.9             4242335
+9          Javonte Williams     DAL        RB9        8.83       at PHI     99.3                    
+sources: fantasypros:players 0s (cached), fantasypros:consensus-rankings 0s (cached)
+```
+<!-- /sample -->
+
+### `experts projections`
+
+Expert projections with standard, half-PPR and PPR points, and the stat line
+behind them. Rankings and projections by FantasyPros. `--pos` is required
+unless `--player` names the one player wanted. Rows are ordered by the league's
+scoring when `--league` is given (see `experts rankings`), PPR otherwise.
+`--ros` returns rest-of-season totals instead of a week's.
+
+`--player` takes a FantasyPros id, an ESPN id, or a name (exact, else a unique
+prefix), resolved through the cached players table. A token that fits more than
+one player is `CONFIG_INVALID` with `details.kind = "argument"` and the
+candidates listed in `details.candidates`; nothing is sent. `--pos` narrows a
+name.
+
+| Option | |
+|---|---|
+| `--pos TEXT` | As for `experts rankings`. Required unless `--player` is given |
+| `--week INTEGER` | NFL week. Omitted: the week in progress |
+| `--ros` | Rest-of-season totals. Cannot be combined with `--week` |
+| `--player TEXT` | FantasyPros id, ESPN id, or name |
+| `--league`, `-l`, `--season`, `--fresh`, `--no-cache` | As for `experts rankings` |
+
+Each row: `fp_id`, `name`, `pro_team`, `position`, `espn_id`, `points_std`,
+`points_half`, `points_ppr`, and `stats`, FantasyPros' full stat line for the
+projection.
+
+<!-- sample: experts-projections -->
+```bash
+fantasy-sports experts projections --pos RB
+# no league, FantasyPros recording of 2026-10-20 (replayed). Exit 0, stdout, trimmed with …:
+```
+```json
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "fantasypros",
+  "league_id": null,
+  "season": 2026,
+  "generated_at": "2026-10-20T16:09:09Z",
+  "data_as_of": "2026-10-20T16:09:09Z",
+  "data_age_seconds": 0,
+  "sources": [
+    {
+      "name": "fantasypros:players",
+      "fetched_at": "2026-10-20T16:09:09Z",
+      "age_seconds": 0,
+      "cached": true
+    },
+    {
+      "name": "fantasypros:projections",
+      "fetched_at": "2026-10-20T16:09:09Z",
+      "age_seconds": 0,
+      "cached": false
+    }
+  ],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": [
+    {
+      "fp_id": 22968,
+      "name": "Jahmyr Gibbs",
+      "pro_team": "DET",
+      "position": "RB",
+      "espn_id": "4429795",
+      "points_std": 20.53,
+      "points_half": 23.07,
+      "points_ppr": 25.6,
+      "stats": {
+        "points": 20.53,
+        "points_ppr": 25.6,
+        "points_half": 23.07,
+        "rush_att": 19.36,
+        "rush_yds": 88.46,
+        "rush_tds": 1.04,
+        "rush_yds_100": 0,
+        "rush_yds_200": 0,
+        "scrimage_yards_100": 0,
+        "scrimage_yards_200": 0,
+        "rec_rec": 5.07,
+        "rec_yds": 39.59,
+        "rec_tds": 0.28,
+        "rec_yds_100": 0,
+        "rec_yds_200": 0,
+        "fumbles": 0.1,
+        "ret_tds": 0,
+        "2pt_tds": 0.1
+      }
+    },
+    {
+      "fp_id": 23133,
+      "name": "Bijan Robinson",
+      "pro_team": "ATL",
+      "position": "RB",
+      "espn_id": "4430807",
+      "points_std": 17.08,
+      "points_half": 19.06,
+      "points_ppr": 21.05,
+      "stats": {
+        "points": 17.08,
+        "points_ppr": 21.05,
+        "points_half": 19.06,
+        "rush_att": 17.58,
+        "rush_yds": 84.54,
+        "rush_tds": 0.68,
+        "rush_yds_100": 0,
+        "rush_yds_200": 0,
+        "scrimage_yards_100": 0,
+        "scrimage_yards_200": 0,
+        "rec_rec": 3.97,
+        "rec_yds": 33.5,
+        "rec_tds": 0.24,
+        "rec_yds_100": 0,
+        "rec_yds_200": 0,
+        "fumbles": 0.1,
+        "ret_tds": 0,
+        "2pt_tds": 0.1
+      }
+    },
+    "… 6 more items"
+  ],
+  "error": null
+}
+```
+<!-- /sample -->
+
+<!-- sample: experts-projections.player -->
+```bash
+fantasy-sports experts projections --player 4430807
+# no league, FantasyPros recording of 2026-10-20 (replayed). Exit 0, stdout. --player takes an ESPN id here; a FantasyPros id or a name works too:
+```
+```json
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "fantasypros",
+  "league_id": null,
+  "season": 2026,
+  "generated_at": "2026-10-20T16:09:09Z",
+  "data_as_of": "2026-10-20T16:09:09Z",
+  "data_age_seconds": 0,
+  "sources": [
+    {
+      "name": "fantasypros:players",
+      "fetched_at": "2026-10-20T16:09:09Z",
+      "age_seconds": 0,
+      "cached": true
+    },
+    {
+      "name": "fantasypros:projections",
+      "fetched_at": "2026-10-20T16:09:09Z",
+      "age_seconds": 0,
+      "cached": false
+    }
+  ],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": [
+    {
+      "fp_id": 23133,
+      "name": "Bijan Robinson",
+      "pro_team": "ATL",
+      "position": "RB",
+      "espn_id": "4430807",
+      "points_std": 17.08,
+      "points_half": 19.06,
+      "points_ppr": 21.05,
+      "stats": {
+        "points": 17.08,
+        "points_ppr": 21.05,
+        "points_half": 19.06,
+        "rush_att": 17.58,
+        "rush_yds": 84.54,
+        "rush_tds": 0.68,
+        "rush_yds_100": 0,
+        "rush_yds_200": 0,
+        "scrimage_yards_100": 0,
+        "scrimage_yards_200": 0,
+        "rec_rec": 3.97,
+        "rec_yds": 33.5,
+        "rec_tds": 0.24,
+        "rec_yds_100": 0,
+        "rec_yds_200": 0,
+        "fumbles": 0.1,
+        "ret_tds": 0,
+        "2pt_tds": 0.1
+      }
+    }
+  ],
+  "error": null
+}
+```
+<!-- /sample -->
+
+<!-- sample: error-config-invalid.player -->
+```bash
+fantasy-sports experts projections --player 'Josh A'
+# no league, FantasyPros recording of 2026-10-20 (replayed). Exit 6, stderr. Four players start with that name, so the command lists them and sends nothing:
+```
+```json
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "fantasypros",
+  "league_id": null,
+  "season": null,
+  "generated_at": "2026-10-20T16:09:09Z",
+  "data_as_of": null,
+  "data_age_seconds": null,
+  "sources": [],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": null,
+  "error": {
+    "code": "CONFIG_INVALID",
+    "message": "--player 'Josh A' matches 4 players. Candidates: Josh Adams (RB FA, fp 17248, espn 3932420); Josh Ali (WR FA, fp 25218, espn 4259976); Josh Allen (QB BUF, fp 17298, espn 3918298); Josh Avery (DT FA, fp 19699, espn -).",
+    "retryable": false,
+    "agent_action": "Ask the human to fix the input named in the message \u2014 a config value or a command argument. Retrying unchanged cannot work.",
+    "remediation": "Pass the player's FantasyPros id or ESPN id, or a longer, unambiguous name (add --pos to narrow it).",
+    "details": {
+      "player": "Josh A",
+      "candidates": [
+        {
+          "fp_id": 17248,
+          "name": "Josh Adams",
+          "position": "RB",
+          "pro_team": "FA",
+          "espn_id": "3932420"
+        },
+        {
+          "fp_id": 25218,
+          "name": "Josh Ali",
+          "position": "WR",
+          "pro_team": "FA",
+          "espn_id": "4259976"
+        },
+        {
+          "fp_id": 17298,
+          "name": "Josh Allen",
+          "position": "QB",
+          "pro_team": "BUF",
+          "espn_id": "3918298"
+        },
+        {
+          "fp_id": 19699,
+          "name": "Josh Avery",
+          "position": "DT",
+          "pro_team": "FA",
+          "espn_id": null
+        }
+      ],
+      "total": 4,
+      "kind": "argument"
+    },
+    "health": null
+  }
+}
+```
+<!-- /sample -->
+
+### `experts injuries`
+
+Injuries with practice reports and probability of playing, most recently
+updated first, undated last. Rankings and projections by FantasyPros. Only
+injuries: a player who is not listed is not thereby healthy, because a
+suspension is not an injury. `--week` defaults to the week in progress.
+
+| Option | |
+|---|---|
+| `--pos TEXT` | Keep one position: `QB`, `RB`, `WR`, `TE`, `K`, `DST` |
+| `--team TEXT` | Keep one NFL team, e.g. `SEA` |
+| `--player TEXT` | FantasyPros id, ESPN id, or name |
+| `--week INTEGER` | NFL week. Omitted: the week in progress |
+| `--season`, `--fresh`, `--no-cache` | As for every read |
+
+Each row: `fp_id`, `name`, `pro_team`, `position`, `espn_id`, `status`,
+`status_short`, `injury_type`, `probability_of_playing` (a float from 0 to 1,
+or `null`), `practice` (three entries, `null` for a day not reported),
+`ir_weeks`, `updated_at` (UTC). Empty strings from FantasyPros are `null`.
+
+<!-- sample: experts-injuries -->
+```bash
+fantasy-sports experts injuries
+# no league, FantasyPros recording of 2026-10-20 (replayed). Exit 0, stdout, trimmed with …:
+```
+```json
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "fantasypros",
+  "league_id": null,
+  "season": 2026,
+  "generated_at": "2026-10-20T16:09:09Z",
+  "data_as_of": "2026-10-20T16:09:09Z",
+  "data_age_seconds": 0,
+  "sources": [
+    {
+      "name": "fantasypros:players",
+      "fetched_at": "2026-10-20T16:09:09Z",
+      "age_seconds": 0,
+      "cached": true
+    },
+    {
+      "name": "fantasypros:injuries",
+      "fetched_at": "2026-10-20T16:09:09Z",
+      "age_seconds": 0,
+      "cached": false
+    }
+  ],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": [
+    {
+      "fp_id": 19784,
+      "name": "Micah Parsons",
+      "pro_team": "GB",
+      "position": "LB",
+      "espn_id": "4361423",
+      "status": "PUP",
+      "status_short": "PUP",
+      "injury_type": null,
+      "probability_of_playing": null,
+      "practice": [
+        null,
+        null,
+        null
+      ],
+      "ir_weeks": [],
+      "updated_at": "2026-10-20T15:50:03Z"
+    },
+    {
+      "fp_id": 19231,
+      "name": "Travis Etienne Jr.",
+      "pro_team": "NO",
+      "position": "RB",
+      "espn_id": "4239996",
+      "status": "IR",
+      "status_short": "IR",
+      "injury_type": null,
+      "probability_of_playing": null,
+      "practice": [
+        null,
+        null,
+        null
+      ],
+      "ir_weeks": [
+        4,
+        5,
+        6,
+        7
+      ],
+      "updated_at": "2026-10-20T15:50:03Z"
+    },
+    {
+      "fp_id": 18218,
+      "name": "A.J. Brown",
+      "pro_team": "NE",
+      "position": "WR",
+      "espn_id": "4047646",
+      "status": "Questionable",
+      "status_short": "Q",
+      "injury_type": "Ankle",
+      "probability_of_playing": 0.97772,
+      "practice": [
+        "Limit",
+        null,
+        null
+      ],
+      "ir_weeks": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "updated_at": "2026-10-19T00:00:00Z"
+    },
+    "… 3 more items"
+  ],
+  "error": null
+}
+```
+<!-- /sample -->
+
+### `experts news`
+
+The player-news wire, newest first, each item with the fantasy-impact line.
+Rankings and projections by FantasyPros. `--player` reads one player's wire and
+costs one request per player; FantasyPros ignores a list. Title, summary and
+impact are third-party prose and are labelled in the envelope's `untrusted`
+map, by path, like ESPN's free text.
+
+| Option | |
+|---|---|
+| `--player TEXT` | FantasyPros id, ESPN id, or name |
+| `--category TEXT` | Keep one category, e.g. `injury` |
+| `--limit INTEGER` | Most-recent items to return. Default 25 |
+| `--season`, `--fresh`, `--no-cache` | As for every read |
+
+Each row: `id`, `created_at` (UTC), `title`, `summary`, `impact`, `player`
+(`fp_id`, `name`, `espn_id`, or `null`), `team`, `categories`, `url`.
+
+<!-- sample: experts-news -->
+```bash
+fantasy-sports experts news
+# no league, FantasyPros recording of 2026-10-20 (replayed). Exit 0, stdout, trimmed with …:
+```
+```json
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "fantasypros",
+  "league_id": null,
+  "season": 2026,
+  "generated_at": "2026-10-20T16:09:09Z",
+  "data_as_of": "2026-10-20T16:09:09Z",
+  "data_age_seconds": 0,
+  "sources": [
+    {
+      "name": "fantasypros:players",
+      "fetched_at": "2026-10-20T16:09:09Z",
+      "age_seconds": 0,
+      "cached": true
+    },
+    {
+      "name": "fantasypros:news",
+      "fetched_at": "2026-10-20T16:09:09Z",
+      "age_seconds": 0,
+      "cached": false
+    }
+  ],
+  "untrusted": {
+    "[0].title": "Zane Gonzalez brought in by Dolphins",
+    "[0].summary": "Zane Gonzalez signed with the Dolphins on Tuesday.",
+    "…": "… 16 more entries"
+  },
+  "raw_omitted": false,
+  "data": [
+    {
+      "id": 614924,
+      "created_at": "2026-10-20T15:28:51Z",
+      "title": "Zane Gonzalez brought in by Dolphins",
+      "summary": "Zane Gonzalez signed with the Dolphins on Tuesday.",
+      "impact": "After trying out multiple kickers, Gonzalez was signed by the Dolphins to begin the week. Riley Patterson was released soon after.",
+      "player": {
+        "fp_id": 16548,
+        "name": "Zane Gonzalez",
+        "espn_id": "3043234"
+      },
+      "team": "FA",
+      "categories": [
+        "Commentary",
+        "News"
+      ],
+      "url": "https://www.fantasypros.com/nfl/news/614924/zane-gonzalez-brought-by-dolphins.php"
+    },
+    {
+      "id": 614923,
+      "created_at": "2026-10-20T15:26:09Z",
+      "title": "Riley Patterson released by Dolphins",
+      "summary": "Riley Patterson was released by the Dolphins on Tuesday.",
+      "impact": "The Dolphins will make a mid-season change at kicker. Veteran Zane Gonzalez was signed on Tuesday after the team tried out multiple kickers.",
+      "player": {
+        "fp_id": 23370,
+        "name": "Riley Patterson",
+        "espn_id": "4243371"
+      },
+      "team": "MIA",
+      "categories": [
+        "Commentary",
+        "News"
+      ],
+      "url": "https://www.fantasypros.com/nfl/news/614923/riley-patterson-released-by-dolphins.php"
+    },
+    "… 4 more items"
+  ],
+  "error": null
+}
+```
+<!-- /sample -->
+
+<!-- sample: experts-news.table -->
+```bash
+fantasy-sports experts news --output table
+# no league, FantasyPros recording of 2026-10-20 (replayed). Exit 0, stdout:
+```
+```text
+fantasypros · season 2026 · generated 2026-10-20T16:09:09Z · data age 0s
+created_at             player.name                team   title                                      
+────────────────────────────────────────────────────────────────────────────────────────────────────
+2026-10-20T15:28:51Z   Zane Gonzalez              FA     Zane Gonzalez brought in by Dolphins       
+2026-10-20T15:26:09Z   Riley Patterson            MIA    Riley Patterson released by Dolphins       
+2026-10-20T15:09:55Z   Najee Harris               NYG    Najee Harris cut loose by Giants           
+2026-10-20T13:39:57Z   Terry McLaurin             WAS    Terry McLaurin (knee) to have MRI on       
+                                                         Tuesday                                    
+2026-10-20T13:35:40Z   Marquez Valdes-Scantling   FA     Marquez Valdes-Scantling to join Steelers  
+2026-10-20T10:00:20Z   San Francisco 49ers        SF     49ers D/ST picks up four sacks in Week 6   
+sources: fantasypros:players 0s (cached), fantasypros:news 0s (cached)
 ```
 <!-- /sample -->
 

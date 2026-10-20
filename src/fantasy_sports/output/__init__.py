@@ -21,6 +21,7 @@ output:
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from typing import Any
 
 from fantasy_sports.output import csv as csv_renderer
@@ -59,9 +60,22 @@ _RENDERERS = {
 }
 
 
-def render(envelope: Envelope, fmt: OutputFormat | str | None = None, *, stream: Any = None) -> str:
-    """Render ``envelope`` in ``fmt``, or in the format ``stream`` implies."""
-    return _RENDERERS[resolve_format(fmt, stream)](envelope)
+def render(
+    envelope: Envelope,
+    fmt: OutputFormat | str | None = None,
+    *,
+    stream: Any = None,
+    columns: Sequence[str] = (),
+) -> str:
+    """Render ``envelope`` in ``fmt``, or in the format ``stream`` implies.
+
+    ``columns`` narrows the **table** to those dotted row paths and nothing
+    else: JSON and CSV are the contract and always carry every field.
+    """
+    chosen = resolve_format(fmt, stream)
+    if chosen is OutputFormat.TABLE and columns:
+        return table_renderer.render(envelope, columns=columns)
+    return _RENDERERS[chosen](envelope)
 
 
 def emit(
@@ -71,6 +85,7 @@ def emit(
     stdout: Any = None,
     stderr: Any = None,
     guidance: str | None = None,
+    columns: Sequence[str] = (),
 ) -> int:
     """Write ``envelope`` to the right stream and return the process exit status.
 
@@ -93,7 +108,7 @@ def emit(
             stderr.write("\n" + guidance + "\n")
         return exit_code_for(envelope.error)
 
-    stdout.write(render(envelope, fmt, stream=stdout))
+    stdout.write(render(envelope, fmt, stream=stdout, columns=columns))
     return EXIT_OK
 
 

@@ -1,0 +1,516 @@
+interactions:
+- request:
+    body: null
+    headers:
+      Accept:
+      - application/json
+      x-api-key:
+      - REDACTED
+    method: GET
+    uri: https://api.fantasypros.com/public/v2/json/nfl/players?external_ids=espn
+  response:
+    body:
+      string: '{"sport":"NFL","count":33,"season":"2026","week":"7","players":[{"player_id":8270,"player_name":"San
+        Francisco 49ers","short_name":"San Francisco","first_name":"San Francisco","last_name":"49ers","reverse_name":"49ers,
+        San Francisco","position_id":"DST","positions":["DST"],"team_id":"SF","filename":"https://www.fantasypros.com/nfl/teams/san-francisco-defense.php","sportsdata_player_id":"f0e724b0-4cbf-495a-be47-013907608da9","rank_ecr":0,"espn_id":"-16025","rank_ecr_ppr":0,"rank_adp_ppr":213,"rank_ecr_half":0,"birthdate":"","birthdatetime":""},{"player_id":9326,"player_name":"Josh
+        Johnson","short_name":"J. Johnson","first_name":"Josh","last_name":"Johnson","reverse_name":"Johnson,
+        Josh","position_id":"QB","positions":["QB"],"team_id":"CIN","filename":"https://www.fantasypros.com/nfl/players/josh-johnson.php","sportsdata_player_id":"73e133bf-d3f7-4fda-bd25-2fde66cb8ee1","rank_ecr":0,"espn_id":"11394","rank_ecr_ppr":0,"rank_adp_ppr":0,"rank_ecr_half":0,"birthdate":"1986-05-15","birthdatetime":516499200,"age":40,"draft_class":2008},{"player_id":12123,"player_name":"Davante
+        Adams","short_name":"D. Adams","first_name":"Davante","last_name":"Adams","reverse_name":"Adams,
+        Davante","position_id":"WR","positions":["WR"],"team_id":"LAR","filename":"https://www.fantasypros.com/nfl/players/davante-adams.php","sportsdata_player_id":"e7d6ae25-bf15-4660-8b37-c37716551de3","rank_ecr":0,"espn_id":"16800","rank_ecr_ppr":0,"rank_adp_ppr":50,"rank_ecr_half":0,"birthdate":"1992-12-24","birthdatetime":725155200,"age":33,"draft_class":2014},{"player_id":15514,"player_name":"Derrick
+        Henry","short_name":"D. Henry","first_name":"Derrick","last_name":"Henry","reverse_name":"Henry,
+        Derrick","position_id":"RB","positions":["RB"],"team_id":"BAL","filename":"https://www.fantasypros.com/nfl/players/derrick-henry.php","sportsdata_player_id":"87c481c7-7414-43cc-82df-19ca0c2ae22e","rank_ecr":0,"espn_id":"3043078","rank_ecr_ppr":0,"rank_adp_ppr":16,"rank_ecr_half":0,"birthdate":"1994-01-04","birthdatetime":757641600,"age":32,"draft_class":2016},{"player_id":16393,"player_name":"Christian
+        McCaffrey","short_name":"C. McCaffrey","first_name":"Christian","last_name":"McCaffrey","reverse_name":"McCaffrey,
+        Christian","position_id":"RB","positions":["RB"],"team_id":"SF","filename":"https://www.fantasypros.com/nfl/players/christian-mccaffrey.php","sportsdata_player_id":"f96db0af-5e25-42d1-a07a-49b4e065b364","rank_ecr":0,"espn_id":"3117251","rank_ecr_ppr":0,"rank_adp_ppr":5,"rank_ecr_half":0,"birthdate":"1996-06-07","birthdatetime":834105600,"age":30,"draft_class":2017},{"player_id":16548,"player_name":"Zane
+        Gonzalez","short_name":"Z. Gonzalez","first_name":"Zane","last_name":"Gonzalez","reverse_name":"Gonzalez,
+        Zane","position_id":"K","positions":["K"],"team_id":"FA","filename":"https://www.fantasypros.com/nfl/players/zane-gonzalez.php","sportsdata_player_id":"cd0f4ef0-9914-4125-be4d-804a72350ceb","rank_ecr":0,"espn_id":"3043234","rank_ecr_ppr":0,"rank_adp_ppr":535,"rank_ecr_half":0,"birthdate":"1995-05-07","birthdatetime":799804800,"age":31,"draft_class":2017},{"player_id":17240,"player_name":"Saquon
+        Barkley","short_name":"S. Barkley","first_name":"Saquon","last_name":"Barkley","reverse_name":"Barkley,
+        Saquon","position_id":"RB","positions":["RB"],"team_id":"PHI","filename":"https://www.fantasypros.com/nfl/players/saquon-barkley.php","sportsdata_player_id":"9811b753-347c-467a-b3cb-85937e71e2b9","rank_ecr":0,"espn_id":"3929630","rank_ecr_ppr":0,"rank_adp_ppr":14,"rank_ecr_half":0,"birthdate":"1997-02-09","birthdatetime":855446400,"age":29,"draft_class":2018},{"player_id":17248,"player_name":"Josh
+        Adams","short_name":"J. Adams","first_name":"Josh","last_name":"Adams","reverse_name":"Adams,
+        Josh","position_id":"RB","positions":["RB"],"team_id":"FA","filename":"https://www.fantasypros.com/nfl/players/josh-adams.php","sportsdata_player_id":"23b17031-de21-412d-8182-5a4bca1049a1","rank_ecr":0,"espn_id":"3932420","rank_ecr_ppr":0,"rank_adp_ppr":528,"rank_ecr_half":0,"birthdate":"1996-10-29","birthdatetime":846547200,"age":29,"draft_class":2018},{"player_id":17298,"player_name":"Josh
+        Allen","short_name":"J. Allen","first_name":"Josh","last_name":"Allen","reverse_name":"Allen,
+        Josh","position_id":"QB","positions":["QB"],"team_id":"BUF","filename":"https://www.fantasypros.com/nfl/players/josh-allen-qb.php","sportsdata_player_id":"3069db07-aa43-4503-ab11-2ae5c0002721","rank_ecr":0,"espn_id":"3918298","rank_ecr_ppr":0,"rank_adp_ppr":22,"rank_ecr_half":0,"birthdate":"1996-05-21","birthdatetime":832636800,"age":30,"draft_class":2018},{"player_id":17528,"player_name":"Marquez
+        Valdes-Scantling","short_name":"M. Valdes-Scantling","first_name":"Marquez","last_name":"Valdes-Scantling","reverse_name":"Valdes-Scantling,
+        Marquez","position_id":"WR","positions":["WR"],"team_id":"FA","filename":"https://www.fantasypros.com/nfl/players/marquez-valdesscantling.php","sportsdata_player_id":"e7f0a505-8060-403e-a3b3-9d4e88dda1dc","rank_ecr":0,"espn_id":"3051738","rank_ecr_ppr":0,"rank_adp_ppr":0,"rank_ecr_half":0,"birthdate":"1994-10-10","birthdatetime":781747200,"age":32,"draft_class":2018},{"player_id":18218,"player_name":"A.J.
+        Brown","short_name":"A.J. Brown","first_name":"A.J.","last_name":"Brown","reverse_name":"Brown,
+        A.J.","position_id":"WR","positions":["WR"],"team_id":"NE","filename":"https://www.fantasypros.com/nfl/players/aj-brown.php","sportsdata_player_id":"a9e580f2-1fbe-46fb-887c-c84089b507e4","rank_ecr":0,"espn_id":"4047646","rank_ecr_ppr":0,"rank_adp_ppr":18,"rank_ecr_half":0,"birthdate":"1997-06-30","birthdatetime":867628800,"age":29,"draft_class":2019},{"player_id":18466,"player_name":"Terry
+        McLaurin","short_name":"T. McLaurin","first_name":"Terry","last_name":"McLaurin","reverse_name":"McLaurin,
+        Terry","position_id":"WR","positions":["WR"],"team_id":"WAS","filename":"https://www.fantasypros.com/nfl/players/terry-mclaurin.php","sportsdata_player_id":"7e8c4641-2beb-4213-ba22-69fe0307005f","rank_ecr":0,"espn_id":"3121422","rank_ecr_ppr":0,"rank_adp_ppr":58,"rank_ecr_half":0,"birthdate":"1995-09-15","birthdatetime":811123200,"age":31,"draft_class":2019},{"player_id":19210,"player_name":"D''Andre
+        Swift","short_name":"D. Swift","first_name":"D''Andre","last_name":"Swift","reverse_name":"Swift,
+        D''Andre","position_id":"RB","positions":["RB"],"team_id":"CHI","filename":"https://www.fantasypros.com/nfl/players/dandre-swift.php","sportsdata_player_id":"cc4b5f58-a11c-4450-a1df-617ad88336e4","rank_ecr":0,"espn_id":"4259545","rank_ecr_ppr":0,"rank_adp_ppr":44,"rank_ecr_half":0,"birthdate":"1999-01-14","birthdatetime":916272000,"age":27,"draft_class":2020},{"player_id":19217,"player_name":"Jonathan
+        Taylor","short_name":"J. Taylor","first_name":"Jonathan","last_name":"Taylor","reverse_name":"Taylor,
+        Jonathan","position_id":"RB","positions":["RB"],"team_id":"IND","filename":"https://www.fantasypros.com/nfl/players/jonathan-taylor.php","sportsdata_player_id":"925195a4-06ba-4e37-ae7d-a3d6a5419139","rank_ecr":0,"espn_id":"4242335","rank_ecr_ppr":0,"rank_adp_ppr":6,"rank_ecr_half":0,"birthdate":"1999-01-19","birthdatetime":916704000,"age":27,"draft_class":2020},{"player_id":19231,"player_name":"Travis
+        Etienne Jr.","short_name":"T. Etienne Jr.","first_name":"Travis","last_name":"Etienne","reverse_name":"Etienne,
+        Travis","position_id":"RB","positions":["RB"],"team_id":"NO","filename":"https://www.fantasypros.com/nfl/players/travis-etienne.php","sportsdata_player_id":"970693f0-0af4-4627-ac0c-bf519f7433ee","rank_ecr":0,"espn_id":"4239996","rank_ecr_ppr":0,"rank_adp_ppr":34,"rank_ecr_half":0,"birthdate":"1999-01-26","birthdatetime":917308800,"age":27,"draft_class":2021},{"player_id":19302,"player_name":"Najee
+        Harris","short_name":"N. Harris","first_name":"Najee","last_name":"Harris","reverse_name":"Harris,
+        Najee","position_id":"RB","positions":["RB"],"team_id":"NYG","filename":"https://www.fantasypros.com/nfl/players/najee-harris-rb.php","sportsdata_player_id":"48ec58c3-ec26-4434-b005-8d34035e6667","rank_ecr":0,"espn_id":"4241457","rank_ecr_ppr":0,"rank_adp_ppr":231,"rank_ecr_half":0,"birthdate":"1998-03-09","birthdatetime":889401600,"age":28,"draft_class":2021},{"player_id":19699,"player_name":"Josh
+        Avery","short_name":"J. Avery","first_name":"Josh","last_name":"Avery","reverse_name":"Avery,
+        Josh","position_id":"DT","positions":["DT"],"team_id":"FA","filename":"https://www.fantasypros.com/nfl/players/josh-avery.php","sportsdata_player_id":"ef1c7d1b-ad3a-4e57-b4e0-625d86b9c193","rank_ecr":0,"espn_id":null,"rank_ecr_ppr":0,"rank_adp_ppr":0,"rank_ecr_half":0,"birthdate":"1996-03-16","birthdatetime":826934400,"age":30,"draft_class":2020},{"player_id":19784,"player_name":"Micah
+        Parsons","short_name":"M. Parsons","first_name":"Micah","last_name":"Parsons","reverse_name":"Parsons,
+        Micah","position_id":"LB","positions":["LB","LB,DE"],"team_id":"GB","filename":"https://www.fantasypros.com/nfl/players/micah-parsons.php","sportsdata_player_id":"b4eab0bf-9e1f-43f8-912f-d33ac517bc46","rank_ecr":0,"espn_id":"4361423","rank_ecr_ppr":0,"rank_adp_ppr":0,"rank_ecr_half":0,"birthdate":"1999-05-26","birthdatetime":927676800,"age":27,"draft_class":2021},{"player_id":19792,"player_name":"Chuba
+        Hubbard","short_name":"C. Hubbard","first_name":"Chuba","last_name":"Hubbard","reverse_name":"Hubbard,
+        Chuba","position_id":"RB","positions":["RB"],"team_id":"CAR","filename":"https://www.fantasypros.com/nfl/players/chuba-hubbard.php","sportsdata_player_id":"32205e74-b23f-420a-b312-465b29260745","rank_ecr":0,"espn_id":"4241416","rank_ecr_ppr":0,"rank_adp_ppr":91,"rank_ecr_half":0,"birthdate":"1999-06-11","birthdatetime":929059200,"age":27,"draft_class":2021},{"player_id":22958,"player_name":"James
+        Cook III","short_name":"J. Cook III","first_name":"James","last_name":"Cook","reverse_name":"Cook,
+        James","position_id":"RB","positions":["RB"],"team_id":"BUF","filename":"https://www.fantasypros.com/nfl/players/james-cook.php","sportsdata_player_id":"ce5de0e5-9f76-42ee-b93a-3ef88af9b0a7","rank_ecr":0,"espn_id":"4379399","rank_ecr_ppr":0,"rank_adp_ppr":9,"rank_ecr_half":0,"birthdate":"1999-09-25","birthdatetime":938217600,"age":27,"draft_class":2022},{"player_id":22968,"player_name":"Jahmyr
+        Gibbs","short_name":"J. Gibbs","first_name":"Jahmyr","last_name":"Gibbs","reverse_name":"Gibbs,
+        Jahmyr","position_id":"RB","positions":["RB"],"team_id":"DET","filename":"https://www.fantasypros.com/nfl/players/jahmyr-gibbs.php","sportsdata_player_id":"fef9457e-6497-47de-9bf2-cc3b95929375","rank_ecr":0,"espn_id":"4429795","rank_ecr_ppr":0,"rank_adp_ppr":1,"rank_ecr_half":0,"birthdate":"2002-03-20","birthdatetime":1016582400,"age":24,"draft_class":2023},{"player_id":23021,"player_name":"Kenneth
+        Walker III","short_name":"K. Walker III","first_name":"Kenneth","last_name":"Walker","reverse_name":"Walker,
+        Kenneth","position_id":"RB","positions":["RB"],"team_id":"KC","filename":"https://www.fantasypros.com/nfl/players/kenneth-walker-rb.php","sportsdata_player_id":"22ee9bac-a64c-4d44-94fc-51d775465b3b","rank_ecr":0,"espn_id":"4567048","rank_ecr_ppr":0,"rank_adp_ppr":17,"rank_ecr_half":0,"birthdate":"2000-10-20","birthdatetime":972000000,"age":26,"draft_class":2022},{"player_id":23046,"player_name":"Drake
+        Maye","short_name":"D. Maye","first_name":"Drake","last_name":"Maye","reverse_name":"Maye,
+        Drake","position_id":"QB","positions":["QB"],"team_id":"NE","filename":"https://www.fantasypros.com/nfl/players/drake-maye.php","sportsdata_player_id":"d0c0630e-8925-4b81-a32b-e4146d95f01f","rank_ecr":0,"espn_id":"4431452","rank_ecr_ppr":0,"rank_adp_ppr":52,"rank_ecr_half":0,"birthdate":"2002-08-30","birthdatetime":1030665600,"age":24,"draft_class":2024},{"player_id":23059,"player_name":"Kyren
+        Williams","short_name":"K. Williams","first_name":"Kyren","last_name":"Williams","reverse_name":"Williams,
+        Kyren","position_id":"RB","positions":["RB"],"team_id":"LAR","filename":"https://www.fantasypros.com/nfl/players/kyren-williams.php","sportsdata_player_id":"19d44771-8f1d-4127-9b7d-230da137f15d","rank_ecr":0,"espn_id":"4430737","rank_ecr_ppr":0,"rank_adp_ppr":28,"rank_ecr_half":0,"birthdate":"2000-08-26","birthdatetime":967248000,"age":26,"draft_class":2022},{"player_id":23065,"player_name":"TreVeyon
+        Henderson","short_name":"T. Henderson","first_name":"TreVeyon","last_name":"Henderson","reverse_name":"Henderson,
+        TreVeyon","position_id":"RB","positions":["RB"],"team_id":"NE","filename":"https://www.fantasypros.com/nfl/players/treveyon-henderson.php","sportsdata_player_id":"0d9788e6-03ee-416d-8ba2-deb57037d209","rank_ecr":0,"espn_id":"4432710","rank_ecr_ppr":0,"rank_adp_ppr":61,"rank_ecr_half":0,"birthdate":"2002-10-22","birthdatetime":1035244800,"age":23,"draft_class":2025},{"player_id":23133,"player_name":"Bijan
+        Robinson","short_name":"B. Robinson","first_name":"Bijan","last_name":"Robinson","reverse_name":"Robinson,
+        Bijan","position_id":"RB","positions":["RB"],"team_id":"ATL","filename":"https://www.fantasypros.com/nfl/players/bijan-robinson.php","sportsdata_player_id":"f78d68c2-f9da-48e7-b954-26b69efd828d","rank_ecr":0,"espn_id":"4430807","rank_ecr_ppr":0,"rank_adp_ppr":2,"rank_ecr_half":0,"birthdate":"2002-01-30","birthdatetime":1012348800,"age":24,"draft_class":2023},{"player_id":23370,"player_name":"Riley
+        Patterson","short_name":"R. Patterson","first_name":"Riley","last_name":"Patterson","reverse_name":"Patterson,
+        Riley","position_id":"K","positions":["K"],"team_id":"MIA","filename":"https://www.fantasypros.com/nfl/players/riley-patterson.php","sportsdata_player_id":"deac735c-af0a-4f01-ada8-379ef66917ba","rank_ecr":0,"espn_id":"4243371","rank_ecr_ppr":0,"rank_adp_ppr":302,"rank_ecr_half":0,"birthdate":"1999-09-07","birthdatetime":936662400,"age":27,"draft_class":2021},{"player_id":23794,"player_name":"Romeo
+        Doubs","short_name":"R. Doubs","first_name":"Romeo","last_name":"Doubs","reverse_name":"Doubs,
+        Romeo","position_id":"WR","positions":["WR"],"team_id":"NE","filename":"https://www.fantasypros.com/nfl/players/romeo-doubs.php","sportsdata_player_id":"5f559fde-3a5f-4df6-99a2-cd1a4b103c68","rank_ecr":0,"espn_id":"4361432","rank_ecr_ppr":0,"rank_adp_ppr":130,"rank_ecr_half":0,"birthdate":"2000-04-13","birthdatetime":955584000,"age":26,"draft_class":2022},{"player_id":24209,"player_name":"Jaylen
+        Warren","short_name":"J. Warren","first_name":"Jaylen","last_name":"Warren","reverse_name":"Warren,
+        Jaylen","position_id":"RB","positions":["RB"],"team_id":"PIT","filename":"https://www.fantasypros.com/nfl/players/jaylen-warren.php","sportsdata_player_id":"7e397190-ca24-11ec-9f1c-b7114d38a85b","rank_ecr":0,"espn_id":"4569987","rank_ecr_ppr":0,"rank_adp_ppr":68,"rank_ecr_half":0,"birthdate":"1998-11-01","birthdatetime":909878400,"age":27,"draft_class":2022},{"player_id":24212,"player_name":"Josh
+        Johnson","short_name":"J. Johnson","first_name":"Josh","last_name":"Johnson","reverse_name":"Johnson,
+        Josh","position_id":"WR","positions":["WR"],"team_id":"FA","filename":"https://www.fantasypros.com/nfl/players/josh-johnson-wr.php","sportsdata_player_id":"35bb6da0-d321-11ec-8b77-45b1765fd110","rank_ecr":0,"espn_id":null,"rank_ecr_ppr":0,"rank_adp_ppr":0,"rank_ecr_half":0,"birthdate":"1999-08-10","birthdatetime":934243200,"age":27,"draft_class":2022},{"player_id":25218,"player_name":"Josh
+        Ali","short_name":"J. Ali","first_name":"Josh","last_name":"Ali","reverse_name":"Ali,
+        Josh","position_id":"WR","positions":["WR"],"team_id":"FA","filename":"https://www.fantasypros.com/nfl/players/josh-ali.php","sportsdata_player_id":"745a7080-2950-11ed-930d-e71fc740ea47","rank_ecr":0,"espn_id":"4259976","rank_ecr_ppr":0,"rank_adp_ppr":0,"rank_ecr_half":0,"birthdate":"1999-03-03","birthdatetime":920419200,"age":27,"draft_class":2022},{"player_id":25324,"player_name":"Chase
+        Brown","short_name":"C. Brown","first_name":"Chase","last_name":"Brown","reverse_name":"Brown,
+        Chase","position_id":"RB","positions":["RB"],"team_id":"CIN","filename":"https://www.fantasypros.com/nfl/players/chase-brown.php","sportsdata_player_id":"d74ff06d-905d-4fed-8f98-b5f6d4549333","rank_ecr":0,"espn_id":"4362238","rank_ecr_ppr":0,"rank_adp_ppr":13,"rank_ecr_half":0,"birthdate":"2000-03-21","birthdatetime":953596800,"age":26,"draft_class":2023},{"player_id":28109,"player_name":"J''Mari
+        Taylor","short_name":"J. Taylor","first_name":"J''Mari","last_name":"Taylor","reverse_name":"Taylor,
+        J''Mari","position_id":"RB","positions":["RB"],"team_id":"JAC","filename":"https://www.fantasypros.com/nfl/players/jmari-taylor.php","sportsdata_player_id":"074d3d60-418e-11f1-97b1-f7c9890d626f","rank_ecr":0,"espn_id":null,"rank_ecr_ppr":0,"rank_adp_ppr":0,"rank_ecr_half":0,"birthdate":"2002-03-15","birthdatetime":1016150400,"age":24,"rookie":"Y","draft_class":2026}],"public_api":true,"tier":"premium"}'
+    headers:
+      Content-Type:
+      - application/json
+      cache-control:
+      - max-age=600
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - application/json
+      x-api-key:
+      - REDACTED
+    method: GET
+    uri: https://api.fantasypros.com/public/v2/json/nfl/2026/consensus-rankings?week=7&position=RB&scoring=PPR
+  response:
+    body:
+      string: '{"sport":"NFL","type":"Weekly PPR","ranking_type_name":"weekly","year":"2026","week":"7","position_id":"RB","scoring":"PPR","filters":"101,1169,6445,22,7604,7666,747,285,7,1080,4355,3585,7553,96,2373,2639,3354,7254,7647,607","count":8,"total_experts":20,"last_updated":"10/20","players":[{"player_id":22968,"player_name":"Jahmyr
+        Gibbs","sportsdata_id":"fef9457e-6497-47de-9bf2-cc3b95929375","player_team_id":"DET","player_position_id":"RB","player_positions":"RB","player_short_name":"J.
+        Gibbs","player_eligibility":"RB","player_yahoo_positions":"RB","player_page_url":"https://www.fantasypros.com/nfl/players/jahmyr-gibbs.php","player_filename":"jahmyr-gibbs.php","player_yahoo_id":"40059","cbs_player_id":"3162723","player_bye_week":"6","player_owned_avg":99.8,"player_owned_espn":99.8,"player_owned_yahoo":100,"player_opponent":"vs.
+        GB","player_opponent_id":"GB","player_game_kickoff_ts":1792959900,"player_game_status":"scheduled","player_ecr_delta":null,"rank_ecr":1,"rank_min":"1","rank_max":"2","rank_ave":"1.17","rank_std":"0.37","note":null,"tag":null,"recommendation":null,"pos_rank":"RB1","start_sit_grade":"A+","r2p_pts":"25.8"},{"player_id":23133,"player_name":"Bijan
+        Robinson","sportsdata_id":"f78d68c2-f9da-48e7-b954-26b69efd828d","player_team_id":"ATL","player_position_id":"RB","player_positions":"RB","player_short_name":"B.
+        Robinson","player_eligibility":"RB","player_yahoo_positions":"RB","player_page_url":"https://www.fantasypros.com/nfl/players/bijan-robinson.php","player_filename":"bijan-robinson.php","player_yahoo_id":"40055","cbs_player_id":"3168163","player_bye_week":"11","player_owned_avg":99.8,"player_owned_espn":99.8,"player_owned_yahoo":100,"player_opponent":"vs.
+        SF","player_opponent_id":"SF","player_game_kickoff_ts":1792947600,"player_game_status":"scheduled","player_ecr_delta":null,"rank_ecr":2,"rank_min":"1","rank_max":"3","rank_ave":"1.94","rank_std":"0.40","note":null,"tag":null,"recommendation":null,"pos_rank":"RB2","start_sit_grade":"A+","r2p_pts":"19.7"},{"player_id":23021,"player_name":"Kenneth
+        Walker III","sportsdata_id":"22ee9bac-a64c-4d44-94fc-51d775465b3b","player_team_id":"KC","player_position_id":"RB","player_positions":"RB","player_short_name":"K.
+        Walker III","player_eligibility":"RB","player_yahoo_positions":"RB","player_page_url":"https://www.fantasypros.com/nfl/players/kenneth-walker-rb.php","player_filename":"kenneth-walker-rb.php","player_yahoo_id":"33996","cbs_player_id":"3121372","player_bye_week":"5","player_owned_avg":99.6,"player_owned_espn":99.8,"player_owned_yahoo":100,"player_opponent":"at
+        SEA","player_opponent_id":"SEA","player_game_kickoff_ts":1792974000,"player_game_status":"scheduled","player_ecr_delta":null,"rank_ecr":3,"rank_min":"2","rank_max":"3","rank_ave":"2.89","rank_std":"0.31","note":null,"tag":null,"recommendation":null,"pos_rank":"RB3","start_sit_grade":"A+","r2p_pts":"19.4"},{"player_id":16393,"player_name":"Christian
+        McCaffrey","sportsdata_id":"f96db0af-5e25-42d1-a07a-49b4e065b364","player_team_id":"SF","player_position_id":"RB","player_positions":"RB","player_short_name":"C.
+        McCaffrey","player_eligibility":"RB","player_yahoo_positions":"RB","player_page_url":"https://www.fantasypros.com/nfl/players/christian-mccaffrey.php","player_filename":"christian-mccaffrey.php","player_yahoo_id":"30121","cbs_player_id":"2136743","player_bye_week":"8","player_owned_avg":99.8,"player_owned_espn":99.9,"player_owned_yahoo":100,"player_opponent":"at
+        ATL","player_opponent_id":"ATL","player_game_kickoff_ts":1792947600,"player_game_status":"scheduled","player_ecr_delta":null,"rank_ecr":4,"rank_min":"4","rank_max":"5","rank_ave":"4.17","rank_std":"0.37","note":null,"tag":null,"recommendation":null,"pos_rank":"RB4","start_sit_grade":"A","r2p_pts":"19.3"},{"player_id":23059,"player_name":"Kyren
+        Williams","sportsdata_id":"19d44771-8f1d-4127-9b7d-230da137f15d","player_team_id":"LAR","player_position_id":"RB","player_positions":"RB","player_short_name":"K.
+        Williams","player_eligibility":"RB","player_yahoo_positions":"RB","player_page_url":"https://www.fantasypros.com/nfl/players/kyren-williams.php","player_filename":"kyren-williams.php","player_yahoo_id":"34120","cbs_player_id":"3121836","player_bye_week":"11","player_owned_avg":99.4,"player_owned_espn":99.5,"player_owned_yahoo":100,"player_opponent":"at
+        LV","player_opponent_id":"LV","player_game_kickoff_ts":1792959900,"player_game_status":"scheduled","player_ecr_delta":null,"rank_ecr":5,"rank_min":"4","rank_max":"6","rank_ave":"5.11","rank_std":"0.57","note":null,"tag":null,"recommendation":null,"pos_rank":"RB5","start_sit_grade":"A","r2p_pts":"18.3"},{"player_id":15514,"player_name":"Derrick
+        Henry","sportsdata_id":"87c481c7-7414-43cc-82df-19ca0c2ae22e","player_team_id":"BAL","player_position_id":"RB","player_positions":"RB","player_short_name":"D.
+        Henry","player_eligibility":"RB","player_yahoo_positions":"RB","player_page_url":"https://www.fantasypros.com/nfl/players/derrick-henry.php","player_filename":"derrick-henry.php","player_yahoo_id":"29279","cbs_player_id":"2061188","player_bye_week":"13","player_owned_avg":99.7,"player_owned_espn":99.8,"player_owned_yahoo":100,"player_opponent":"vs.
+        CIN","player_opponent_id":"CIN","player_game_kickoff_ts":1792947600,"player_game_status":"scheduled","player_ecr_delta":null,"rank_ecr":6,"rank_min":"6","rank_max":"9","rank_ave":"7.67","rank_std":"0.82","note":null,"tag":null,"recommendation":null,"pos_rank":"RB6","start_sit_grade":"A","r2p_pts":"18.1"},{"player_id":19217,"player_name":"Jonathan
+        Taylor","sportsdata_id":"925195a4-06ba-4e37-ae7d-a3d6a5419139","player_team_id":"IND","player_position_id":"RB","player_positions":"RB","player_short_name":"J.
+        Taylor","player_eligibility":"RB","player_yahoo_positions":"RB","player_page_url":"https://www.fantasypros.com/nfl/players/jonathan-taylor.php","player_filename":"jonathan-taylor.php","player_yahoo_id":"32711","cbs_player_id":"2866395","player_bye_week":"13","player_owned_avg":99.8,"player_owned_espn":99.9,"player_owned_yahoo":100,"player_opponent":"at
+        MIN","player_opponent_id":"MIN","player_game_kickoff_ts":1792947600,"player_game_status":"scheduled","player_ecr_delta":null,"rank_ecr":7,"rank_min":"6","rank_max":"13","rank_ave":"7.94","rank_std":"1.78","note":null,"tag":null,"recommendation":null,"pos_rank":"RB7","start_sit_grade":"A","r2p_pts":"17.5"},{"player_id":22739,"player_name":"Javonte
+        Williams","sportsdata_id":"889dcdc5-3d88-45df-9677-5ad7ff87c011","player_team_id":"DAL","player_position_id":"RB","player_positions":"RB","player_short_name":"J.
+        Williams","player_eligibility":"RB","player_yahoo_positions":"RB","player_page_url":"https://www.fantasypros.com/nfl/players/javonte-williams.php","player_filename":"javonte-williams.php","player_yahoo_id":"33423","cbs_player_id":"2961719","player_bye_week":"14","player_owned_avg":99.3,"player_owned_espn":99.3,"player_owned_yahoo":100,"player_opponent":"at
+        PHI","player_opponent_id":"PHI","player_game_kickoff_ts":1793060100,"player_game_status":"scheduled","player_ecr_delta":null,"rank_ecr":9,"rank_min":"6","rank_max":"10","rank_ave":"8.83","rank_std":"0.96","note":null,"tag":null,"recommendation":null,"pos_rank":"RB9","start_sit_grade":"A","r2p_pts":"15.5"}],"last_updated_ts":1792511594,"public_api":true,"tier":"premium"}'
+    headers:
+      Content-Type:
+      - application/json
+      cache-control:
+      - max-age=600
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - application/json
+      x-api-key:
+      - REDACTED
+    method: GET
+    uri: https://api.fantasypros.com/public/v2/json/nfl/2026/consensus-rankings?week=5&position=RB&scoring=PPR
+  response:
+    body:
+      string: '{"sport":"NFL","type":"Weekly PPR","ranking_type_name":"weekly","year":"2026","week":"5","position_id":"RB","scoring":"PPR","filters":"317,96,1139,285,7254,7662,1080,3585,2729,125,120,5598,329,6752,1138,6658,636,766,394,7560,835,534,3535,2559,7195,607,323,3168,145,93,1667,552,2475,4179,690,908,95,4404,2632,4176,3747,621,540","count":8,"total_experts":43,"last_updated":"10/11","players":[{"player_id":22968,"player_name":"Jahmyr
+        Gibbs","sportsdata_id":"fef9457e-6497-47de-9bf2-cc3b95929375","player_team_id":"DET","player_position_id":"RB","player_positions":"RB","player_short_name":"J.
+        Gibbs","player_eligibility":"RB","player_yahoo_positions":"RB","player_page_url":"https://www.fantasypros.com/nfl/players/jahmyr-gibbs.php","player_filename":"jahmyr-gibbs.php","player_yahoo_id":"40059","cbs_player_id":"3162723","player_bye_week":"6","player_owned_avg":99.8,"player_owned_espn":99.8,"player_owned_yahoo":100,"player_opponent":"at
+        ARI","player_opponent_id":"ARI","player_game_kickoff_ts":1791750300,"player_game_status":"closed","player_ecr_delta":null,"rank_ecr":1,"rank_min":"1","rank_max":"2","rank_ave":"1.05","rank_std":"0.22","note":null,"tag":"start","recommendation":null,"pos_rank":"RB1","start_sit_grade":"A+","r2p_pts":"26.7"},{"player_id":23133,"player_name":"Bijan
+        Robinson","sportsdata_id":"f78d68c2-f9da-48e7-b954-26b69efd828d","player_team_id":"ATL","player_position_id":"RB","player_positions":"RB","player_short_name":"B.
+        Robinson","player_eligibility":"RB","player_yahoo_positions":"RB","player_page_url":"https://www.fantasypros.com/nfl/players/bijan-robinson.php","player_filename":"bijan-robinson.php","player_yahoo_id":"40055","cbs_player_id":"3168163","player_bye_week":"11","player_owned_avg":99.8,"player_owned_espn":99.8,"player_owned_yahoo":100,"player_opponent":"vs.
+        BAL","player_opponent_id":"BAL","player_game_kickoff_ts":1791764400,"player_game_status":"closed","player_ecr_delta":null,"rank_ecr":2,"rank_min":"1","rank_max":"2","rank_ave":"1.95","rank_std":"0.22","note":null,"tag":"start","recommendation":null,"pos_rank":"RB2","start_sit_grade":"A+","r2p_pts":"22.3"},{"player_id":19217,"player_name":"Jonathan
+        Taylor","sportsdata_id":"925195a4-06ba-4e37-ae7d-a3d6a5419139","player_team_id":"IND","player_position_id":"RB","player_positions":"RB","player_short_name":"J.
+        Taylor","player_eligibility":"RB","player_yahoo_positions":"RB","player_page_url":"https://www.fantasypros.com/nfl/players/jonathan-taylor.php","player_filename":"jonathan-taylor.php","player_yahoo_id":"32711","cbs_player_id":"2866395","player_bye_week":"13","player_owned_avg":99.8,"player_owned_espn":99.9,"player_owned_yahoo":100,"player_opponent":"at
+        PIT","player_opponent_id":"PIT","player_game_kickoff_ts":1791738000,"player_game_status":"closed","player_ecr_delta":null,"rank_ecr":3,"rank_min":"3","rank_max":"8","rank_ave":"3.66","rank_std":"1.14","note":null,"tag":"start","recommendation":null,"pos_rank":"RB3","start_sit_grade":"A","r2p_pts":"19.3"},{"player_id":23059,"player_name":"Kyren
+        Williams","sportsdata_id":"19d44771-8f1d-4127-9b7d-230da137f15d","player_team_id":"LAR","player_position_id":"RB","player_positions":"RB","player_short_name":"K.
+        Williams","player_eligibility":"RB","player_yahoo_positions":"RB","player_page_url":"https://www.fantasypros.com/nfl/players/kyren-williams.php","player_filename":"kyren-williams.php","player_yahoo_id":"34120","cbs_player_id":"3121836","player_bye_week":"11","player_owned_avg":99.4,"player_owned_espn":99.5,"player_owned_yahoo":100,"player_opponent":"vs.
+        BUF","player_opponent_id":"BUF","player_game_kickoff_ts":1791850500,"player_game_status":"closed","player_ecr_delta":null,"rank_ecr":4,"rank_min":"3","rank_max":"8","rank_ave":"4.80","rank_std":"1.58","note":null,"tag":"start","recommendation":null,"pos_rank":"RB4","start_sit_grade":"A","r2p_pts":"18.4"},{"player_id":16393,"player_name":"Christian
+        McCaffrey","sportsdata_id":"f96db0af-5e25-42d1-a07a-49b4e065b364","player_team_id":"SF","player_position_id":"RB","player_positions":"RB","player_short_name":"C.
+        McCaffrey","player_eligibility":"RB","player_yahoo_positions":"RB","player_page_url":"https://www.fantasypros.com/nfl/players/christian-mccaffrey.php","player_filename":"christian-mccaffrey.php","player_yahoo_id":"30121","cbs_player_id":"2136743","player_bye_week":"8","player_owned_avg":99.8,"player_owned_espn":99.9,"player_owned_yahoo":100,"player_opponent":"at
+        SEA","player_opponent_id":"SEA","player_game_kickoff_ts":1791750300,"player_game_status":"closed","player_ecr_delta":null,"rank_ecr":5,"rank_min":"3","rank_max":"7","rank_ave":"4.98","rank_std":"0.97","note":null,"tag":"start","recommendation":null,"pos_rank":"RB5","start_sit_grade":"A","r2p_pts":"18.0"},{"player_id":25324,"player_name":"Chase
+        Brown","sportsdata_id":"d74ff06d-905d-4fed-8f98-b5f6d4549333","player_team_id":"CIN","player_position_id":"RB","player_positions":"RB","player_short_name":"C.
+        Brown","player_eligibility":"RB","player_yahoo_positions":"RB","player_page_url":"https://www.fantasypros.com/nfl/players/chase-brown.php","player_filename":"chase-brown.php","player_yahoo_id":"40196","cbs_player_id":"2965160","player_bye_week":"6","player_owned_avg":99.2,"player_owned_espn":98.5,"player_owned_yahoo":100,"player_opponent":"at
+        MIA","player_opponent_id":"MIA","player_game_kickoff_ts":1791738000,"player_game_status":"closed","player_ecr_delta":null,"rank_ecr":6,"rank_min":"3","rank_max":"10","rank_ave":"6.29","rank_std":"1.73","note":null,"tag":"start","recommendation":null,"pos_rank":"RB6","start_sit_grade":"A","r2p_pts":"17.2"},{"player_id":24209,"player_name":"Jaylen
+        Warren","sportsdata_id":"7e397190-ca24-11ec-9f1c-b7114d38a85b","player_team_id":"PIT","player_position_id":"RB","player_positions":"RB","player_short_name":"J.
+        Warren","player_eligibility":"RB","player_yahoo_positions":"RB","player_page_url":"https://www.fantasypros.com/nfl/players/jaylen-warren.php","player_filename":"jaylen-warren.php","player_yahoo_id":"34447","cbs_player_id":"3126535","player_bye_week":"9","player_owned_avg":95,"player_owned_espn":94.8,"player_owned_yahoo":98,"player_opponent":"vs.
+        IND","player_opponent_id":"IND","player_game_kickoff_ts":1791738000,"player_game_status":"closed","player_ecr_delta":null,"rank_ecr":7,"rank_min":"5","rank_max":"12","rank_ave":"7.78","rank_std":"1.79","note":"Jaylen
+        Warren has been operating as Pittsburgh''s bell cow in Rico Dowdle''s absence.
+        The latest news is that Dowdle is unlikely to play this week, which immediately
+        vaults Warren from a back with a wide range of outcomes to being reinserted
+        into bell cow status for Week 5. Among 46 qualifying backs, Warren is 14th
+        in explosive run rate, sixth in yards after contact per attempt, and fourth-best
+        in missed tackle rate. Over the last two games, Warren has been the RB8 and
+        RB22 in weekly scoring without scoring any touchdowns. In that span, he has
+        averaged 19.5 touches and 148 total yards. Warren should rip Indy apart this
+        week. Indy has allowed the 11th-highest rushing success rate, the seventh-most
+        yards before contact per attempt, and the seventh-highest missed tackle rate.","tag":"start","recommendation":null,"pos_rank":"RB7","start_sit_grade":"A","r2p_pts":"17.0"},{"player_id":19210,"player_name":"D''Andre
+        Swift","sportsdata_id":"cc4b5f58-a11c-4450-a1df-617ad88336e4","player_team_id":"CHI","player_position_id":"RB","player_positions":"RB","player_short_name":"D.
+        Swift","player_eligibility":"RB","player_yahoo_positions":"RB","player_page_url":"https://www.fantasypros.com/nfl/players/dandre-swift.php","player_filename":"dandre-swift.php","player_yahoo_id":"32705","cbs_player_id":"2871710","player_bye_week":"10","player_owned_avg":96.7,"player_owned_espn":96.6,"player_owned_yahoo":98,"player_opponent":"at
+        GB","player_opponent_id":"GB","player_game_kickoff_ts":1791738000,"player_game_status":"closed","player_ecr_delta":null,"rank_ecr":8,"rank_min":"4","rank_max":"14","rank_ave":"8.39","rank_std":"2.51","note":null,"tag":"start","recommendation":null,"pos_rank":"RB8","start_sit_grade":"A","r2p_pts":"16.8"}],"last_updated_ts":1791737996,"public_api":true,"tier":"premium"}'
+    headers:
+      Content-Type:
+      - application/json
+      cache-control:
+      - max-age=600
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - application/json
+      x-api-key:
+      - REDACTED
+    method: GET
+    uri: https://api.fantasypros.com/public/v2/json/nfl/2026/consensus-rankings?type=ros&position=RB&scoring=PPR
+  response:
+    body:
+      string: '{"sport":"NFL","type":"ROS PPR","ranking_type_name":"ros","year":"2026","week":"0","position_id":"RB","scoring":"PPR","filters":"22,1204,1139","count":8,"total_experts":3,"last_updated":"10/20","players":[{"player_id":22968,"player_name":"Jahmyr
+        Gibbs","sportsdata_id":"fef9457e-6497-47de-9bf2-cc3b95929375","player_team_id":"DET","player_position_id":"RB","player_positions":"RB","player_short_name":"J.
+        Gibbs","player_eligibility":"RB","player_yahoo_positions":"RB","player_page_url":"https://www.fantasypros.com/nfl/players/jahmyr-gibbs.php","player_filename":"jahmyr-gibbs.php","player_yahoo_id":"40059","cbs_player_id":"3162723","player_bye_week":"6","player_owned_avg":99.8,"player_owned_espn":99.8,"player_owned_yahoo":100,"player_ecr_delta":null,"rank_ecr":1,"rank_min":"1","rank_max":"1","rank_ave":"1.00","rank_std":"0.00","note":null,"tag":null,"recommendation":null,"pos_rank":"RB1","r2p_pts":"267.6"},{"player_id":23133,"player_name":"Bijan
+        Robinson","sportsdata_id":"f78d68c2-f9da-48e7-b954-26b69efd828d","player_team_id":"ATL","player_position_id":"RB","player_positions":"RB","player_short_name":"B.
+        Robinson","player_eligibility":"RB","player_yahoo_positions":"RB","player_page_url":"https://www.fantasypros.com/nfl/players/bijan-robinson.php","player_filename":"bijan-robinson.php","player_yahoo_id":"40055","cbs_player_id":"3168163","player_bye_week":"11","player_owned_avg":99.8,"player_owned_espn":99.8,"player_owned_yahoo":100,"player_ecr_delta":null,"rank_ecr":2,"rank_min":"2","rank_max":"2","rank_ave":"2.00","rank_std":"0.00","note":null,"tag":null,"recommendation":null,"pos_rank":"RB2","r2p_pts":"252.0"},{"player_id":23021,"player_name":"Kenneth
+        Walker III","sportsdata_id":"22ee9bac-a64c-4d44-94fc-51d775465b3b","player_team_id":"KC","player_position_id":"RB","player_positions":"RB","player_short_name":"K.
+        Walker III","player_eligibility":"RB","player_yahoo_positions":"RB","player_page_url":"https://www.fantasypros.com/nfl/players/kenneth-walker-rb.php","player_filename":"kenneth-walker-rb.php","player_yahoo_id":"33996","cbs_player_id":"3121372","player_bye_week":"5","player_owned_avg":99.6,"player_owned_espn":99.8,"player_owned_yahoo":100,"player_ecr_delta":null,"rank_ecr":3,"rank_min":"3","rank_max":"3","rank_ave":"3.00","rank_std":"0.00","note":null,"tag":null,"recommendation":null,"pos_rank":"RB3","r2p_pts":"236.4"},{"player_id":16393,"player_name":"Christian
+        McCaffrey","sportsdata_id":"f96db0af-5e25-42d1-a07a-49b4e065b364","player_team_id":"SF","player_position_id":"RB","player_positions":"RB","player_short_name":"C.
+        McCaffrey","player_eligibility":"RB","player_yahoo_positions":"RB","player_page_url":"https://www.fantasypros.com/nfl/players/christian-mccaffrey.php","player_filename":"christian-mccaffrey.php","player_yahoo_id":"30121","cbs_player_id":"2136743","player_bye_week":"8","player_owned_avg":99.8,"player_owned_espn":99.9,"player_owned_yahoo":100,"player_ecr_delta":null,"rank_ecr":4,"rank_min":"4","rank_max":"5","rank_ave":"4.67","rank_std":"0.47","note":null,"tag":null,"recommendation":null,"pos_rank":"RB4","r2p_pts":"219.6"},{"player_id":22958,"player_name":"James
+        Cook III","sportsdata_id":"ce5de0e5-9f76-42ee-b93a-3ef88af9b0a7","player_team_id":"BUF","player_position_id":"RB","player_positions":"RB","player_short_name":"J.
+        Cook III","player_eligibility":"RB","player_yahoo_positions":"RB","player_page_url":"https://www.fantasypros.com/nfl/players/james-cook.php","player_filename":"james-cook.php","player_yahoo_id":"34019","cbs_player_id":"2975698","player_bye_week":"7","player_owned_avg":99.8,"player_owned_espn":99.9,"player_owned_yahoo":100,"player_ecr_delta":null,"rank_ecr":5,"rank_min":"4","rank_max":"6","rank_ave":"5.00","rank_std":"0.82","note":null,"tag":null,"recommendation":null,"pos_rank":"RB5","r2p_pts":"206.4"},{"player_id":19217,"player_name":"Jonathan
+        Taylor","sportsdata_id":"925195a4-06ba-4e37-ae7d-a3d6a5419139","player_team_id":"IND","player_position_id":"RB","player_positions":"RB","player_short_name":"J.
+        Taylor","player_eligibility":"RB","player_yahoo_positions":"RB","player_page_url":"https://www.fantasypros.com/nfl/players/jonathan-taylor.php","player_filename":"jonathan-taylor.php","player_yahoo_id":"32711","cbs_player_id":"2866395","player_bye_week":"13","player_owned_avg":99.8,"player_owned_espn":99.9,"player_owned_yahoo":100,"player_ecr_delta":-1,"rank_ecr":6,"rank_min":"4","rank_max":"8","rank_ave":"6.00","rank_std":"1.63","note":null,"tag":null,"recommendation":null,"pos_rank":"RB6","r2p_pts":"196.8"},{"player_id":23059,"player_name":"Kyren
+        Williams","sportsdata_id":"19d44771-8f1d-4127-9b7d-230da137f15d","player_team_id":"LAR","player_position_id":"RB","player_positions":"RB","player_short_name":"K.
+        Williams","player_eligibility":"RB","player_yahoo_positions":"RB","player_page_url":"https://www.fantasypros.com/nfl/players/kyren-williams.php","player_filename":"kyren-williams.php","player_yahoo_id":"34120","cbs_player_id":"3121836","player_bye_week":"11","player_owned_avg":99.4,"player_owned_espn":99.5,"player_owned_yahoo":100,"player_ecr_delta":null,"rank_ecr":7,"rank_min":"6","rank_max":"8","rank_ave":"7.33","rank_std":"0.94","note":"The
+        Week 6 game was likely an anomaly. I''m not convinced Blake Corum will have
+        a sizable role in the future.","tag":"hold","recommendation":null,"pos_rank":"RB7","r2p_pts":"194.4"},{"player_id":28109,"player_name":"J''Mari
+        Taylor","sportsdata_id":"074d3d60-418e-11f1-97b1-f7c9890d626f","player_team_id":"JAC","player_position_id":"RB","player_positions":"RB","player_short_name":"J.
+        Taylor","player_eligibility":"RB","player_yahoo_positions":"RB","player_page_url":"https://www.fantasypros.com/nfl/players/jmari-taylor.php","player_filename":"jmari-taylor.php","player_yahoo_id":"42882","cbs_player_id":"26726239","player_bye_week":"7","player_owned_avg":2.3,"player_owned_espn":0,"player_owned_yahoo":0,"player_ecr_delta":null,"rank_ecr":103,"rank_min":"96","rank_max":"96","rank_ave":"96.00","rank_std":"0.00","note":null,"tag":null,"recommendation":null,"pos_rank":"RB103","r2p_pts":"7.2"}],"last_updated_ts":1792504276,"public_api":true,"tier":"premium"}'
+    headers:
+      Content-Type:
+      - application/json
+      cache-control:
+      - max-age=600
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - application/json
+      x-api-key:
+      - REDACTED
+    method: GET
+    uri: https://api.fantasypros.com/public/v2/json/nfl/2026/projections?week=7&positions=RB
+  response:
+    body:
+      string: '{"season":"2026","week":"7","count":"8","positions":"RB","scoring":"STD","experts":[71,72,11,7493,7689],"players":[{"fpid":22968,"mflid":16162,"name":"Jahmyr
+        Gibbs","position_id":"RB","team_id":"DET","filename":"jahmyr-gibbs.php","stats":{"points":20.53,"points_ppr":25.6,"points_half":23.07,"rush_att":19.36,"rush_yds":88.46,"rush_tds":1.04,"rush_yds_100":0,"rush_yds_200":0,"scrimage_yards_100":0,"scrimage_yards_200":0,"rec_rec":5.07,"rec_yds":39.59,"rec_tds":0.28,"rec_yds_100":0,"rec_yds_200":0,"fumbles":0.1,"ret_tds":0,"2pt_tds":0.1}},{"fpid":15514,"mflid":12626,"name":"Derrick
+        Henry","position_id":"RB","team_id":"BAL","filename":"derrick-henry.php","stats":{"points":17.13,"points_ppr":18.43,"points_half":17.78,"rush_att":19.16,"rush_yds":98.62,"rush_tds":0.97,"rush_yds_100":0,"rush_yds_200":0,"scrimage_yards_100":0,"scrimage_yards_200":0,"rec_rec":1.3,"rec_yds":11.63,"rec_tds":0.08,"rec_yds_100":0,"rec_yds_200":0,"fumbles":0.09,"ret_tds":0,"2pt_tds":0}},{"fpid":23133,"mflid":16161,"name":"Bijan
+        Robinson","position_id":"RB","team_id":"ATL","filename":"bijan-robinson.php","stats":{"points":17.08,"points_ppr":21.05,"points_half":19.06,"rush_att":17.58,"rush_yds":84.54,"rush_tds":0.68,"rush_yds_100":0,"rush_yds_200":0,"scrimage_yards_100":0,"scrimage_yards_200":0,"rec_rec":3.97,"rec_yds":33.5,"rec_tds":0.24,"rec_yds_100":0,"rec_yds_200":0,"fumbles":0.1,"ret_tds":0,"2pt_tds":0.1}},{"fpid":23059,"mflid":15710,"name":"Kyren
+        Williams","position_id":"RB","team_id":"LAR","filename":"kyren-williams.php","stats":{"points":15.99,"points_ppr":19.37,"points_half":17.68,"rush_att":15.73,"rush_yds":77.16,"rush_tds":0.8,"rush_yds_100":0,"rush_yds_200":0,"scrimage_yards_100":0,"scrimage_yards_200":0,"rec_rec":3.39,"rec_yds":25.01,"rec_tds":0.2,"rec_yds_100":0,"rec_yds_200":0,"fumbles":0.12,"ret_tds":0,"2pt_tds":0}},{"fpid":23021,"mflid":15711,"name":"Kenneth
+        Walker III","position_id":"RB","team_id":"KC","filename":"kenneth-walker-rb.php","stats":{"points":15.09,"points_ppr":18.07,"points_half":16.58,"rush_att":18.13,"rush_yds":83.65,"rush_tds":0.62,"rush_yds_100":0,"rush_yds_200":0,"scrimage_yards_100":0,"scrimage_yards_200":0,"rec_rec":2.98,"rec_yds":20.54,"rec_tds":0.19,"rec_yds_100":0,"rec_yds_200":0,"fumbles":0.08,"ret_tds":0,"2pt_tds":0}},{"fpid":16393,"mflid":13130,"name":"Christian
+        McCaffrey","position_id":"RB","team_id":"SF","filename":"christian-mccaffrey.php","stats":{"points":15.04,"points_ppr":19.46,"points_half":17.25,"rush_att":14.68,"rush_yds":61.55,"rush_tds":0.72,"rush_yds_100":0,"rush_yds_200":0,"scrimage_yards_100":0,"scrimage_yards_200":0,"rec_rec":4.42,"rec_yds":35.69,"rec_tds":0.19,"rec_yds_100":0,"rec_yds_200":0,"fumbles":0.09,"ret_tds":0,"2pt_tds":0.1}},{"fpid":19217,"mflid":14802,"name":"Jonathan
+        Taylor","position_id":"RB","team_id":"IND","filename":"jonathan-taylor.php","stats":{"points":14.75,"points_ppr":17.05,"points_half":15.9,"rush_att":19.55,"rush_yds":80.76,"rush_tds":0.74,"rush_yds_100":0,"rush_yds_200":0,"scrimage_yards_100":0,"scrimage_yards_200":0,"rec_rec":2.3,"rec_yds":19.82,"rec_tds":0.08,"rec_yds_100":0,"rec_yds_200":0,"fumbles":0.12,"ret_tds":0,"2pt_tds":0}},{"fpid":19792,"mflid":15261,"name":"Chuba
+        Hubbard","position_id":"RB","team_id":"CAR","filename":"chuba-hubbard.php","stats":{"points":14.04,"points_ppr":16.36,"points_half":15.2,"rush_att":18.98,"rush_yds":79.64,"rush_tds":0.58,"rush_yds_100":0,"rush_yds_200":0,"scrimage_yards_100":0,"scrimage_yards_200":0,"rec_rec":2.32,"rec_yds":14.97,"rec_tds":0.21,"rec_yds_100":0,"rec_yds_200":0,"fumbles":0.09,"ret_tds":0,"2pt_tds":0.1}}],"public_api":true,"tier":"premium"}'
+    headers:
+      Content-Type:
+      - application/json
+      cache-control:
+      - max-age=600
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - application/json
+      x-api-key:
+      - REDACTED
+    method: GET
+    uri: https://api.fantasypros.com/public/v2/json/nfl/2026/projections?positions=RB&ros=true
+  response:
+    body:
+      string: '{"season":"2026","week":"7","count":"8","positions":"RB","scoring":"STD","experts":[71,72,11,7493,7689],"ros_projections":true,"players":[{"fpid":22968,"mflid":16162,"name":"Jahmyr
+        Gibbs","position_id":"RB","team_id":"DET","filename":"jahmyr-gibbs.php","stats":{"points":220.2,"points_ppr":268.15,"points_half":244.17,"rush_att":177.19,"rush_yds":936.44,"rush_tds":11.92,"rush_yds_100":0,"rush_yds_200":0,"scrimage_yards_100":0,"scrimage_yards_200":0,"rec_rec":47.95,"rec_yds":402.82,"rec_tds":2.82,"rec_yds_100":0,"rec_yds_200":0,"fumbles":1.08,"ret_tds":0,"2pt_tds":0}},{"fpid":23021,"mflid":15711,"name":"Kenneth
+        Walker III","position_id":"RB","team_id":"KC","filename":"kenneth-walker-rb.php","stats":{"points":193.85,"points_ppr":225.74,"points_half":209.8,"rush_att":200.33,"rush_yds":1007.86,"rush_tds":10.01,"rush_yds_100":0,"rush_yds_200":0,"scrimage_yards_100":0,"scrimage_yards_200":0,"rec_rec":31.89,"rec_yds":263.26,"rec_tds":1.14,"rec_yds_100":0,"rec_yds_200":0,"fumbles":0.08,"ret_tds":0,"2pt_tds":0}},{"fpid":22958,"mflid":15715,"name":"James
+        Cook III","position_id":"RB","team_id":"BUF","filename":"james-cook.php","stats":{"points":181.85,"points_ppr":209.8,"points_half":195.82,"rush_att":184.06,"rush_yds":991.68,"rush_tds":8.35,"rush_yds_100":0,"rush_yds_200":0,"scrimage_yards_100":0,"scrimage_yards_200":0,"rec_rec":27.94,"rec_yds":243.36,"rec_tds":1.89,"rec_yds_100":0,"rec_yds_200":0,"fumbles":1.54,"ret_tds":0,"2pt_tds":0}},{"fpid":23133,"mflid":16161,"name":"Bijan
+        Robinson","position_id":"RB","team_id":"ATL","filename":"bijan-robinson.php","stats":{"points":181.07,"points_ppr":229.17,"points_half":205.12,"rush_att":190.36,"rush_yds":935.81,"rush_tds":6.26,"rush_yds_100":0,"rush_yds_200":0,"scrimage_yards_100":0,"scrimage_yards_200":0,"rec_rec":48.1,"rec_yds":385.53,"rec_tds":2.3,"rec_yds_100":0,"rec_yds_200":0,"fumbles":1.24,"ret_tds":0,"2pt_tds":0}},{"fpid":19217,"mflid":14802,"name":"Jonathan
+        Taylor","position_id":"RB","team_id":"IND","filename":"jonathan-taylor.php","stats":{"points":158.51,"points_ppr":184.29,"points_half":171.4,"rush_att":208.29,"rush_yds":914.13,"rush_tds":7.92,"rush_yds_100":0,"rush_yds_200":0,"scrimage_yards_100":0,"scrimage_yards_200":0,"rec_rec":25.78,"rec_yds":176.38,"rec_tds":0.75,"rec_yds_100":0,"rec_yds_200":0,"fumbles":1.28,"ret_tds":0,"2pt_tds":0}},{"fpid":15514,"mflid":12626,"name":"Derrick
+        Henry","position_id":"RB","team_id":"BAL","filename":"derrick-henry.php","stats":{"points":156.25,"points_ppr":174.95,"points_half":165.6,"rush_att":205.88,"rush_yds":960.21,"rush_tds":7.66,"rush_yds_100":0,"rush_yds_200":0,"scrimage_yards_100":0,"scrimage_yards_200":0,"rec_rec":18.7,"rec_yds":136.61,"rec_tds":0.46,"rec_yds_100":0,"rec_yds_200":0,"fumbles":1.09,"ret_tds":0,"2pt_tds":0}},{"fpid":16393,"mflid":13130,"name":"Christian
+        McCaffrey","position_id":"RB","team_id":"SF","filename":"christian-mccaffrey.php","stats":{"points":148.45,"points_ppr":197.49,"points_half":172.97,"rush_att":163.36,"rush_yds":692.92,"rush_tds":4.61,"rush_yds_100":0,"rush_yds_200":0,"scrimage_yards_100":0,"scrimage_yards_200":0,"rec_rec":49.04,"rec_yds":404.09,"rec_tds":2.1,"rec_yds_100":0,"rec_yds_200":0,"fumbles":0.73,"ret_tds":0,"2pt_tds":0}},{"fpid":19792,"mflid":15261,"name":"Chuba
+        Hubbard","position_id":"RB","team_id":"CAR","filename":"chuba-hubbard.php","stats":{"points":147.47,"points_ppr":180.69,"points_half":164.08,"rush_att":178.3,"rush_yds":795.87,"rush_tds":6.47,"rush_yds_100":0,"rush_yds_200":0,"scrimage_yards_100":0,"scrimage_yards_200":0,"rec_rec":33.22,"rec_yds":195.94,"rec_tds":1.88,"rec_yds_100":0,"rec_yds_200":0,"fumbles":0.91,"ret_tds":0,"2pt_tds":0}}],"public_api":true,"tier":"premium"}'
+    headers:
+      Content-Type:
+      - application/json
+      cache-control:
+      - max-age=600
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - application/json
+      x-api-key:
+      - REDACTED
+    method: GET
+    uri: https://api.fantasypros.com/public/v2/json/nfl/2026/projections?week=7&players=23133
+  response:
+    body:
+      string: '{"season":"2026","week":"7","count":"1","positions":"RB","scoring":"STD","experts":[71,72,11,7493,7689],"players":[{"fpid":23133,"mflid":16161,"name":"Bijan
+        Robinson","position_id":"RB","team_id":"ATL","filename":"bijan-robinson.php","stats":{"points":17.08,"points_ppr":21.05,"points_half":19.06,"rush_att":17.58,"rush_yds":84.54,"rush_tds":0.68,"rush_yds_100":0,"rush_yds_200":0,"scrimage_yards_100":0,"scrimage_yards_200":0,"rec_rec":3.97,"rec_yds":33.5,"rec_tds":0.24,"rec_yds_100":0,"rec_yds_200":0,"fumbles":0.1,"ret_tds":0,"2pt_tds":0.1}}],"public_api":true,"tier":"premium"}'
+    headers:
+      Content-Type:
+      - application/json
+      cache-control:
+      - max-age=600
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - application/json
+      x-api-key:
+      - REDACTED
+    method: GET
+    uri: https://api.fantasypros.com/public/v2/json/nfl/injuries?year=2026&week=7&include_probabilities=true
+  response:
+    body:
+      string: '{"sport":"NFL","count":6,"injuries":[{"player_id":18218,"yahoo_id":"31883","name":"A.J.
+        Brown","status":"Questionable","injury_type":"Ankle","comment":"","injury_update_date":"2026-10-19
+        00:00:00","team_id":"NE","position_id":"WR","rank":42,"status_short":"Q","filename":"aj-brown.php","ir_weeks":[1,2,3,4,5],"probability_of_playing":"0.97772","practice_1":"Limit","practice_2":null,"practice_3":null,"practice_report_injury_type":"ankle","team_practice_1_submitted":true,"team_practice_2_submitted":false,"team_practice_3_submitted":false},{"player_id":12123,"yahoo_id":"27581","name":"Davante
+        Adams","status":"OUT","injury_type":"hamstring","comment":"injured","injury_update_date":"2026-10-18
+        12:00:00","team_id":"LAR","position_id":"WR","rank":145,"status_short":"O","filename":"davante-adams.php","ir_weeks":[],"probability_of_playing":"0.11452","practice_1":null,"practice_2":null,"practice_3":null,"practice_report_injury_type":"hamstring","team_practice_1_submitted":false,"team_practice_2_submitted":false,"team_practice_3_submitted":false},{"player_id":19231,"yahoo_id":"33413","name":"Travis
+        Etienne Jr.","status":"IR","injury_type":"","comment":"","injury_update_date":"2026-10-20
+        15:50:03","team_id":"NO","position_id":"RB","rank":98,"status_short":"IR","filename":"travis-etienne.php","ir_weeks":[4,5,6,7],"probability_of_playing":null,"practice_1":null,"practice_2":null,"practice_3":null,"practice_report_injury_type":null,"team_practice_1_submitted":false,"team_practice_2_submitted":false,"team_practice_3_submitted":false},{"player_id":19784,"yahoo_id":"33400","name":"Micah
+        Parsons","status":"PUP","injury_type":"","comment":"","injury_update_date":"2026-10-20
+        15:50:03","team_id":"GB","position_id":"LB","rank":33,"status_short":"PUP","filename":"micah-parsons.php","ir_weeks":[],"probability_of_playing":null,"practice_1":null,"practice_2":null,"practice_3":null,"practice_report_injury_type":null,"team_practice_1_submitted":false,"team_practice_2_submitted":false,"team_practice_3_submitted":false},{"player_id":23065,"yahoo_id":"41823","name":"TreVeyon
+        Henderson","status":"","injury_type":"","comment":"","injury_update_date":null,"team_id":"NE","position_id":"RB","rank":115,"status_short":"","filename":"treveyon-henderson.php","ir_weeks":[],"probability_of_playing":"0.94506","practice_1":"Full","practice_2":null,"practice_3":null,"practice_report_injury_type":"ankle","team_practice_1_submitted":true,"team_practice_2_submitted":false,"team_practice_3_submitted":false},{"player_id":17240,"yahoo_id":"30972","name":"Saquon
+        Barkley","status":"","injury_type":"","comment":"","injury_update_date":null,"team_id":"PHI","position_id":"RB","rank":39,"status_short":"","filename":"saquon-barkley.php","ir_weeks":[],"probability_of_playing":"0.41377","practice_1":null,"practice_2":null,"practice_3":null,"practice_report_injury_type":"hamstring","team_practice_1_submitted":false,"team_practice_2_submitted":false,"team_practice_3_submitted":false}],"covids":[],"public_api":true,"tier":"premium"}'
+    headers:
+      Content-Type:
+      - application/json
+      cache-control:
+      - max-age=600
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - application/json
+      x-api-key:
+      - REDACTED
+    method: GET
+    uri: https://api.fantasypros.com/public/v2/json/nfl/injuries?year=2026&week=7&team_id=NE&include_probabilities=true
+  response:
+    body:
+      string: '{"sport":"NFL","count":4,"injuries":[{"player_id":23046,"yahoo_id":"40881","name":"Drake
+        Maye","status":"","injury_type":"","comment":"","injury_update_date":null,"team_id":"NE","position_id":"QB","rank":36,"status_short":"","filename":"drake-maye.php","ir_weeks":[],"probability_of_playing":"0.98934","practice_1":"Full","practice_2":null,"practice_3":null,"practice_report_injury_type":"shoulder","team_practice_1_submitted":true,"team_practice_2_submitted":false,"team_practice_3_submitted":false},{"player_id":18218,"yahoo_id":"31883","name":"A.J.
+        Brown","status":"Questionable","injury_type":"Ankle","comment":"","injury_update_date":"2026-10-19
+        00:00:00","team_id":"NE","position_id":"WR","rank":42,"status_short":"Q","filename":"aj-brown.php","ir_weeks":[1,2,3,4,5],"probability_of_playing":"0.97772","practice_1":"Limit","practice_2":null,"practice_3":null,"practice_report_injury_type":"ankle","team_practice_1_submitted":true,"team_practice_2_submitted":false,"team_practice_3_submitted":false},{"player_id":23794,"yahoo_id":"34088","name":"Romeo
+        Doubs","status":"IR","injury_type":"","comment":"","injury_update_date":"2026-10-20
+        15:50:02","team_id":"NE","position_id":"WR","rank":105,"status_short":"IR","filename":"romeo-doubs.php","ir_weeks":[6,7],"probability_of_playing":null,"practice_1":null,"practice_2":null,"practice_3":null,"practice_report_injury_type":null,"team_practice_1_submitted":true,"team_practice_2_submitted":false,"team_practice_3_submitted":false},{"player_id":23065,"yahoo_id":"41823","name":"TreVeyon
+        Henderson","status":"","injury_type":"","comment":"","injury_update_date":null,"team_id":"NE","position_id":"RB","rank":115,"status_short":"","filename":"treveyon-henderson.php","ir_weeks":[],"probability_of_playing":"0.94506","practice_1":"Full","practice_2":null,"practice_3":null,"practice_report_injury_type":"ankle","team_practice_1_submitted":true,"team_practice_2_submitted":false,"team_practice_3_submitted":false}],"covids":[],"public_api":true,"tier":"premium"}'
+    headers:
+      Content-Type:
+      - application/json
+      cache-control:
+      - max-age=600
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - application/json
+      x-api-key:
+      - REDACTED
+    method: GET
+    uri: https://api.fantasypros.com/public/v2/json/nfl/injuries?year=2026&week=7&player_ids=18218&include_probabilities=true
+  response:
+    body:
+      string: '{"sport":"NFL","count":1,"injuries":[{"player_id":18218,"yahoo_id":"31883","name":"A.J.
+        Brown","status":"Questionable","injury_type":"Ankle","comment":"","injury_update_date":"2026-10-19
+        00:00:00","team_id":"NE","position_id":"WR","rank":42,"status_short":"Q","filename":"aj-brown.php","ir_weeks":[1,2,3,4,5],"probability_of_playing":"0.97772","practice_1":"Limit","practice_2":null,"practice_3":null,"practice_report_injury_type":"ankle","team_practice_1_submitted":true,"team_practice_2_submitted":false,"team_practice_3_submitted":false}],"covids":[],"public_api":true,"tier":"premium"}'
+    headers:
+      Content-Type:
+      - application/json
+      cache-control:
+      - max-age=600
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - application/json
+      x-api-key:
+      - REDACTED
+    method: GET
+    uri: https://api.fantasypros.com/public/v2/json/nfl/news?limit=25
+  response:
+    body:
+      string: '{"sport":"NFL","title":"Fantasy Player News","description":"Breaking
+        Fantasy Football player news along with the impact for fantasy managers","count":6,"items":[{"id":614924,"created":"2026-10-20
+        15:28:51","created_formated":"Tue, Oct 20th 3:28pm UTC","author":"Nate Miller","player_id":16548,"team_id":"FA","title":"Zane
+        Gonzalez brought in by Dolphins ","sport_id":"NFL","categories":["Commentary","News"],"link":"https://www.fantasypros.com/nfl/news/614924/zane-gonzalez-brought-by-dolphins.php","desc":"Zane
+        Gonzalez signed with the Dolphins on Tuesday. ","impact":"After trying out
+        multiple kickers, Gonzalez was signed by the Dolphins to begin the week. Riley
+        Patterson was released soon after. "},{"id":614923,"created":"2026-10-20 15:26:09","created_formated":"Tue,
+        Oct 20th 3:26pm UTC","author":"Nate Miller","player_id":23370,"team_id":"MIA","title":"Riley
+        Patterson released by Dolphins ","sport_id":"NFL","categories":["Commentary","News"],"link":"https://www.fantasypros.com/nfl/news/614923/riley-patterson-released-by-dolphins.php","desc":"Riley
+        Patterson was released by the Dolphins on Tuesday. ","impact":"The Dolphins
+        will make a mid-season change at kicker. Veteran Zane Gonzalez was signed
+        on Tuesday after the team tried out multiple kickers. "},{"id":614922,"created":"2026-10-20
+        15:09:55","created_formated":"Tue, Oct 20th 3:09pm UTC","author":"Nate Miller","player_id":19302,"team_id":"NYG","title":"Najee
+        Harris cut loose by Giants","sport_id":"NFL","categories":["Commentary","News"],"link":"https://www.fantasypros.com/nfl/news/614922/najee-harris-cut-loose-by-giants.php","desc":"Najee
+        Harris was released by the Giants on Tuesday. ","impact":"Even with starting
+        running back Cam Skattebo in the dog house, Harris did very little in Week
+        6, netting just two yards on four carries. The veteran has gained only 99
+        yards on 31 carries in total this season, and the Giants made the decision
+        to release him Tuesday morning. The Giants will move forward with the familiar
+        backfield trio of Skattebo, Tyrone Tracy Jr. and Devin Singletary. "},{"id":614921,"created":"2026-10-20
+        13:39:57","created_formated":"Tue, Oct 20th 1:39pm UTC","author":"Nate Miller","player_id":18466,"team_id":"WAS","title":"Terry
+        McLaurin (knee) to have MRI on Tuesday ","sport_id":"NFL","categories":["Commentary","News","Injury"],"link":"https://www.fantasypros.com/nfl/news/614921/terry-mclaurin-knee-to-have-mri-on-tuesday.php","desc":"Terry
+        McLaurin (knee) was knocked out of Monday night''s loss to the 49ers and will
+        have an MRI on Tuesday. ","impact":"McLaurin''s injury looked quite ugly and
+        the expectation is that the Commanders star wideout will miss the rest of
+        the season. He will undergo further testing on Tuesday to determine the full
+        severity of the injury. "},{"id":614920,"created":"2026-10-20 13:35:40","created_formated":"Tue,
+        Oct 20th 1:35pm UTC","author":"Nate Miller","player_id":17528,"team_id":"FA","title":"Marquez
+        Valdes-Scantling to join Steelers ","sport_id":"NFL","categories":["Commentary","News"],"link":"https://www.fantasypros.com/nfl/news/614920/marquez-valdes-scantling-to-join-steelers.php","desc":"Marquez
+        Valdes-Scantling is expected to sign to the Steelers'' practice squad. ","impact":"After
+        being let go by the Chargers this past weekend, Valdes-Scantling will meet
+        back up with QB Aaron Rodgers and other familiar faces in Pittsburgh. Valdes-Scantling
+        played in five games with the Steelers last season, catching 10 passes for
+        80 yards and a touchdown. "},{"id":614919,"created":"2026-10-20 10:00:20","created_formated":"Tue,
+        Oct 20th 10:00am UTC","author":"Matthew Adam","player_id":8270,"team_id":"SF","title":"49ers
+        D/ST picks up four sacks in Week 6","sport_id":"NFL","categories":["Commentary","News","Results"],"link":"https://www.fantasypros.com/nfl/news/614919/49ers-dst-picks-up-four-sacks-week-6.php","desc":"The
+        49ers D/ST allowed 17 points while notching four sacks in a 23-17 win over
+        the Commanders in Week 6''s Monday night game.","impact":"San Francisco held
+        the Commanders to just three points in the first half before Washington''s
+        offense came to life a bit after halftime. They will look to stay hot against
+        the Falcons on the road in Week 7."}],"public_api":true,"tier":"premium"}'
+    headers:
+      Content-Type:
+      - application/json
+      cache-control:
+      - max-age=600
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - application/json
+      x-api-key:
+      - REDACTED
+    method: GET
+    uri: https://api.fantasypros.com/public/v2/json/nfl/news?limit=5&category=injury
+  response:
+    body:
+      string: '{"sport":"NFL","title":"Fantasy Player News","description":"Breaking
+        Fantasy Football player news along with the impact for fantasy managers","count":1,"items":[{"id":614921,"created":"2026-10-20
+        13:39:57","created_formated":"Tue, Oct 20th 1:39pm UTC","author":"Nate Miller","player_id":18466,"team_id":"WAS","title":"Terry
+        McLaurin (knee) to have MRI on Tuesday ","sport_id":"NFL","categories":["Commentary","News","Injury"],"link":"https://www.fantasypros.com/nfl/news/614921/terry-mclaurin-knee-to-have-mri-on-tuesday.php","desc":"Terry
+        McLaurin (knee) was knocked out of Monday night''s loss to the 49ers and will
+        have an MRI on Tuesday. ","impact":"McLaurin''s injury looked quite ugly and
+        the expectation is that the Commanders star wideout will miss the rest of
+        the season. He will undergo further testing on Tuesday to determine the full
+        severity of the injury. "}],"public_api":true,"tier":"premium"}'
+    headers:
+      Content-Type:
+      - application/json
+      cache-control:
+      - max-age=600
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - application/json
+      x-api-key:
+      - REDACTED
+    method: GET
+    uri: https://api.fantasypros.com/public/v2/json/nfl/news?limit=5&fpid=23133
+  response:
+    body:
+      string: '{"sport":"NFL","title":"Fantasy Player News","description":"Breaking
+        Fantasy Football player news along with the impact for fantasy managers","count":3,"items":[{"id":614533,"created":"2026-10-18
+        22:31:51","created_formated":"Sun, Oct 18th 10:31pm UTC","author":"Chris Schommer","player_id":23133,"team_id":"ATL","title":"Bijan
+        Robinson bottled up in Week 6 loss to Bears","sport_id":"NFL","categories":["Commentary","News","Results"],"link":"https://www.fantasypros.com/nfl/news/614533/bijan-robinson-bottled-up-week-6-loss-to-bears.php","desc":"Bijan
+        Robinson carried the ball nine times for 61 yards while also catching both
+        of his targets for a loss of eight yards in the Falcons'' 31-23 Week 6 loss
+        to the Chicago Bears.","impact":"Robinson struggled to make an impact out
+        of the backfield, recording less than 70 offensive yards for the first time
+        in six contests. The running back remains locked in as a strong RB1 option
+        in all formats ahead of a Week 7 matchup against the San Francisco 49ers."},{"id":613465,"created":"2026-10-12
+        14:14:28","created_formated":"Mon, Oct 12th 2:14pm UTC","author":"Nate Miller","player_id":23133,"team_id":"ATL","title":"Bijan
+        Robinson totals 118 yards on 21 touches in Week 5","sport_id":"NFL","categories":["Commentary","News","Results"],"link":"https://www.fantasypros.com/nfl/news/613465/bijan-robinson-totals-118-yards-on-21-touches-week-5.php","desc":"Bijan
+        Robinson gained 86 yards on 17 carries and caught 4-of-7 targets for 32 yards
+        in Sunday''s 30-23 OT loss to the Ravens. ","impact":"Robinson continues to
+        be one of the elite offensive weapons in the league, as the dual-threat back
+        is averaging 116 rushing yards and more than 30 receiving yards per game this
+        season. Robinson scored twice on the ground in both Week 3 and Week 4, but
+        he couldn''t keep the TD streak going Sunday night against the Ravens. He
+        will look to start a new one in Week 6 against the Bears. "},{"id":612431,"created":"2026-10-06
+        04:12:45","created_formated":"Tue, Oct 6th 4:12am UTC","author":"Leo Sells","player_id":23133,"team_id":"ATL","title":"Bijan
+        Robinson dominant in blowout win Monday","sport_id":"NFL","categories":["Commentary","News","Results"],"link":"https://www.fantasypros.com/nfl/news/612431/bijan-robinson-dominant-blowout-win-monday.php","desc":"Bijan
+        Robinson rushed the ball 19 times for 145 yards and two touchdowns in Monday
+        night''s 45-24 win over the New Orleans Saints.","impact":"Robinson was absolutely
+        dominant on Monday night. He led the Falcons in rushing with 145 yards on
+        the night at a hyper-efficient clip of 7.6 yards per carry, and he was also
+        able to get into the end zone on two separate occasions. He let a little to
+        be desired in the passing game, but that was simply because the Falcons were
+        up so much for so long. He has been stellar over the first four weeks of the
+        season and should continue to be one of the best assets in all of fantasy
+        moving forward."}],"player_name":"Bijan Robinson","player_filename":"bijan-robinson.php","public_api":true,"tier":"premium"}'
+    headers:
+      Content-Type:
+      - application/json
+      cache-control:
+      - max-age=600
+    status:
+      code: 200
+      message: OK
+version: 1

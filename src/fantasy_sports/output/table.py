@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import io
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from fantasy_sports.output.envelope import Envelope
@@ -107,8 +107,31 @@ def _visible_value(value: Any) -> Any:
     return value
 
 
-def _add_rows(table: Any, data: Any) -> bool:
+def _pick(row: Mapping[str, Any], path: str) -> Any:
+    """``row`` at a dotted ``path`` (``player.name``); ``None`` if any step is missing."""
+    value: Any = row
+    for step in path.split("."):
+        if not isinstance(value, Mapping):
+            return None
+        value = value.get(step)
+    return value
+
+
+def _picked_cell(value: Any) -> Any:
+    """A chosen column's cell: a list of plain values reads as ``a, b, c``."""
+    if isinstance(value, list) and all(not isinstance(v, Mapping | list) for v in value):
+        return _cell(", ".join("-" if v is None else str(v) for v in value))
+    return _cell(value)
+
+
+def _add_rows(table: Any, data: Any, columns: Sequence[str] = ()) -> bool:
     """Fill ``table`` from ``data``; return whether a column was omitted."""
+    if columns and isinstance(data, list) and all(isinstance(item, Mapping) for item in data):
+        for name in columns:
+            table.add_column(name)
+        for item in data:
+            table.add_row(*(_picked_cell(_pick(item, name)) for name in columns))
+        return False
     if isinstance(data, Mapping):
         table.add_column("field")
         table.add_column("value")
@@ -136,8 +159,12 @@ def _add_rows(table: Any, data: Any) -> bool:
     return False
 
 
-def render(envelope: Envelope) -> str:
-    """Render ``envelope`` as a header line plus a table."""
+def render(envelope: Envelope, columns: Sequence[str] = ()) -> str:
+    """Render ``envelope`` as a header line plus a table.
+
+    ``columns`` (dotted row paths) narrows a list of rows to those fields, for
+    commands whose rows nest structures that would wrap past reading.
+    """
     from rich.box import SIMPLE
     from rich.console import Console
     from rich.table import Table
@@ -159,7 +186,7 @@ def render(envelope: Envelope) -> str:
         console.print("(no rows)")
     else:
         table = Table(box=SIMPLE, pad_edge=False, show_edge=False)
-        omitted = _add_rows(table, data if isinstance(data, list | Mapping) else [data])
+        omitted = _add_rows(table, data if isinstance(data, list | Mapping) else [data], columns)
         console.print(table)
         if omitted:
             console.print(

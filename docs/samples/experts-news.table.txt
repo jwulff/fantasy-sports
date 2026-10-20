@@ -1,0 +1,11 @@
+fantasypros · season 2026 · generated 2026-10-20T16:09:09Z · data age 0s
+created_at             player.name                team   title                                      
+────────────────────────────────────────────────────────────────────────────────────────────────────
+2026-10-20T15:28:51Z   Zane Gonzalez              FA     Zane Gonzalez brought in by Dolphins       
+2026-10-20T15:26:09Z   Riley Patterson            MIA    Riley Patterson released by Dolphins       
+2026-10-20T15:09:55Z   Najee Harris               NYG    Najee Harris cut loose by Giants           
+2026-10-20T13:39:57Z   Terry McLaurin             WAS    Terry McLaurin (knee) to have MRI on       
+                                                         Tuesday                                    
+2026-10-20T13:35:40Z   Marquez Valdes-Scantling   FA     Marquez Valdes-Scantling to join Steelers  
+2026-10-20T10:00:20Z   San Francisco 49ers        SF     49ers D/ST picks up four sacks in Week 6   
+sources: fantasypros:players 0s (cached), fantasypros:news 0s (cached)

@@ -450,6 +450,17 @@ What is in it, and why it is committable:
   test allows the FantasyPros host under this one directory and nowhere else;
   its league-id check is vacuous here by construction.
 
+A second recording serves the `experts` commands (#129):
+`tests/cassettes/fantasypros/experts_2026.yaml`, built the same way by
+`scripts/build_experts_cassette.py` from captures of 2026-10-20. It holds what
+the commands need and the first was not cut to hold: the current week (7), a
+closed week (5), the rest-of-season ranking, and a players table that contains
+the players the lists name, plus four `Josh A...` rows and two `Josh Johnson`
+rows for `--player` resolution, a ranking row the table does not list, and a
+rest-of-season row it lists without an `espn_id`. Requests are matched on the
+exact arguments `experts ...` sends, so a test that changes an argument needs
+a recording for it or an override.
+
 What it cannot cover, and what stands in instead:
 
 - **The free tier, a refused argument, a 401/403/429/5xx.** Injected through the

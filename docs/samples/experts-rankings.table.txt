@@ -1,0 +1,13 @@
+fantasypros · season 2026 · generated 2026-10-20T16:09:09Z · data age 0s
+rank_ecr   name                 pro_team   pos_rank   rank_ave   opponent   owned_espn_pct   espn_id
+────────────────────────────────────────────────────────────────────────────────────────────────────
+1          Jahmyr Gibbs         DET        RB1        1.17       vs. GB     99.8             4429795
+2          Bijan Robinson       ATL        RB2        1.94       vs. SF     99.8             4430807
+3          Kenneth Walker III   KC         RB3        2.89       at SEA     99.8             4567048
+4          Christian            SF         RB4        4.17       at ATL     99.9             3117251
+           McCaffrey                                                                                
+5          Kyren Williams       LAR        RB5        5.11       at LV      99.5             4430737
+6          Derrick Henry        BAL        RB6        7.67       vs. CIN    99.8             3043078
+7          Jonathan Taylor      IND        RB7        7.94       at MIN     99.9             4242335
+9          Javonte Williams     DAL        RB9        8.83       at PHI     99.3                    
+sources: fantasypros:players 0s (cached), fantasypros:consensus-rankings 0s (cached)

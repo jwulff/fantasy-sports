@@ -348,21 +348,43 @@ class FantasyProsClient:
     def consensus_rankings(
         self,
         *,
-        week: int,
+        week: int | None = None,
         position: str,
         scoring: str = "PPR",
         experts: bool = False,
+        ros: bool = False,
     ) -> SourceResponse:
         """``/nfl/{season}/consensus-rankings``: one position, one scoring.
 
         The rich one: ``rank_ecr``, ``rank_min``, ``rank_max``, ``rank_ave``,
         ``rank_std``, ownership and opponent per player, ``total_experts`` on
         top. ``experts=True`` adds each expert's rank per player.
+
+        ``ros=True`` asks for the rest-of-season ranking (``type=ros``) and
+        sends no ``week``: a rest-of-season list is not a week's list, and the
+        two must not share a cache entry. Without ``ros`` a ``week`` is
+        required.
         """
         pos = _require_choice(position, POSITIONS, name="position")
         score = _require_choice(scoring, SCORINGS, name="scoring")
-        week = _require_week(week)
-        params: dict[str, Any] = {"week": week, "position": pos, "scoring": score}
+        params: dict[str, Any] = {}
+        facets: list[tuple[str, str]] = []
+        if ros:
+            if week is not None:
+                raise ConfigInvalidError(
+                    "consensus-rankings: a rest-of-season ranking has no week.",
+                    kind="argument",
+                    remediation="Drop the week, or drop the rest-of-season flag.",
+                    details={"week": repr(week), "ros": True},
+                )
+            params["type"] = "ros"
+            facets.append(("ros", "true"))
+        else:
+            week = _require_week(week)
+            params["week"] = week
+            facets.append(("week", str(week)))
+        params.update({"position": pos, "scoring": score})
+        facets.extend([("position", pos), ("scoring", score)])
         if experts:
             params["experts"] = "show"
         return self._get(
@@ -371,7 +393,7 @@ class FantasyProsClient:
             endpoint="consensus-rankings",
             resource=Resource.FANTASYPROS_CONSENSUS,
             week=week,
-            facets=[("week", str(week)), ("position", pos), ("scoring", score)],
+            facets=facets,
         )
 
     def rankings(self, *, week: int) -> SourceResponse:

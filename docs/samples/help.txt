@@ -22,6 +22,7 @@ Commands:
   claims        List a team's pending waiver claims by transaction id, newest first.
   doctor        Run every health check: config, credentials, cache, journal, version, provider.
   drop          Release a player from your own team to waivers. Irreversible.
+  experts       4 subcommands: injuries, news, projections, rankings
   free-agents   List unrostered players, optionally filtered to one position.
   journal       4 subcommands: digest, list, reverse, show
   league        1 subcommand: info

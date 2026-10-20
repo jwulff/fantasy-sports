@@ -1026,3 +1026,31 @@ def test_the_module_imports_no_http_stack_at_import_time():
     out = subprocess.run([sys.executable, "-c", probe], capture_output=True, text=True, check=True)
     roots = set(json.loads(out.stdout.strip().splitlines()[-1]))
     assert not roots & {"requests", "keyring", "typer", "click", "rich", "espn_api"}
+
+
+def test_consensus_rankings_ros_asks_for_the_ros_type_and_sends_no_week(
+    http: RecordedFantasyPros, store: CacheStore
+):
+    body = json.dumps(_consensus_body(http))
+    served = RecordedFantasyPros(overrides={"consensus-rankings": (200, body)})
+    client = _client(served, store)
+    client.consensus_rankings(position="rb", scoring="ppr", ros=True)
+    assert served.calls[0]["params"] == {"type": "ros", "position": "RB", "scoring": "PPR"}
+    # A ROS list and a week's list are different entries, not one.
+    client.consensus_rankings(week=WEEK, position="RB", scoring="PPR")
+    assert len(served.calls) == 2
+
+
+def test_consensus_rankings_ros_refuses_a_week(http: RecordedFantasyPros, store: CacheStore):
+    with pytest.raises(ConfigInvalidError) as caught:
+        _client(http, store).consensus_rankings(week=WEEK, position="RB", ros=True)
+    assert caught.value.details["kind"] == "argument"
+    assert http.calls == []
+
+
+def test_consensus_rankings_without_ros_still_requires_a_week(
+    http: RecordedFantasyPros, store: CacheStore
+):
+    with pytest.raises(ConfigInvalidError):
+        _client(http, store).consensus_rankings(position="RB")
+    assert http.calls == []

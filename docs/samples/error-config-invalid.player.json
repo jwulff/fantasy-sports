@@ -1,0 +1,56 @@
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "fantasypros",
+  "league_id": null,
+  "season": null,
+  "generated_at": "2026-10-20T16:09:09Z",
+  "data_as_of": null,
+  "data_age_seconds": null,
+  "sources": [],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": null,
+  "error": {
+    "code": "CONFIG_INVALID",
+    "message": "--player 'Josh A' matches 4 players. Candidates: Josh Adams (RB FA, fp 17248, espn 3932420); Josh Ali (WR FA, fp 25218, espn 4259976); Josh Allen (QB BUF, fp 17298, espn 3918298); Josh Avery (DT FA, fp 19699, espn -).",
+    "retryable": false,
+    "agent_action": "Ask the human to fix the input named in the message \u2014 a config value or a command argument. Retrying unchanged cannot work.",
+    "remediation": "Pass the player's FantasyPros id or ESPN id, or a longer, unambiguous name (add --pos to narrow it).",
+    "details": {
+      "player": "Josh A",
+      "candidates": [
+        {
+          "fp_id": 17248,
+          "name": "Josh Adams",
+          "position": "RB",
+          "pro_team": "FA",
+          "espn_id": "3932420"
+        },
+        {
+          "fp_id": 25218,
+          "name": "Josh Ali",
+          "position": "WR",
+          "pro_team": "FA",
+          "espn_id": "4259976"
+        },
+        {
+          "fp_id": 17298,
+          "name": "Josh Allen",
+          "position": "QB",
+          "pro_team": "BUF",
+          "espn_id": "3918298"
+        },
+        {
+          "fp_id": 19699,
+          "name": "Josh Avery",
+          "position": "DT",
+          "pro_team": "FA",
+          "espn_id": null
+        }
+      ],
+      "total": 4,
+      "kind": "argument"
+    },
+    "health": null
+  }
+}

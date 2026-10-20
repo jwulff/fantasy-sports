@@ -1,0 +1,51 @@
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "fantasypros",
+  "league_id": null,
+  "season": 2026,
+  "generated_at": "2026-10-20T16:09:09Z",
+  "data_as_of": "2026-10-20T16:09:09Z",
+  "data_age_seconds": 0,
+  "sources": [
+    {
+      "name": "fantasypros:players",
+      "fetched_at": "2026-10-20T16:09:09Z",
+      "age_seconds": 0,
+      "cached": true
+    },
+    {
+      "name": "fantasypros:consensus-rankings",
+      "fetched_at": "2026-10-20T16:09:09Z",
+      "age_seconds": 0,
+      "cached": false
+    }
+  ],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": [
+    {
+      "fp_id": 22968,
+      "name": "Jahmyr Gibbs",
+      "pro_team": "DET",
+      "position": "RB",
+      "rank_ecr": 1,
+      "rank_min": 1,
+      "rank_max": 2,
+      "rank_ave": 1.05,
+      "rank_std": 0.22,
+      "tier": null,
+      "ecr_delta": null,
+      "opponent": "at ARI",
+      "kickoff": "2026-10-11T20:25:00Z",
+      "bye_week": 6,
+      "owned_espn_pct": 99.8,
+      "espn_id": "4429795",
+      "start_sit_grade": "A+",
+      "pos_rank": "RB1",
+      "r2p_pts": 26.7,
+      "game_status": "closed"
+    },
+    "… 7 more items"
+  ],
+  "error": null
+}

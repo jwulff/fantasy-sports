@@ -199,6 +199,12 @@ class CommandSpec:
     takes_league: bool = True
     """Whether ``--league``/``--season``/``--fresh``/``--no-cache`` apply."""
 
+    table_columns: tuple[str, ...] = ()
+    """Columns ``--output table`` shows, as dotted paths into each row. Empty
+    means every key. For a command whose rows carry nested structures (a
+    stats map, a practice report) that would wrap a 100-column table past
+    reading; JSON and CSV always carry everything."""
+
     honors_no_raw: bool = True
     """Whether ``--no-raw`` strips ``data`` before this command's envelope is
     emitted. ``False`` for exactly one command: ``raw``, whose whole point is
@@ -894,6 +900,193 @@ register(
                 annotation=bool,
                 default=False,
             ),
+        ),
+    )
+)
+
+# --------------------------------------------------------------------------- #
+# Experts: FantasyPros reads (jwulff/fantasy-sports#129, ADR-0011)
+# --------------------------------------------------------------------------- #
+#
+# FantasyPros is a source, not a provider, so none of these resolves a league:
+# `takes_league=False`, with the options each one honours declared by hand.
+# `--league` is on the two commands that score points, to pick PPR/half/STD
+# from the league's receptions setting, and is never required.
+
+_EXPERTS_SEASON_PARAM = Param(
+    name="season",
+    help="Four-digit NFL season, overriding the league's, or the current one if no league.",
+    annotation=int | None,
+)
+
+_EXPERTS_FRESH_PARAMS: tuple[Param, ...] = (COMMON_PARAMS[2], COMMON_PARAMS[3])
+
+_EXPERTS_WEEK_PARAM = Param(
+    name="week",
+    help="NFL week. Defaults to the week FantasyPros reports in progress. A closed week "
+    "is served as published before kickoff.",
+    annotation=int | None,
+)
+
+_EXPERTS_LEAGUE_PARAM = Param(
+    name="league",
+    help="Named league profile from config.toml, used only to read its receptions "
+    "setting and pick PPR, half-PPR or standard scoring. PPR when omitted.",
+    annotation=str | None,
+    flags=("--league", "-l"),
+)
+
+_EXPERTS_POS_HELP = (
+    "QB, RB, WR, TE, K, DST or FLX (flex). FantasyPros is read one position at a time."
+)
+
+_EXPERTS_PLAYER_HELP = (
+    "A FantasyPros id, an ESPN id, or a name (exact, else a unique prefix), resolved "
+    "through the cached players table. An ambiguous name is CONFIG_INVALID listing the "
+    "candidates."
+)
+
+register(
+    CommandSpec(
+        name="rankings",
+        group="experts",
+        summary="Consensus expert rankings for one position, best first, with ESPN ids.",
+        handler="fantasy_sports.commands.experts:rankings",
+        shape=DataShape.COLLECTION,
+        takes_league=False,
+        table_columns=(
+            "rank_ecr",
+            "name",
+            "pro_team",
+            "pos_rank",
+            "rank_ave",
+            "opponent",
+            "owned_espn_pct",
+            "espn_id",
+        ),
+        params=(
+            Param(name="pos", help=_EXPERTS_POS_HELP, annotation=str, required=True),
+            _EXPERTS_WEEK_PARAM,
+            Param(
+                name="scoring",
+                help="STD, HALF or PPR. Defaults to the league's receptions setting with "
+                "--league, PPR without.",
+                annotation=str | None,
+            ),
+            Param(
+                name="ros",
+                help="Rest-of-season ranking instead of a week's. Cannot be combined with --week.",
+                annotation=bool,
+                default=False,
+            ),
+            _EXPERTS_LEAGUE_PARAM,
+            _EXPERTS_SEASON_PARAM,
+            *_EXPERTS_FRESH_PARAMS,
+        ),
+    )
+)
+
+register(
+    CommandSpec(
+        name="projections",
+        group="experts",
+        summary="Expert projections (STD, half-PPR, PPR points and stat lines), best first.",
+        handler="fantasy_sports.commands.experts:projections",
+        shape=DataShape.COLLECTION,
+        takes_league=False,
+        table_columns=(
+            "name",
+            "pro_team",
+            "position",
+            "points_ppr",
+            "points_half",
+            "points_std",
+            "espn_id",
+        ),
+        params=(
+            Param(
+                name="pos",
+                help=_EXPERTS_POS_HELP + " Required unless --player names one player.",
+                annotation=str | None,
+            ),
+            _EXPERTS_WEEK_PARAM,
+            Param(
+                name="ros",
+                help="Rest-of-season totals instead of a week's. Cannot be combined with --week.",
+                annotation=bool,
+                default=False,
+            ),
+            Param(name="player", help=_EXPERTS_PLAYER_HELP, annotation=str | None),
+            _EXPERTS_LEAGUE_PARAM,
+            _EXPERTS_SEASON_PARAM,
+            *_EXPERTS_FRESH_PARAMS,
+        ),
+    )
+)
+
+register(
+    CommandSpec(
+        name="injuries",
+        group="experts",
+        summary="Injuries with practice reports and probability of playing, newest first.",
+        handler="fantasy_sports.commands.experts:injuries",
+        shape=DataShape.COLLECTION,
+        takes_league=False,
+        table_columns=(
+            "name",
+            "pro_team",
+            "status_short",
+            "injury_type",
+            "probability_of_playing",
+            "practice",
+        ),
+        params=(
+            Param(
+                name="pos",
+                help="QB, RB, WR, TE, K or DST: keep only injuries at this position.",
+                annotation=str | None,
+            ),
+            Param(
+                name="team",
+                help="NFL team abbreviation, e.g. SEA: keep only that team's injuries.",
+                annotation=str | None,
+            ),
+            Param(name="player", help=_EXPERTS_PLAYER_HELP, annotation=str | None),
+            _EXPERTS_WEEK_PARAM,
+            _EXPERTS_SEASON_PARAM,
+            *_EXPERTS_FRESH_PARAMS,
+        ),
+    )
+)
+
+register(
+    CommandSpec(
+        name="news",
+        group="experts",
+        summary="Player news with the fantasy-impact line, newest first. Free text is untrusted.",
+        handler="fantasy_sports.commands.experts:news",
+        shape=DataShape.COLLECTION,
+        takes_league=False,
+        table_columns=("created_at", "player.name", "team", "title"),
+        params=(
+            Param(
+                name="player",
+                help=_EXPERTS_PLAYER_HELP + " One request per player.",
+                annotation=str | None,
+            ),
+            Param(
+                name="category",
+                help="Keep one news category, e.g. injury.",
+                annotation=str | None,
+            ),
+            Param(
+                name="limit",
+                help="Most-recent items to return.",
+                annotation=int,
+                default=25,
+            ),
+            _EXPERTS_SEASON_PARAM,
+            *_EXPERTS_FRESH_PARAMS,
         ),
     )
 )

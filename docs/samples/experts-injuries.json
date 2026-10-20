@@ -1,0 +1,94 @@
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "fantasypros",
+  "league_id": null,
+  "season": 2026,
+  "generated_at": "2026-10-20T16:09:09Z",
+  "data_as_of": "2026-10-20T16:09:09Z",
+  "data_age_seconds": 0,
+  "sources": [
+    {
+      "name": "fantasypros:players",
+      "fetched_at": "2026-10-20T16:09:09Z",
+      "age_seconds": 0,
+      "cached": true
+    },
+    {
+      "name": "fantasypros:injuries",
+      "fetched_at": "2026-10-20T16:09:09Z",
+      "age_seconds": 0,
+      "cached": false
+    }
+  ],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": [
+    {
+      "fp_id": 19784,
+      "name": "Micah Parsons",
+      "pro_team": "GB",
+      "position": "LB",
+      "espn_id": "4361423",
+      "status": "PUP",
+      "status_short": "PUP",
+      "injury_type": null,
+      "probability_of_playing": null,
+      "practice": [
+        null,
+        null,
+        null
+      ],
+      "ir_weeks": [],
+      "updated_at": "2026-10-20T15:50:03Z"
+    },
+    {
+      "fp_id": 19231,
+      "name": "Travis Etienne Jr.",
+      "pro_team": "NO",
+      "position": "RB",
+      "espn_id": "4239996",
+      "status": "IR",
+      "status_short": "IR",
+      "injury_type": null,
+      "probability_of_playing": null,
+      "practice": [
+        null,
+        null,
+        null
+      ],
+      "ir_weeks": [
+        4,
+        5,
+        6,
+        7
+      ],
+      "updated_at": "2026-10-20T15:50:03Z"
+    },
+    {
+      "fp_id": 18218,
+      "name": "A.J. Brown",
+      "pro_team": "NE",
+      "position": "WR",
+      "espn_id": "4047646",
+      "status": "Questionable",
+      "status_short": "Q",
+      "injury_type": "Ankle",
+      "probability_of_playing": 0.97772,
+      "practice": [
+        "Limit",
+        null,
+        null
+      ],
+      "ir_weeks": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "updated_at": "2026-10-19T00:00:00Z"
+    },
+    "… 3 more items"
+  ],
+  "error": null
+}

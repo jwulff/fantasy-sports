@@ -203,6 +203,10 @@ fails if a committed sample no longer matches what the code renders.
 | [`journal digest`](docs/commands.md#journal-digest) | Journal entries since a time, newest first, for a cron job or agent to report |
 | [`journal show`](docs/commands.md#journal-show) | One journal entry in full: prior and applied state, acting member, cost |
 | [`journal reverse`](docs/commands.md#journal-reverse) | Undo a lineup entry by moving every player back to its recorded slot. **Writes** |
+| [`experts rankings`](docs/commands.md#experts-rankings) | FantasyPros consensus expert rankings for one position, with ESPN ids |
+| [`experts projections`](docs/commands.md#experts-projections) | Expert projections in standard, half-PPR and PPR points |
+| [`experts injuries`](docs/commands.md#experts-injuries) | Injuries with practice reports and probability of playing |
+| [`experts news`](docs/commands.md#experts-news) | Player news with the fantasy-impact line |
 | [`auth status`](docs/commands.md#auth-status) | Which credentials are configured, from where, and how old |
 | [`auth login`](docs/commands.md#auth-login) | Store the two ESPN cookies in the Keychain, without echoing them |
 | [`auth logout`](docs/commands.md#auth-logout) | Remove them from the Keychain and `config.toml`; report what it cannot unset |
@@ -481,6 +485,42 @@ for game in matchups["data"]:
 ```
 
 Every field this loop reads is shown in the [command reference](docs/commands.md).
+
+## Reading
+
+Everything in the [command reference](#command-reference) reads: the league
+commands from ESPN, and the `experts` group from FantasyPros.
+
+### Experts
+
+What ESPN's own data lacks is what the expert panel thinks. The `experts`
+commands read the FantasyPros API, which needs its own key (`auth login`
+prompts for it, or set `FANTASY_SPORTS_FANTASYPROS_API_KEY`) and a FantasyPros
+Hall of Fame account for the complete lists; on the free tier every list is
+cut to ten rows, and the commands refuse that rather than return it as if it
+were whole.
+
+Rankings and projections by FantasyPros.
+
+```bash
+fantasy-sports experts rankings --pos RB --league my-league
+fantasy-sports experts rankings --pos WR --ros
+fantasy-sports experts projections --player "Bijan Robinson" --week 7
+fantasy-sports experts injuries --team SEA
+fantasy-sports experts news --player 4430807 --limit 5
+```
+
+These are not league reads: FantasyPros is a source, so there is no league to
+resolve. `--league` is accepted on `rankings` and `projections` for one thing,
+to read the league's receptions setting and pick PPR, half-PPR or standard
+scoring; without it the scoring is PPR. Every row carries `espn_id`, so a
+ranking joins onto a roster or a free-agent pool by that field, and every
+`sources[]` entry is named `fantasypros:<endpoint>`, which is how a consumer
+tells these reads from ESPN's. `--player` takes a FantasyPros id, an ESPN id,
+or a name; a name that fits several players is refused with the candidates
+listed. Premium is 500 requests a day, one a second, so reads are cached
+(rankings and projections for six hours, injuries for one, news for fifteen
+minutes, the players table for a day), and a cache hit costs nothing.
 
 ## Writing
 
