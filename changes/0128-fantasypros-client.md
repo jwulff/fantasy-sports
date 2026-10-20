@@ -86,6 +86,8 @@ records the shape.
   superflex and IDP formats (`OP`, `IDP`, `DL`, `LB`, `DB`) that the premium capture's
   `ecr_experts` lists, and the shared pacer could let two threads send together, so it now
   holds a lock through the wait and the stamp. Each has a test.
+- Raised the wheel budget to 384 KB (ADR-0008, `scripts/check_budgets.py`): main was already
+  256,994 bytes against 262,144, and this branch measures 271,351.
 - Not done, filed as follow-ups: `auth login --only <name>` so the key can be
   added without re-pasting the cookies; generalising
   `AuthExpiredError.agent_action`'s ESPN wording.
