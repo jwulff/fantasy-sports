@@ -167,8 +167,8 @@ def build(captures: Path) -> list[dict[str, Any]]:
             f"{season}/consensus-rankings?type=ros&position=RB&scoring=PPR",
             trimmed["consensus_ros"],
         ),
-        _interaction(f"{season}/projections?week={WEEK}&positions=RB", trimmed["projections_week"]),
-        _interaction(f"{season}/projections?positions=RB&ros=true", trimmed["projections_ros"]),
+        _interaction(f"{season}/projections?week={WEEK}&position=RB", trimmed["projections_week"]),
+        _interaction(f"{season}/projections?position=RB&ros=true", trimmed["projections_ros"]),
         _interaction(
             f"{season}/projections?week={WEEK}&players={BIJAN}", trimmed["projections_player"]
         ),
