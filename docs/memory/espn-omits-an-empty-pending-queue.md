@@ -57,7 +57,9 @@ app, brackets the wrong weeks. A cached omitted body is re-read live first.
 And the log drops a processed
 claim's own row after a while while keeping its `PROCESS` row, so the log
 can prove a claim live, never that the queue is empty: the corroboration is
-one-directional by construction.
+one-directional by construction. For the same reason the fold never treats
+an unfamiliar status as settled: only `EXECUTED`, `CANCELED`, and `FAILED_*`
+have been seen, and a relevant row with anything else, or no status, is drift.
 
 **Next evidence to gather.** The first time a claim of John's is live, run
 `fantasy-sports raw --view mPendingTransactions --fresh` and record whether

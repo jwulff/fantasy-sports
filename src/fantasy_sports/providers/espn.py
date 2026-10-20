@@ -3123,6 +3123,20 @@ def _log_rows(body: Any) -> list[Mapping[str, Any]]:
     return list(rows)
 
 
+def _settled_status(status: Any) -> bool:
+    """A log status seen on a transaction that is no longer live: run
+    (``EXECUTED``), withdrawn (``CANCELED``), or failed (``FAILED_*``,
+    e.g. ``FAILED_INVALIDPLAYERSOURCE``)."""
+    return isinstance(status, str) and (
+        status in ("EXECUTED", "CANCELED") or status.startswith("FAILED_")
+    )
+
+
+def _retires(row: Mapping[str, Any]) -> bool:
+    related = row.get("relatedTransactionId")
+    return isinstance(related, str) and bool(related)
+
+
 def _unretired_pending(
     rows: Sequence[Mapping[str, Any]], *, kind: str, team_id: str | None, now: datetime
 ) -> list[dict[str, Any]]:
@@ -3138,6 +3152,11 @@ def _unretired_pending(
     ``expirationDate`` has passed is not live, whatever its row still says;
     what ESPN logs when an offer lapses, is accepted, or is declined is
     uncaptured (#142). A row seen under two periods counts once, by id.
+
+    Only ``PENDING`` is live and only :func:`_settled_status` is settled. A
+    row of ``kind`` with any other status, or none, that this team could own
+    and nothing retired might be the live transaction itself, so it is drift
+    rather than skipped.
     """
     retired = {
         row["relatedTransactionId"]
@@ -3145,9 +3164,15 @@ def _unretired_pending(
         if isinstance(row.get("relatedTransactionId"), str) and row["relatedTransactionId"]
     }
     found: list[dict[str, Any]] = []
+    unrecognised: list[dict[str, Any]] = []
     seen: set[str] = set()
     for row in rows:
-        if row.get("type") != kind or row.get("status") != "PENDING":
+        if row.get("type") != kind:
+            continue
+        status = row.get("status")
+        if status != "PENDING" and (_settled_status(status) or _retires(row)):
+            # A retiring row's status describes the cancel or the run, not
+            # whether the claim it names is live.
             continue
         team = _as_int(row.get("teamId"))
         if team_id is not None:
@@ -3164,12 +3189,31 @@ def _unretired_pending(
             continue
         if isinstance(row_id, str):
             seen.add(row_id)
+        if status != "PENDING":
+            unrecognised.append(
+                {"id": row_id if isinstance(row_id, str) else None, "status": status}
+            )
+            continue
         found.append(
             {
                 "id": row_id if isinstance(row_id, str) else None,
                 "team_id": None if team is None else str(team),
                 "scoring_period": _as_int(row.get("scoringPeriodId")),
             }
+        )
+    if unrecognised:
+        raise _pending_drift(
+            f"has no pendingTransactions, and the corroborating {LOG_VIEW} has "
+            f"{len(unrecognised)} {kind} row(s) with a status no capture has shown",
+            ["pendingTransactions"],
+            remediation=(
+                "A logged transaction's status is neither PENDING nor a settled status "
+                "(EXECUTED, CANCELED, FAILED_*), so it may be the live one the queue "
+                "omitted. Do not resubmit or cancel blind: read "
+                f"`fantasy-sports raw --view {LOG_VIEW}` and file an issue with this "
+                "error payload."
+            ),
+            details={"corroboration": LOG_VIEW, "unrecognised": unrecognised},
         )
     return found
 

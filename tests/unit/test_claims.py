@@ -520,6 +520,65 @@ def test_a_live_logged_claim_with_no_readable_team_is_drift_for_a_team_read(
     ]
 
 
+_NO_STATUS = object()
+
+
+@pytest.mark.parametrize(
+    "status",
+    [
+        pytest.param(_NO_STATUS, id="absent"),
+        pytest.param(None, id="null"),
+        pytest.param(7, id="not a string"),
+        pytest.param("QUEUED", id="a status no capture has shown"),
+    ],
+)
+def test_a_logged_claim_with_an_unrecognised_status_is_drift_not_empty(
+    monkeypatch: pytest.MonkeyPatch, status: Any
+):
+    """Only ``PENDING`` is live, and only ``EXECUTED``, ``CANCELED``, and
+    ``FAILED_*`` have been seen settled. A row with any other status might be
+    the very claim being corroborated, so it fails the check (cloud review on
+    #145) rather than being read as settled."""
+    espn = install_writable_espn(monkeypatch, omit_empty_queue=True)
+    row = _logged_claim("odd", 1)
+    if status is _NO_STATUS:
+        del row["status"]
+    else:
+        row["status"] = status
+    espn.overrides["mTransactions2"] = {"transactions": [row]}
+    with pytest.raises(SchemaDriftError, match="status no capture has shown") as caught:
+        _provider().fetch_pending_claims("99", 2026, "1")
+    assert caught.value.details["path"] == ["mPendingTransactions", "pendingTransactions"]
+    assert caught.value.details["unrecognised"] == [
+        {"id": "odd", "status": None if status is _NO_STATUS else status}
+    ]
+
+
+@pytest.mark.parametrize(
+    "rows",
+    [
+        pytest.param(
+            [
+                {**_logged_claim("odd", 1), "status": "QUEUED"},
+                _retiring_row("odd", 1, execution="PROCESS", status="EXECUTED"),
+            ],
+            id="retired by a later row",
+        ),
+        pytest.param([{**_logged_claim("odd", 2), "status": "QUEUED"}], id="another team's"),
+        pytest.param(
+            [{**_retiring_row("x", 1, execution="PROCESS", status="QUEUED")}],
+            id="a retiring row's own status",
+        ),
+    ],
+)
+def test_an_unrecognised_status_that_cannot_be_this_teams_live_claim_is_not_drift(
+    monkeypatch: pytest.MonkeyPatch, rows: list[dict[str, Any]]
+):
+    espn = install_writable_espn(monkeypatch, omit_empty_queue=True)
+    espn.overrides["mTransactions2"] = {"transactions": rows}
+    assert _provider().fetch_pending_claims("99", 2026, "1") == []
+
+
 def test_a_live_logged_proposal_naming_no_team_is_not_skipped():
     from fantasy_sports.providers.espn import _unretired_pending
 

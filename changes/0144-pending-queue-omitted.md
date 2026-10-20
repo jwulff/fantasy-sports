@@ -74,6 +74,16 @@ league answers the same state with the league envelope and no key at all.
   live one is not read twice. Codex also found that a pending log row with
   no readable `teamId` was skipped by a team-scoped read; such a row now
   fails the check instead of vanishing.
+- **The cloud review's finding, taken.** The fold read only `PENDING` as
+  live and skipped every other status, so a row whose status was missing or
+  renamed vanished and the queue read as empty. Only `EXECUTED`, `CANCELED`,
+  and `FAILED_*` have been seen on a settled transaction, so only those are
+  skipped now. A row of the folded type with any other status, that this
+  team could own and that nothing retired or expired, is `SCHEMA_DRIFT` with
+  the ids and statuses in `details.unrecognised`. A retiring row is still
+  skipped whatever its status, since it describes the cancel or the run. If
+  ESPN logs a declined offer under a new status (#142), trade reads on an
+  omitted queue exit 9 until the offer lapses: loud, never a false empty.
 - **Safety of the writes is untouched.** `cancel-claim` and `trade cancel`
   still need the id in the queue they read, so an omitted queue refuses them
   as `CONFIG_INVALID` with nothing sent. A `claim` whose queue omits the claim
@@ -88,13 +98,14 @@ league answers the same state with the league envelope and no key at all.
 
 ## Validation
 
-- `uv run pytest -m 'not live'`: 2162 passed. New tests cover the captured
+- `uv run pytest -m 'not live'`: 2169 passed. New tests cover the captured
   envelope, the period bracketing, every retiring-row shape seen live, a live
   claim the queue omitted (drift, with ids), a log that cannot corroborate,
   a body without the key that is not this league's envelope, `claims` and
   `trades` returning `[]`, a refused cancel, and the accepted-but-omitted
   claim read-back, a cached omitted body re-read live across a rollover, and
-  a pending log row that names no team.
+  a pending log row that names no team, and a logged row whose status is
+  absent or one no capture has shown.
 - `ruff check`, `ruff format --check`, `scripts/check_startup.py`, and
   `scripts/check_budgets.py` pass.
 - Live, read-only, from the worktree: `claims --fresh` on dragon-slayers,
