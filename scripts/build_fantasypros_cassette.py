@@ -144,11 +144,11 @@ def build(captures: Path) -> list[dict[str, Any]]:
             f"{season}/rankings?week={WEEK}&rankstats=true&range=true", _rankings(rankings)
         ),
         _interaction(
-            f"{season}/projections?week={WEEK}&positions=RB",
+            f"{season}/projections?week={WEEK}&position=RB",
             _rows(projections, "players", projections["players"][:ROWS]),
         ),
         _interaction(
-            f"{season}/projections?positions=RB&ros=true",
+            f"{season}/projections?position=RB&ros=true",
             _rows(projections_ros, "players", projections_ros["players"][:ROWS]),
         ),
         _interaction(
