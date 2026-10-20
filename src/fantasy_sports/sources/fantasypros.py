@@ -431,7 +431,12 @@ class FantasyProsClient:
             week = _require_week(week)
             params["week"] = week
             facets.append(("week", str(week)))
-        if chosen:
+        if len(chosen) == 1:
+            # FantasyPros ignores a single value in ``positions=`` and answers
+            # with the default (RB); the singular ``position=`` is honoured.
+            params["position"] = chosen[0]
+            facets.append(("position", chosen[0]))
+        elif chosen:
             params["positions"] = ":".join(chosen)
             facets.append(("positions", ":".join(chosen)))
         if ids:

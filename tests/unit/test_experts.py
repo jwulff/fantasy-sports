@@ -396,7 +396,7 @@ def test_a_league_that_does_not_exist_fails_before_the_players_table_is_fetched(
 
 def test_a_projection_row_has_exactly_the_contract_fields(http: RecordedFantasyPros):
     rows = data("projections", pos="RB")
-    assert sent(http, "projections") == {"week": WEEK, "positions": "RB"}
+    assert sent(http, "projections") == {"week": WEEK, "position": "RB"}
     assert rows
     for row in rows:
         assert list(row) == PROJECTION_FIELDS
@@ -421,7 +421,7 @@ def test_projections_are_ordered_by_the_leagues_scoring(
     monkeypatch: pytest.MonkeyPatch, league_with, points: float, order: list[int]
 ):
     served = serve(monkeypatch)
-    canned = body(served, "projections", week="7", positions="RB")
+    canned = body(served, "projections", week="7", position="RB")
     canned["players"] = canned["players"][:3]
     # Three rows whose standard, half-PPR and PPR totals each rank them differently.
     for row, totals in zip(
@@ -439,7 +439,7 @@ def test_projections_are_ordered_by_the_leagues_scoring(
 
 def test_ros_projections_send_ros_and_no_week(http: RecordedFantasyPros):
     rows = data("projections", pos="RB", ros=True)
-    assert sent(http, "projections") == {"positions": "RB", "ros": "true"}
+    assert sent(http, "projections") == {"position": "RB", "ros": "true"}
     assert rows and all(r["points_ppr"] > 100 for r in rows)  # a season's worth, not a week's
 
 

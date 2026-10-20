@@ -229,7 +229,7 @@ interactions:
       x-api-key:
       - REDACTED
     method: GET
-    uri: https://api.fantasypros.com/public/v2/json/nfl/2026/projections?week=7&positions=RB
+    uri: https://api.fantasypros.com/public/v2/json/nfl/2026/projections?week=7&position=RB
   response:
     body:
       string: '{"season":"2026","week":"7","count":"8","positions":"RB","scoring":"STD","experts":[71,72,11,7493,7689],"players":[{"fpid":22968,"mflid":16162,"name":"Jahmyr
@@ -257,7 +257,7 @@ interactions:
       x-api-key:
       - REDACTED
     method: GET
-    uri: https://api.fantasypros.com/public/v2/json/nfl/2026/projections?positions=RB&ros=true
+    uri: https://api.fantasypros.com/public/v2/json/nfl/2026/projections?position=RB&ros=true
   response:
     body:
       string: '{"season":"2026","week":"7","count":"8","positions":"RB","scoring":"STD","experts":[71,72,11,7493,7689],"ros_projections":true,"players":[{"fpid":22968,"mflid":16162,"name":"Jahmyr

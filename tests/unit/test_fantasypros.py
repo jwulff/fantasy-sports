@@ -400,7 +400,7 @@ def test_fresh_refetches_and_no_cache_bypasses(http: RecordedFantasyPros, store:
         (
             lambda c: c.projections(week=WEEK, positions=["RB"]),
             Resource.FANTASYPROS_PROJECTIONS,
-            {"week": "6", "positions": "RB"},
+            {"week": "6", "position": "RB"},
         ),
         (
             lambda c: c.injuries(week=WEEK),
@@ -545,7 +545,7 @@ def test_projections_carry_three_point_totals_and_never_send_scoring(
 ):
     response = _client(http, store).projections(week=WEEK, positions=["rb"])
     params = http.calls[0]["params"]
-    assert params == {"week": WEEK, "positions": "RB"}
+    assert params == {"week": WEEK, "position": "RB"}
     assert "scoring" not in params, "FantasyPros answers 403 to scoring= on projections"
     for row in response.payload["players"]:
         assert {"fpid", "name", "position_id", "team_id", "stats"} <= set(row)
@@ -555,7 +555,7 @@ def test_projections_carry_three_point_totals_and_never_send_scoring(
 
 def test_rest_of_season_projections_say_so(http: RecordedFantasyPros, store: CacheStore):
     response = _client(http, store).projections(positions=["RB"], ros=True)
-    assert http.calls[0]["params"] == {"positions": "RB", "ros": "true"}
+    assert http.calls[0]["params"] == {"position": "RB", "ros": "true"}
     assert response.payload["ros_projections"] is True
 
 
