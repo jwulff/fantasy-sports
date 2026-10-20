@@ -512,6 +512,13 @@ def test_an_unknown_or_empty_player_is_a_bad_argument(http: RecordedFantasyPros,
     assert not any(c["url"].endswith("/news") for c in http.calls)
 
 
+def test_a_negative_number_is_a_team_defense_espn_id(http: RecordedFantasyPros):
+    # The cassette's players table carries San Francisco's defense as espn_id
+    # "-16025"; the snapshot in jwulff/league-gazette#132 passes those ids as-is.
+    with pytest.raises(ProviderUnavailableError):  # resolved; the cassette has no news row for it
+        call("news", player="-16025")
+
+
 def test_a_number_that_is_one_players_fantasypros_id_and_anothers_espn_id_is_ambiguous(
     monkeypatch: pytest.MonkeyPatch,
 ):

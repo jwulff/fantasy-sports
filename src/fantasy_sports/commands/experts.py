@@ -411,8 +411,10 @@ class _Players:
             raise self._refuse(text, "is empty", [])
         eligible = FLEX_POSITIONS if position == "FLX" else (position,)
         pool = [row for row in self.rows if position is None or row.get("position_id") in eligible]
-        if text.isdigit():
-            by_fp = self._by_fp.get(int(text))
+        if text.lstrip("-").isdigit():
+            # A negative number is an ESPN team-defense id (``-16025`` is the
+            # 49ers); FantasyPros ids are never negative.
+            by_fp = self._by_fp.get(int(text)) if text.isdigit() else None
             by_espn = self._by_espn.get(text)
             found = [row for row in (by_fp, by_espn) if row is not None and row in pool]
             unique = {_int(row.get("player_id")) for row in found}
