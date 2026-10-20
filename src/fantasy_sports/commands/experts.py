@@ -61,6 +61,9 @@ RANKING_POSITIONS: Final[tuple[str, ...]] = ("QB", "RB", "WR", "TE", "K", "DST",
 INJURY_POSITIONS: Final[tuple[str, ...]] = ("QB", "RB", "WR", "TE", "K", "DST")
 """What ``--pos`` filters injuries to. ``FLX`` is a ranking pool, not a position."""
 
+FLEX_POSITIONS: Final[tuple[str, ...]] = ("RB", "WR", "TE")
+"""Who ``FLX`` means when it narrows a ``--player`` name."""
+
 SCORINGS: Final[tuple[str, ...]] = ("STD", "HALF", "PPR")
 
 _POSITION_ALIASES: Final[Mapping[str, str]] = {"D/ST": "DST", "DEF": "DST", "D": "DST"}
@@ -403,11 +406,8 @@ class _Players:
         text = str(token).strip()
         if not text:
             raise self._refuse(text, "is empty", [])
-        pool = [
-            row
-            for row in self.rows
-            if position in (None, "FLX") or row.get("position_id") == position
-        ]
+        eligible = FLEX_POSITIONS if position == "FLX" else (position,)
+        pool = [row for row in self.rows if position is None or row.get("position_id") in eligible]
         if text.isdigit():
             by_fp = self._by_fp.get(int(text))
             by_espn = self._by_espn.get(text)

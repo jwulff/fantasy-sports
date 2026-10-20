@@ -889,3 +889,10 @@ def test_a_column_path_through_a_non_mapping_is_an_empty_cell():
 
     envelope = Envelope.success(provider="fantasypros", data=[{"a": "text"}])
     assert "text" in render(envelope, "table", columns=["a", "a.b"])
+
+
+def test_flx_narrows_a_name_to_the_flex_positions(http: RecordedFantasyPros):
+    # "Josh A" fits an RB, a WR, a QB and a DT; a flex slot can hold only the first two.
+    with pytest.raises(ConfigInvalidError) as caught:
+        call("projections", pos="FLX", player="Josh A")
+    assert [c["position"] for c in caught.value.details["candidates"]] == ["RB", "WR"]
