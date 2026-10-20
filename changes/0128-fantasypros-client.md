@@ -79,6 +79,9 @@ records the shape.
   (`players?player=22947`, `consensus-rankings` QB/PPR week 6, and a bad
   `position=XX` straight at the wire): premium on both reads, and the 400
   shape recorded in `docs/memory/fantasypros-refuses-an-argument-with-a-body-not-a-status.md`.
+- Rebased onto main on 2026-10-20 (one conflict, the `docs/memory/MEMORY.md` index, kept both
+  lines) and the suite re-run offline: 2278 passed, 19 skipped, 99.22% total coverage
+  (`sources/fantasypros.py` 100%).
 - Not done, filed as follow-ups: `auth login --only <name>` so the key can be
   added without re-pasting the cookies; generalising
   `AuthExpiredError.agent_action`'s ESPN wording.
