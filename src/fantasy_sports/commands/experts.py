@@ -204,11 +204,14 @@ def news(
     player: str | None = None,
     category: str | None = None,
     limit: int = 25,
-    season: int | None = None,
     fresh: bool = False,
     no_cache: bool = False,
 ) -> Envelope:
     """The player-news wire, newest first, with the fantasy-impact line.
+
+    There is no ``season`` option: the wire is live and ``/nfl/news`` takes
+    no year, so the envelope reports the current season and nothing else
+    would be true.
 
     One request per player when ``player`` is given: FantasyPros ignores a
     list of players, so a caller wanting twenty players makes twenty calls.
@@ -222,7 +225,7 @@ def news(
             remediation="Pass --limit 1 or more.",
             details={"limit": repr(limit)},
         )
-    run = _Run.open(None, season, fresh=fresh, no_cache=no_cache, want_scoring=False)
+    run = _Run.open(None, None, fresh=fresh, no_cache=no_cache, want_scoring=False)
     table = run.players()
     wanted = None if player is None else table.resolve(player)
     response = run.client.news(limit=limit, category=(category or None), player_id=wanted)

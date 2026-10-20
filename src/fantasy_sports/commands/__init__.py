@@ -1085,7 +1085,6 @@ register(
                 annotation=int,
                 default=25,
             ),
-            _EXPERTS_SEASON_PARAM,
             *_EXPERTS_FRESH_PARAMS,
         ),
     )
