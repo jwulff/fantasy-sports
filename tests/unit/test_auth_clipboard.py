@@ -25,6 +25,7 @@ from fantasy_sports.auth import chain, clipboard, staleness
 from fantasy_sports.commands import auth as auth_commands
 from fantasy_sports.core.errors import AuthMissingError, ConfigInvalidError
 
+_REAL_RUN = subprocess.run
 COOKIE_S2 = "AEBsentinelS2cookievalue0123456789abcdefXYZ%2Fzz"
 SWID = FAKE_SWID
 GOOD = f"espn_s2={COOKIE_S2}; SWID={SWID}"
@@ -470,8 +471,62 @@ def test_a_post_write_failure_clears_the_clipboard_and_leaks_nothing(
         assert secret not in rendered
 
 
-def test_the_bookmarklet_requires_each_name_not_just_two_cookies():
-    """Two ``espn_s2`` entries and no ``SWID`` must not count as complete."""
-    url = clipboard.BOOKMARKLET
-    assert "found.length" not in url
-    assert "want.every(" in url and "found.some(" in url
+def _run_bookmarklet(cookie: str) -> list[str]:
+    """Run the bookmarklet under node with a stubbed ``document``; return what it did.
+
+    ``subprocess.run`` is patched to refuse in this file, so the real one is
+    captured at import (``_REAL_RUN``). Skipped where node is absent.
+    """
+    import shutil
+
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is not installed")
+    body = clipboard.BOOKMARKLET.removeprefix("javascript:")
+    # Parameters, not globals: modern node defines `navigator` as a getter-only global.
+    script = (
+        f"var out=[];(function(document,navigator,alert){{{body}}})("
+        f"{{cookie:{json.dumps(cookie)}}},"
+        "{clipboard:{writeText:function(t){out.push('copied:'+t);"
+        "return {then:function(ok){ok()}}}}},"
+        "function(m){out.push('alert:'+m)});"
+        "console.log(JSON.stringify(out))"
+    )
+    done = _REAL_RUN([node, "-e", script], capture_output=True, text=True, timeout=20, check=True)
+    return json.loads(done.stdout)
+
+
+def test_the_bookmarklet_copies_exactly_the_two_cookies():
+    out = _run_bookmarklet("a=1; SWID={X}; espn_s2=abc; b=2")
+    assert out[0] == "copied:SWID={X}; espn_s2=abc"
+    assert out[1].startswith("alert:ESPN cookies copied")
+
+
+@pytest.mark.parametrize("cookie", ["x=1", ""])
+def test_the_bookmarklet_says_not_logged_in_only_when_both_are_absent(cookie: str):
+    (alert,) = _run_bookmarklet(cookie)
+    assert alert.startswith("alert:Not logged in")
+
+
+def test_the_bookmarklet_names_the_httponly_case_when_only_swid_is_visible():
+    (alert,) = _run_bookmarklet("SWID={X}; other=1")
+    assert "Found SWID but not espn_s2" in alert
+    assert "HttpOnly" in alert and "--from-browser" in alert and "DevTools" in alert
+    assert "Not logged in" not in alert
+
+
+def test_the_bookmarklet_does_not_count_duplicates_as_a_pair():
+    (alert,) = _run_bookmarklet("espn_s2=old; espn_s2=new")
+    assert "Found espn_s2 but not SWID" in alert
+
+
+def test_a_clipboard_with_swid_but_no_espn_s2_gets_the_targeted_remediation(
+    home, pasteboard, keychain
+):
+    pasteboard.text = f"SWID={SWID}; other={FOREIGN}"
+    error = _unparseable()
+    assert error.details == {"reason": "espn_s2_missing"}
+    assert "HttpOnly" in error.remediation and "--from-browser" in error.remediation
+    rendered = " ".join([str(error), error.remediation, json.dumps(error.details)])
+    assert FOREIGN not in rendered and SWID not in rendered
+    assert pasteboard.text.startswith("SWID=") and keychain == {}

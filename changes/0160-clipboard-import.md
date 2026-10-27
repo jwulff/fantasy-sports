@@ -38,6 +38,12 @@ any browser. Closes #160, part of #155.
   in the `--from-browser` path (follow-up, out of scope here). When the clipboard holds no
   valid pair it is never touched (it may hold something that is not ours to
   erase). Clearing is best effort and surfaces as `clipboard_cleared`.
+- The bookmarklet and `--from-clipboard` handle a browser that hides `espn_s2`
+  (HttpOnly): SWID present without `espn_s2` gets a targeted message pointing to
+  `--from-browser` or DevTools, and "not logged in" only means both are absent.
+  Preflight twice claimed `espn_s2` is HttpOnly, citing only third-party pages;
+  Chrome's own store has `is_httponly=0` for both (checked 2026-10-27, metadata
+  only), so the premise stands and the fallback covers the case it is wrong.
 - `--output table` (the TTY default) folds any cell at 100 columns, which would
   corrupt the bookmarklet URL. `CommandSpec.verbatim_fields` (threaded through
   `emit`/`render` to `table.render`) pulls named keys out of the table and prints

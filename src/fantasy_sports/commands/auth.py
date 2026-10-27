@@ -241,6 +241,15 @@ def _login_from_clipboard() -> Envelope:
         ) from None
 
     found = clipboard.parse_cookies(text)
+    if "swid" in found and "espn_s2" not in found:
+        raise AuthMissingError(
+            "The clipboard holds SWID but not espn_s2. Nothing was stored.",
+            remediation="This browser may hide espn_s2 from page scripts (HttpOnly), so the "
+            "bookmarklet cannot copy it. Run `fantasy-sports auth login --from-browser`, or "
+            "copy espn_s2 from DevTools > Application > Cookies and run "
+            "`fantasy-sports auth login`.",
+            details={"reason": "espn_s2_missing"},
+        )
     if "espn_s2" not in found or "swid" not in found:
         raise AuthMissingError(
             "The clipboard does not hold both ESPN cookies (espn_s2 and SWID). Nothing was stored.",

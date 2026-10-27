@@ -2542,6 +2542,7 @@ it is `false`, copy something else yourself.
 
 | Situation | Result |
 |---|---|
+| Clipboard has `SWID` but no `espn_s2` | `AUTH_MISSING`, `details.reason: "espn_s2_missing"`; the remediation says the browser may hide `espn_s2` from page scripts (HttpOnly) and points to `--from-browser` or a DevTools copy |
 | Clipboard lacks either cookie, or a value is not valid (a SWID that is not a GUID) | `AUTH_MISSING`; the remediation names the bookmarklet. The clipboard is left untouched, and its text never appears in the error |
 | No clipboard tool installed, or it fails | `AUTH_MISSING` with `details.reason` (`no_clipboard_tool`, `read_failed`, `unsupported_platform`) |
 | Storing fails (locked Keychain, unwritable state file) | `CONFIG_INVALID` (`kind: "credential_store"`, `details.cause` names the exception type only); the clipboard is cleared anyway, so click the bookmarklet again |
@@ -2623,7 +2624,11 @@ URL is static and holds no secret. Clicked on fantasy.espn.com while logged in,
 it filters `document.cookie` to `espn_s2` and `SWID` (neither is HttpOnly),
 writes them to the clipboard with `navigator.clipboard.writeText`, and alerts
 success, or "not logged in" when either is missing. Then run
-`fantasy-sports auth login --from-clipboard`. At a terminal (`--output table`)
+`fantasy-sports auth login --from-clipboard`. It works because page scripts can
+read both cookies: Chrome's cookie store recorded `is_httponly=0` for both
+`.espn.com` cookies on 2026-10-27. If ESPN ever sets HttpOnly on `espn_s2`, the
+bookmarklet alerts that it found `SWID` but not `espn_s2` and points to
+`--from-browser`; it says "not logged in" only when both are absent. At a terminal (`--output table`)
 the URL is printed on one unwrapped line below the table so it can be copied
 intact.
 
@@ -2638,14 +2643,14 @@ fantasy-sports auth bookmarklet
   "provider": "espn",
   "league_id": null,
   "season": null,
-  "generated_at": "2026-10-27T15:48:16Z",
+  "generated_at": "2026-10-27T15:58:34Z",
   "data_as_of": null,
   "data_age_seconds": null,
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
   "data": {
-    "bookmarklet": "javascript:(function(){var want=['espn_s2','SWID'],found=document.cookie.split(';').map(function(c){return c.trim()}).filter(function(c){return want.indexOf(c.split('=')[0])>-1});if(!want.every(function(n){return found.some(function(c){return c.split('=')[0]===n})})){alert('Not logged in: ESPN cookies espn_s2 and SWID not found. Log in at fantasy.espn.com and try again.');return}navigator.clipboard.writeText(found.join('; ')).then(function(){alert('ESPN cookies copied. Now run: fantasy-sports auth login --from-clipboard')},function(){alert('Could not write to the clipboard.')})})();",
+    "bookmarklet": "javascript:(function(){var want=['espn_s2','SWID'],found=document.cookie.split(';').map(function(c){return c.trim()}).filter(function(c){return want.indexOf(c.split('=')[0])>-1}),has=function(n){return found.some(function(c){return c.split('=')[0]===n})};if(!has('espn_s2')||!has('SWID')){alert(!has('espn_s2')&&!has('SWID')?'Not logged in: ESPN cookies espn_s2 and SWID not found. Log in at fantasy.espn.com and try again.':has('SWID')?'Found SWID but not espn_s2. This browser hides espn_s2 from page scripts (HttpOnly). Use fantasy-sports auth login --from-browser, or copy espn_s2 from DevTools > Application > Cookies.':'Found espn_s2 but not SWID. Log in at fantasy.espn.com and try again.');return}navigator.clipboard.writeText(found.join('; ')).then(function(){alert('ESPN cookies copied. Now run: fantasy-sports auth login --from-clipboard')},function(){alert('Could not write to the clipboard.')})})();",
     "instructions": "Create a browser bookmark whose URL is the bookmarklet, open fantasy.espn.com while logged in, click it, then run `fantasy-sports auth login --from-clipboard`."
   },
   "error": null

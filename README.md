@@ -117,7 +117,11 @@ while logged in at fantasy.espn.com:
 fantasy-sports auth bookmarklet
 ```
 
-The click puts `espn_s2` and `SWID` on your clipboard and says so. Then:
+The click puts `espn_s2` and `SWID` on your clipboard and says so. This works
+because both cookies are readable by page scripts: Chrome's cookie store recorded
+`is_httponly=0` for both `.espn.com` cookies on 2026-10-27. If ESPN ever marks
+`espn_s2` HttpOnly, the bookmarklet says it found `SWID` but not `espn_s2` and
+points you to `--from-browser` or the DevTools copy below. Then:
 
 ```bash
 fantasy-sports auth login --from-clipboard
