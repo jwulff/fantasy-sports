@@ -4,7 +4,8 @@
 Linux with a keyring. It needs the browser and the CLI to share a clipboard,
 so a remote host (SSH) is not covered. A bookmarklet (:data:`BOOKMARKLET`) runs
 on fantasy.espn.com, where ``document.cookie`` can read both cookies because
-neither is HttpOnly, and writes ``espn_s2=...; SWID={...}`` to the clipboard.
+neither is HttpOnly (``is_httponly=0`` for both in Chrome's own cookie store, observed
+2026-10-27 and recorded on #160), and writes ``espn_s2=...; SWID={...}`` to the clipboard.
 This module reads that string back, picks the two cookies out of it, and
 overwrites the clipboard so the credentials do not linger there.
 
