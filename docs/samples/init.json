@@ -3,13 +3,13 @@
   "provider": "espn",
   "league_id": null,
   "season": null,
-  "generated_at": "2026-10-27T15:45:15Z",
-  "data_as_of": "2026-10-27T15:45:15Z",
+  "generated_at": "2026-10-27T17:24:01Z",
+  "data_as_of": "2026-10-27T17:24:01Z",
   "data_age_seconds": 0,
   "sources": [
     {
       "name": "fan.api:fans",
-      "fetched_at": "2026-10-27T15:45:15Z",
+      "fetched_at": "2026-10-27T17:24:01Z",
       "age_seconds": 0,
       "cached": false
     }
@@ -46,6 +46,7 @@
       ]
     },
     "default": "synthetic-gridiron",
+    "next_step": null,
     "config_path": "~/.config/fantasy-sports/config.toml",
     "doctor": {
       "status": "ok",

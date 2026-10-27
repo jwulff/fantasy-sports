@@ -1874,9 +1874,12 @@ you would otherwise run by hand, and reimplements none of them:
 It never clobbers. A table for the same `league_id` and `season` is left alone
 and reported `skipped` with `reason: "already-configured"` (and the `slug` it
 already has); every other key in `config.toml` survives; a `default` that is
-already set is never changed. `default` is set only when exactly one league is
-written and the file had no `default` and no leagues, so adding a league can
-never quietly redirect an existing one. A slug an unrelated league already
+already set is never changed. With no `default` set: one league written to a
+file with no leagues becomes the `default`; a file with exactly one league gets
+that league's name written as `default` before a second arrives (it was the
+implied default, and two leagues without one make a bare command ambiguous);
+several leagues written to an empty file leave `default` unset and say so in
+`next_step`. A slug an unrelated league already
 holds gets `-2`, `-3`, and so on.
 
 | Option | |
@@ -1888,7 +1891,8 @@ holds gets `-2`, `-3`, and so on.
 `data` holds `dry_run`, `credentials` (`source` is `browser`, `prompt` or
 `stored`, with the `browser` and `profile` for the first; `stored` says whether
 the Keychain was written), `leagues` (`written` and `skipped` rows of `slug`,
-`provider`, `league_id`, `season`, `sport`), `default`, `config_path`, and
+`provider`, `league_id`, `season`, `sport`), `default`, `next_step` (a one-line fix, or
+`null`), `config_path`, and
 `doctor` (`status`, `ok`, and each check's `name`, `status` and `summary`). No
 credential value appears anywhere, and league names, which are free text, are
 left out of the rows.
@@ -1913,13 +1917,13 @@ fantasy-sports init
   "provider": "espn",
   "league_id": null,
   "season": null,
-  "generated_at": "2026-10-27T15:45:15Z",
-  "data_as_of": "2026-10-27T15:45:15Z",
+  "generated_at": "2026-10-27T17:24:01Z",
+  "data_as_of": "2026-10-27T17:24:01Z",
   "data_age_seconds": 0,
   "sources": [
     {
       "name": "fan.api:fans",
-      "fetched_at": "2026-10-27T15:45:15Z",
+      "fetched_at": "2026-10-27T17:24:01Z",
       "age_seconds": 0,
       "cached": false
     }
@@ -1956,6 +1960,7 @@ fantasy-sports init
       ]
     },
     "default": "synthetic-gridiron",
+    "next_step": null,
     "config_path": "~/.config/fantasy-sports/config.toml",
     "doctor": {
       "status": "ok",

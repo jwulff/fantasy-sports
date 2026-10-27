@@ -177,6 +177,7 @@ def test_two_leagues_are_written_and_no_default_is_guessed(fakes: Fakes):
     ]
     assert data["default"] is None
     assert "default" not in written_config()
+    assert 'default = "synthetic-gridiron"' in data["next_step"]
 
 
 def test_the_current_season_is_the_latest_listed_and_past_ones_wait_for_the_flag(fakes: Fakes):
@@ -289,10 +290,20 @@ def test_an_existing_default_is_never_changed(fakes: Fakes):
     assert written_config()["default"] == "office"
 
 
-def test_a_lone_new_league_does_not_take_over_an_implicit_default(fakes: Fakes):
+def test_a_lone_existing_league_stays_the_default_when_a_second_arrives(fakes: Fakes):
     seed('[leagues.office]\nprovider = "espn"\nleague_id = "55"\nseason = 2026\n')
     data = init_command.init().data
-    assert data["default"] is None
+    assert data["default"] == "office"
+    assert written_config()["default"] == "office"
+    from fantasy_sports.config.leagues import load
+
+    assert load().resolve().name == "office"
+    assert [r["slug"] for r in data["leagues"]["written"]] == ["synthetic-gridiron"]
+
+
+def test_nothing_new_written_leaves_a_lone_implicit_default_implicit(fakes: Fakes):
+    seed('[leagues.mine]\nprovider = "espn"\nleague_id = "99"\nseason = 2026\n')
+    assert init_command.init().data["default"] is None
     assert "default" not in written_config()
 
 
@@ -355,6 +366,7 @@ def test_no_browser_and_no_terminal_fails_auth_missing_and_writes_nothing(fakes:
         init_command.init()
     assert "no terminal" in str(caught.value)
     assert "auth login" in (caught.value.remediation or "")
+    assert "--from-clipboard" in (caught.value.remediation or "")
     assert fakes.keychain == {} and fakes.swids == []
     assert not config_file().exists()
 
@@ -435,3 +447,13 @@ def test_a_same_id_profile_in_another_sport_does_not_shadow_the_football_league(
     assert [r["slug"] for r in data["leagues"]["written"]] == ["synthetic-gridiron"]
     assert data["leagues"]["skipped"] == []
     assert written_config()["leagues"]["puck"]["sport"] == "hockey"
+
+
+def test_several_existing_leagues_without_a_default_are_left_for_the_user(fakes: Fakes):
+    seed(
+        '[leagues.a]\nprovider = "espn"\nleague_id = "1"\nseason = 2026\n'
+        '[leagues.b]\nprovider = "espn"\nleague_id = "2"\nseason = 2026\n'
+    )
+    data = init_command.init().data
+    assert data["default"] is None and data["next_step"] is None
+    assert "default" not in written_config()

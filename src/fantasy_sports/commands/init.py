@@ -78,6 +78,7 @@ def init(
         "credentials": credentials,
         "leagues": {"written": plan.written, "skipped": plan.skipped},
         "default": plan.default,
+        "next_step": plan.next_step,
         "config_path": str(path),
         "doctor": _doctor(),
     }
@@ -129,7 +130,8 @@ def _store_credentials() -> dict[str, Any]:
                 remediation=(
                     "Log into fantasy.espn.com in a supported browser and run "
                     "`fantasy-sports init` again, or run `fantasy-sports auth login` in a "
-                    "terminal to paste the cookies. " + (missing.remediation or "")
+                    "terminal to paste the cookies, or import them from the clipboard with "
+                    "`fantasy-sports auth login --from-clipboard`. " + (missing.remediation or "")
                 ).strip(),
                 details=dict(missing.details or {}),
             ) from None
@@ -202,6 +204,7 @@ class _Plan:
         self.written: list[dict[str, Any]] = []
         self.skipped: list[dict[str, Any]] = []
         self.default: str | None = None
+        self.next_step: str | None = None
 
     def tables(self) -> dict[str, dict[str, Any]]:
         return {
@@ -265,11 +268,22 @@ def _plan(leagues: list[DiscoveredLeague], *, season: int | None, all_seasons: b
         taken.add(slug)
         plan.written.append(_row(slug, league))
 
-    # A lone new league becomes the default only when that cannot redirect
-    # anything: with a default already set, or other leagues already configured,
-    # the user's current target stays the target.
-    if len(plan.written) == 1 and config.default is None and not config.profiles_by_name:
-        plan.default = plan.written[0]["slug"]
+    # An explicit default is never changed. Without one, the file's target must
+    # not move or become ambiguous: a lone existing profile is the implied
+    # default, so it is made explicit before a second profile arrives; a lone
+    # new league becomes the default only on a file with no leagues at all.
+    if config.default is None and plan.written:
+        existing_names = config.names()
+        if not existing_names and len(plan.written) == 1:
+            plan.default = plan.written[0]["slug"]
+        elif len(existing_names) == 1:
+            plan.default = existing_names[0]
+        elif not existing_names:
+            first = plan.written[0]["slug"]
+            plan.next_step = (
+                f'No default is set: add `default = "{first}"` to config.toml, '
+                "or pass --league <name> to each command."
+            )
     return plan
 
 
