@@ -41,6 +41,7 @@ __all__ = [
     "cookies_are_valid",
     "parse_cookies",
     "read_clipboard",
+    "read_clipboard_from",
 ]
 
 BOOKMARKLET = (
@@ -117,7 +118,18 @@ def _capture(run: Runner, argv: Sequence[str]) -> tuple[int, Secret]:
 
 
 def read_clipboard(*, platform: str | None = None, run: Runner | None = None) -> Secret:
-    """Return the clipboard text as a :class:`Secret`.
+    """Return the clipboard text as a :class:`Secret`. See :func:`read_clipboard_from`."""
+    return read_clipboard_from(platform=platform, run=run)[0]
+
+
+def read_clipboard_from(
+    *, platform: str | None = None, run: Runner | None = None
+) -> tuple[Secret, int]:
+    """Return the clipboard text as a :class:`Secret`, and which tool read it.
+
+    The index names the platform candidate that answered, to hand to
+    :func:`clear_clipboard`: on Linux, ``wl-paste`` and ``xclip`` can face
+    different clipboards, and clearing the other one would clear nothing.
 
     :raises ClipboardError: ``unsupported_platform``, ``no_clipboard_tool`` (none
         of the platform's tools is installed) or ``read_failed``.
@@ -130,7 +142,7 @@ def read_clipboard(*, platform: str | None = None, run: Runner | None = None) ->
         raise ClipboardError("unsupported_platform", f"No clipboard support for platform {key!r}.")
     runner = run or subprocess.run
     failed = False
-    for read_argv, _clear in candidates:
+    for index, (read_argv, _clear) in enumerate(candidates):
         try:
             status, text = _capture(runner, read_argv)
         except FileNotFoundError:
@@ -139,7 +151,7 @@ def read_clipboard(*, platform: str | None = None, run: Runner | None = None) ->
             failed = True
             continue
         if status == 0:
-            return text
+            return text, index
         failed = True
     if failed:
         raise ClipboardError("read_failed", "The clipboard tool failed to read the clipboard.")
@@ -147,11 +159,20 @@ def read_clipboard(*, platform: str | None = None, run: Runner | None = None) ->
     raise ClipboardError("no_clipboard_tool", f"No clipboard tool found (looked for {tools}).")
 
 
-def clear_clipboard(*, platform: str | None = None, run: Runner | None = None) -> bool:
-    """Best-effort overwrite of the clipboard with nothing. ``True`` if a tool accepted it."""
+def clear_clipboard(
+    *, platform: str | None = None, run: Runner | None = None, source: int | None = None
+) -> bool:
+    """Best-effort overwrite of the clipboard with nothing. ``True`` if a tool accepted it.
+
+    With ``source`` (from :func:`read_clipboard_from`), only the tool paired with
+    the one that read the credentials is tried: a different backend succeeding
+    would not have cleared them.
+    """
     import subprocess
 
     candidates = _COMMANDS.get(_platform_key(platform), ())
+    if source is not None:
+        candidates = candidates[source : source + 1]
     runner = run or subprocess.run
     for _read, clear_argv in candidates:
         try:

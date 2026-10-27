@@ -231,7 +231,7 @@ def _login_from_clipboard() -> Envelope:
         "fantasy.espn.com while logged in, then run `auth login --from-clipboard` again."
     )
     try:
-        text = clipboard.read_clipboard()
+        text, source = clipboard.read_clipboard_from()
     except clipboard.ClipboardError as problem:
         raise AuthMissingError(
             f"Could not read the clipboard ({problem.reason}). Nothing was stored.",
@@ -280,7 +280,7 @@ def _login_from_clipboard() -> Envelope:
         )
     except Exception as problem:  # noqa: BLE001 - re-raised below without its frames
         failed = type(problem).__name__
-    cleared = clipboard.clear_clipboard()
+    cleared = clipboard.clear_clipboard(source=source)
     if failed is not None:
         raise ConfigInvalidError(
             f"Could not store the credentials ({failed}); the clipboard was "

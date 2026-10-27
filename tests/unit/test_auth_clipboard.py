@@ -530,3 +530,24 @@ def test_a_clipboard_with_swid_but_no_espn_s2_gets_the_targeted_remediation(
     rendered = " ".join([str(error), error.remediation, json.dumps(error.details)])
     assert FOREIGN not in rendered and SWID not in rendered
     assert pasteboard.text.startswith("SWID=") and keychain == {}
+
+
+def test_clearing_uses_the_tool_that_read_the_clipboard():
+    """wl-paste fails, xclip supplies the cookies: a succeeding wl-copy must not count."""
+
+    class Mixed(FakeClipboard):
+        def __call__(self, argv: list[str], **kwargs: Any) -> Any:
+            if argv[0] == "wl-paste":
+                self.calls.append(argv)
+                return SimpleNamespace(returncode=1, stdout=b"", stderr=b"")
+            return super().__call__(argv, **kwargs)
+
+    fake = Mixed()
+    text, source = clipboard.read_clipboard_from(platform="linux", run=fake)
+    assert text.reveal() == GOOD and source == 1
+    fake.calls.clear()
+    assert clipboard.clear_clipboard(platform="linux", run=fake, source=source) is True
+    assert fake.calls == [["xclip", "-selection", "clipboard"]]
+    failing = FakeClipboard(missing=("xclip",))
+    assert clipboard.clear_clipboard(platform="linux", run=failing, source=1) is False
+    assert ["wl-copy", "--clear"] not in failing.calls
