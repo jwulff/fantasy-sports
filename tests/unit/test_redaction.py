@@ -113,6 +113,28 @@ def test_a_pseudonym_is_not_a_credential_scan_finding():
     )
 
 
+def test_a_percent_encoded_swid_is_scrubbed_to_a_stable_encoded_pseudonym():
+    url = "https://fan.api.espn.com/apis/v2/fans/%7B0F1E2D3C-4B5A-6978-8796-A5B4C3D2E1F0%7D"
+    once = scrub_credential_patterns(url)
+    assert FAKE_SWID_BARE not in once
+    assert f"%7B{SWID_PSEUDONYM_SENTINEL}-" in once
+    assert once.endswith("%7D")
+    assert scrub_credential_patterns(url) == once, "stable for a given salt"
+    # The same member spelled with braces and percent-encoded agrees.
+    assert once.endswith(swid_pseudonym(FAKE_SWID, salt=CASSETTE_SWID_SALT)[1:-1] + "%7D")
+    assert scrub_credential_patterns(once) == once
+    assert scrub_credential_patterns(once, swid_salt=new_swid_salt()) == once
+    for name, pattern in CREDENTIAL_PATTERNS.items():
+        assert not pattern.search(once), name
+
+
+def test_a_lowercase_percent_encoded_swid_is_scrubbed():
+    url = "/fans/%7b0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0%7d"
+    scrubbed = scrub_credential_patterns(url)
+    assert FAKE_SWID_BARE.lower() not in scrubbed
+    assert CREDENTIAL_PATTERNS["Percent-encoded SWID GUID"].search(url)
+
+
 def test_a_ci_secret_expression_is_not_a_finding():
     """``$``, ``{`` and ``}`` are excluded from the value class on purpose."""
     expression = "ESPN_S2: ${{ secrets.ESPN_S2 }}"

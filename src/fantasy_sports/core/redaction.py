@@ -277,6 +277,19 @@ _SWID_GUID_RE = re.compile(
     r"\{[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\}"
 )
 
+# The same brace-wrapped GUID percent-encoded (``%7B...%7D``), which is how it
+# travels in a URL *path*: ``fan.api.espn.com/apis/v2/fans/%7B<guid>%7D``.
+# Neither pattern around this one matches it, so a request recorded or cached
+# with that URL would put a real SWID on disk and pass every check
+# (``docs/memory/espn-401-tells-you-nothing.md``). Same sentinel lookahead as
+# above, for the same reason; the hex digits are case-insensitive and so is
+# the escape (``%7b``).
+_SWID_ENCODED_RE = re.compile(
+    rf"(?!%7B{SWID_PSEUDONYM_SENTINEL}-)"
+    r"%7B([0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12})%7D",
+    re.IGNORECASE,
+)
+
 # A GUID sitting under a ``swid``-ish key without its braces.
 _SWID_KEYED_RE = re.compile(
     r"""(swid)                       # the key
@@ -333,6 +346,7 @@ def is_swid_pseudonym(text: str) -> bool:
 
 CREDENTIAL_PATTERNS: dict[str, re.Pattern[str]] = {
     "SWID GUID": _SWID_GUID_RE,
+    "Percent-encoded SWID GUID": _SWID_ENCODED_RE,
     "GUID under a swid key": _SWID_KEYED_RE,
     "espn_s2 value": _ESPN_S2_RE,
     "API key under an api-key header or key": _API_KEY_RE,
@@ -374,6 +388,9 @@ def scrub_credential_patterns(text: str, *, swid_salt: str = CASSETTE_SWID_SALT)
     scrubbed again on its way back to the store.
     """
     text = _SWID_GUID_RE.sub(lambda match: swid_pseudonym(match.group(0), salt=swid_salt), text)
+    text = _SWID_ENCODED_RE.sub(
+        lambda match: f"%7B{swid_pseudonym(match.group(1), salt=swid_salt)[1:-1]}%7D", text
+    )
     text = _SWID_KEYED_RE.sub(rf"\1\2{SWID_PLACEHOLDER}", text)
     text = _ESPN_S2_RE.sub(rf"\1\2{CREDENTIAL_PLACEHOLDER}", text)
     return _API_KEY_RE.sub(rf"\1\2{CREDENTIAL_PLACEHOLDER}", text)

@@ -43,6 +43,7 @@ from conftest import (
 
 FAKE_SWID = "{0F1E2D3C-4B5A-6978-8796-A5B4C3D2E1F0}"
 FAKE_SWID_BARE = "0F1E2D3C-4B5A-6978-8796-A5B4C3D2E1F0"
+FAKE_SWID_ENCODED = "%7B0F1E2D3C-4B5A-6978-8796-A5B4C3D2E1F0%7D"
 FAKE_ESPN_S2 = "AEBnotarealcookie0123456789abcdefABCDEF%2Bnotareal%3D%3D"
 FAKE_COOKIE = f"espn_s2={FAKE_ESPN_S2}; SWID={FAKE_SWID}"
 ESPN_HOST = "https://lm-api-reads.fantasy.espn.com"
@@ -109,6 +110,14 @@ def test_no_committed_fixture_contains_a_credential() -> None:
         (f'      string: \'{{"owner": "{FAKE_SWID}"}}\'', "SWID GUID"),
         (f'      string: \'{{"swid": "{FAKE_SWID_BARE}"}}\'', "GUID under a swid key"),
         (f"      Cookie: [espn_s2={FAKE_ESPN_S2}]", "espn_s2 value"),
+        (
+            f"    uri: https://fan.api.espn.com/apis/v2/fans/{FAKE_SWID_ENCODED}",
+            "Percent-encoded SWID GUID",
+        ),
+        (
+            f"    uri: https://fan.api.espn.com/apis/v2/fans/{FAKE_SWID_ENCODED.lower()}",
+            "Percent-encoded SWID GUID",
+        ),
     ],
 )
 def test_scan_fails_loudly_on_a_poisoned_fixture(tmp_path: Path, poison: str, pattern: str) -> None:
@@ -217,6 +226,21 @@ def test_espn_s2_and_swid_query_parameters_are_scrubbed_from_the_uri(tmp_path: P
     assert f"espn_s2={REDACTED}" in recorded_uri
     assert f"SWID={REDACTED}" in recorded_uri
     assert "view=mTeam" in recorded_uri, "non-credential parameters must survive"
+
+
+def test_a_percent_encoded_swid_in_the_uri_path_is_scrubbed(tmp_path: Path) -> None:
+    """fan.api carries the SWID in the URL *path*, percent-encoded. The brace
+    pattern and the swid-key pattern both miss ``%7B...%7D``
+    (``docs/memory/espn-401-tells-you-nothing.md``)."""
+    uri = f"https://fan.api.espn.com/apis/v2/fans/{FAKE_SWID_ENCODED}?featureFlags=fantasy"
+    written = _record(tmp_path / "fan.yaml", [(_request(uri, headers={}), _response())])
+
+    assert FAKE_SWID_BARE not in written
+    assert FAKE_SWID_BARE.lower() not in written
+    recorded_uri = yaml.safe_load(written)["interactions"][0]["request"]["uri"]
+    assert recorded_uri.startswith("https://fan.api.espn.com/apis/v2/fans/%7B00000000-")
+    assert recorded_uri.endswith("%7D?featureFlags=fantasy")
+    assert not scan_file(tmp_path / "fan.yaml"), "a scrubbed cassette must pass the scan"
 
 
 def test_swid_guid_echoed_in_a_response_body_is_redacted(tmp_path: Path) -> None:
