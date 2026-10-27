@@ -3,8 +3,10 @@
 ## Why
 
 `auth login --from-browser` (#156) covers Chrome-family and Firefox on macOS.
-Safari, Windows, Linux with a keyring and remote hosts are left to DevTools and
-two careful pastes. Neither ESPN cookie is HttpOnly, so page JavaScript on
+Safari, Windows and Linux with a keyring are left to DevTools and two careful
+pastes. (Remote hosts stay uncovered: the bookmarklet writes the browser's
+clipboard and the CLI reads its own machine's, so they only meet on one machine.
+Preflight caught the first draft of the docs claiming otherwise.) Neither ESPN cookie is HttpOnly, so page JavaScript on
 fantasy.espn.com can read both: a bookmarklet can put them on the clipboard in
 any browser. Closes #160, part of #155.
 

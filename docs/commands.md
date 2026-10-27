@@ -2519,8 +2519,10 @@ fantasy-sports auth status
 
 #### `auth login --from-clipboard`
 
-The any-browser path, for Safari, Windows, Linux with a keyring, or a remote
-host: [`auth bookmarklet`](#auth-bookmarklet) puts the two cookies on the
+The any-browser path, for Safari, Windows, or Linux with a keyring. The browser
+and the CLI must share a clipboard, which means the same machine: across SSH the
+CLI reads the remote machine's clipboard, not the one the bookmarklet wrote.
+[`auth bookmarklet`](#auth-bookmarklet) puts the two cookies on the
 clipboard from fantasy.espn.com, and this reads them back. It runs `pbpaste`
 (macOS), `wl-paste` or `xclip -o -selection clipboard` (Linux), or PowerShell's
 `Get-Clipboard` (Windows), takes `espn_s2` and `SWID` out of the

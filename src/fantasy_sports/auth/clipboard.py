@@ -1,7 +1,8 @@
 """Read ESPN's two cookies off the system clipboard, then clear it (#160).
 
 ``auth login --from-clipboard`` is the any-browser path: Safari, Windows,
-Linux with a keyring, a remote host. A bookmarklet (:data:`BOOKMARKLET`) runs
+Linux with a keyring. It needs the browser and the CLI to share a clipboard,
+so a remote host (SSH) is not covered. A bookmarklet (:data:`BOOKMARKLET`) runs
 on fantasy.espn.com, where ``document.cookie`` can read both cookies because
 neither is HttpOnly, and writes ``espn_s2=...; SWID={...}`` to the clipboard.
 This module reads that string back, picks the two cookies out of it, and

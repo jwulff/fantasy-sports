@@ -107,9 +107,10 @@ them ([SECURITY.md](SECURITY.md#if-a-cookie-leaks)).
 
 ### 3. Or use the bookmarklet, or paste them
 
-**Any browser, via the clipboard.** Safari, Windows, and a browser on another
-machine are not covered by `--from-browser`, but a bookmarklet works in all of
-them. Print it, save the URL it gives you as a bookmark, then click that bookmark
+**Any browser, via the clipboard.** Safari, Windows, and Linux with a keyring
+are not covered by `--from-browser`, but a bookmarklet works in any browser,
+provided the browser and the CLI share a clipboard (the same machine; an SSH
+session does not). Print it, save the URL it gives you as a bookmark, then click that bookmark
 while logged in at fantasy.espn.com:
 
 ```bash
