@@ -26,9 +26,16 @@ any browser. Closes #160, part of #155.
   failure into a flag outside the `except` block and the command raises a
   data-free `AUTH_MISSING` of its own. The same shape exists in the
   `--from-browser` path; not touched here (out of scope), noted for a follow-up.
-- The clipboard is cleared only after a successful store, never on a failure
-  (it may hold something that is not ours to erase). Clearing is best effort and
-  surfaces as `clipboard_cleared` in `data`.
+- The clipboard is cleared once it is known to hold a valid cookie pair, in a
+  `finally` around `save_credentials`, so a failure after the Keychain write
+  (the bookkeeping file) cannot leave the cookies behind; the price is that a
+  Keychain failure also costs one bookmarklet click. When the clipboard holds no
+  valid pair it is never touched (it may hold something that is not ours to
+  erase). Clearing is best effort and surfaces as `clipboard_cleared`.
+- `--output table` (the TTY default) folds any cell at 100 columns, which would
+  corrupt the bookmarklet URL. `CommandSpec.verbatim_fields` (threaded through
+  `emit`/`render` to `table.render`) pulls named keys out of the table and prints
+  each on one unwrapped line below it. Found by preflight.
 - `--from-clipboard` and `--from-browser` together raise `CONFIG_INVALID` with
   `kind: "argument"` (ADR-0009). `--from-clipboard` is a plain bool flag, so it
   needs none of the `flag_value` machinery from #156.
@@ -43,7 +50,7 @@ any browser. Closes #160, part of #155.
 
 ## Validation
 
-- `uv run pytest -m "not live" --cov`: 2598 passed, 99.21% coverage;
+- `uv run pytest -m "not live" --cov`: all passed, 99% coverage;
   `auth/clipboard.py` and `commands/auth.py` at 100% line and branch.
 - Redaction tests use a sentinel clipboard and render `str`, `repr`, message,
   remediation, details and `capture_locals` tracebacks; a control test proves a

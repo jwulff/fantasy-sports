@@ -215,9 +215,10 @@ def _login_from_browser(from_browser: str, profile: str | None) -> Envelope:
 def _login_from_clipboard() -> Envelope:
     """Import the cookie pair from the clipboard, store it, and clear the clipboard.
 
-    The clipboard is cleared only after a successful store: on a failure it may
-    hold something that is not ours to wipe. Clearing is best effort and its
-    outcome is reported as ``clipboard_cleared``. No clipboard text appears in
+    The clipboard is cleared once it is known to hold a valid cookie pair, even if
+    storing then fails; when it does not, it may hold something that is not ours
+    to wipe and is left alone. Clearing is best effort and its outcome is
+    reported as ``clipboard_cleared``. No clipboard text appears in
     any error or in ``data``.
     """
     from fantasy_sports.auth import clipboard
@@ -255,16 +256,22 @@ def _login_from_clipboard() -> Envelope:
             details={"reason": "invalid_cookie_value"},
         )
 
-    repaired = save_credentials(
-        {"espn_s2": found["espn_s2"].reveal(), "swid": found["swid"].reveal()},
-        specs=ALL_CREDENTIALS,
-    )
+    # The clipboard held a valid credential pair, so it is ours to clear whether or
+    # not the store below succeeds: a failure after the Keychain write (the
+    # bookkeeping file) must not leave the cookies behind.
+    try:
+        repaired = save_credentials(
+            {"espn_s2": found["espn_s2"].reveal(), "swid": found["swid"].reveal()},
+            specs=ALL_CREDENTIALS,
+        )
+    finally:
+        cleared = clipboard.clear_clipboard()
     data = {
         "stored": ["espn_s2", "swid"],
         "repaired": sorted(repaired),
         "keychain_service": _service(),
         "source": {"clipboard": True},
-        "clipboard_cleared": clipboard.clear_clipboard(),
+        "clipboard_cleared": cleared,
     }
     require_shape(data, command="auth login")
     return Envelope.success(provider=PROVIDER, data=data)

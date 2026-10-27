@@ -87,12 +87,13 @@ involves:
   clipboard sync (Universal Clipboard, Windows clipboard history, cloud
   clipboards), which may keep a copy this tool cannot erase. Run the command right
   after clicking, and turn clipboard history off, or clear it, if you use it.
-- **The command clears the clipboard.** After a successful store it overwrites the
-  clipboard with nothing (`pbcopy`, `wl-copy --clear` or `xclip`, PowerShell
+- **The command clears the clipboard.** Once it has found a valid cookie pair on it,
+  it overwrites the clipboard with nothing (`pbcopy`, `wl-copy --clear` or `xclip`, PowerShell
   `Set-Clipboard`) and reports `clipboard_cleared` in its output. This is best
-  effort: when it is `false`, copy something else yourself. On a failure, the
-  clipboard is left untouched, because it may hold something that is not ours to
-  erase.
+  effort: when it is `false`, copy something else yourself. It clears even if
+  storing then fails (re-click the bookmarklet to retry). When the clipboard holds
+  no valid pair, it is left untouched, because it may hold something that is not
+  ours to erase.
 - **Clipboard text is never echoed.** It is wrapped in `Secret` the moment it is
   read; an error says only that the clipboard did not hold both cookies, never
   what it held.

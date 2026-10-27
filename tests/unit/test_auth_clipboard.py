@@ -401,3 +401,47 @@ def test_cli_bookmarklet_end_to_end(capsys):
 
     assert run(["auth", "bookmarklet", "--output", "json"]) == 0
     assert json.loads(capsys.readouterr().out)["data"]["bookmarklet"].startswith("javascript:")
+
+
+def test_the_table_prints_the_bookmarklet_unbroken():
+    """On a TTY the default output is a table; the URL must survive it as one line."""
+    from fantasy_sports.output import render
+
+    envelope = auth_commands.bookmarklet()
+    text = render(envelope, "table", verbatim=("bookmarklet",))
+    assert clipboard.BOOKMARKLET in text.splitlines()
+    assert "instructions" in text
+
+
+def test_the_table_folds_it_without_the_verbatim_declaration():
+    """Control: the same render without ``verbatim`` breaks the URL across lines."""
+    from fantasy_sports.output import render
+
+    text = render(auth_commands.bookmarklet(), "table")
+    assert clipboard.BOOKMARKLET not in text.splitlines()
+
+
+def test_the_bookmarklet_command_declares_its_url_verbatim():
+    from fantasy_sports.commands import REGISTRY
+
+    assert REGISTRY["auth bookmarklet"].verbatim_fields == ("bookmarklet",)
+
+
+def test_cli_table_output_keeps_the_bookmarklet_on_one_line(capsys):
+    from fantasy_sports.cli.app import run
+
+    assert run(["auth", "bookmarklet", "--output", "table"]) == 0
+    assert clipboard.BOOKMARKLET in capsys.readouterr().out.splitlines()
+
+
+def test_the_clipboard_is_cleared_even_when_bookkeeping_fails_after_the_store(
+    home, pasteboard, keychain, monkeypatch
+):
+    def explode(*args: Any, **kwargs: Any):
+        raise OSError("state file unwritable")
+
+    monkeypatch.setattr(staleness, "record_stored", explode)
+    with pytest.raises(OSError):
+        auth_commands.login(from_clipboard=True)
+    assert keychain["espn_s2"] == COOKIE_S2
+    assert pasteboard.text == ""

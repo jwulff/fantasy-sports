@@ -167,7 +167,7 @@ def _dispatch(spec: CommandSpec, ctx: Any, values: Mapping[str, Any]) -> int:
     # returned above — so `raw` needs no `envelope.ok` guard of its own.
     if no_raw and spec.honors_no_raw:
         envelope = envelope.without_raw()
-    return emit(envelope, fmt=fmt, columns=spec.table_columns)
+    return emit(envelope, fmt=fmt, columns=spec.table_columns, verbatim=spec.verbatim_fields)
 
 
 def _merge_globals(spec: CommandSpec, ctx: Any, values: Mapping[str, Any]) -> dict[str, Any]:

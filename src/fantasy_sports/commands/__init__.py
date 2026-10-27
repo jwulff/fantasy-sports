@@ -212,6 +212,11 @@ class CommandSpec:
     stats map, a practice report) that would wrap a 100-column table past
     reading; JSON and CSV always carry everything."""
 
+    verbatim_fields: tuple[str, ...] = ()
+    """Top-level keys of an object ``data`` that ``--output table`` prints verbatim,
+    on their own unwrapped line below the table, instead of in a (folded) cell. For
+    a value a human copies out of the terminal, like the bookmarklet URL."""
+
     honors_no_raw: bool = True
     """Whether ``--no-raw`` strips ``data`` before this command's envelope is
     emitted. ``False`` for exactly one command: ``raw``, whose whole point is
@@ -501,6 +506,7 @@ register(
         handler="fantasy_sports.commands.auth:bookmarklet",
         shape=DataShape.OBJECT,
         takes_league=False,
+        verbatim_fields=("bookmarklet",),
     )
 )
 

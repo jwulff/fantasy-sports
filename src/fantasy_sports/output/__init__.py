@@ -66,15 +66,17 @@ def render(
     *,
     stream: Any = None,
     columns: Sequence[str] = (),
+    verbatim: Sequence[str] = (),
 ) -> str:
     """Render ``envelope`` in ``fmt``, or in the format ``stream`` implies.
 
     ``columns`` narrows the **table** to those dotted row paths and nothing
     else: JSON and CSV are the contract and always carry every field.
+    ``verbatim`` names object keys the table prints unwrapped below it.
     """
     chosen = resolve_format(fmt, stream)
-    if chosen is OutputFormat.TABLE and columns:
-        return table_renderer.render(envelope, columns=columns)
+    if chosen is OutputFormat.TABLE and (columns or verbatim):
+        return table_renderer.render(envelope, columns=columns, verbatim=verbatim)
     return _RENDERERS[chosen](envelope)
 
 
@@ -86,6 +88,7 @@ def emit(
     stderr: Any = None,
     guidance: str | None = None,
     columns: Sequence[str] = (),
+    verbatim: Sequence[str] = (),
 ) -> int:
     """Write ``envelope`` to the right stream and return the process exit status.
 
@@ -108,7 +111,7 @@ def emit(
             stderr.write("\n" + guidance + "\n")
         return exit_code_for(envelope.error)
 
-    stdout.write(render(envelope, fmt, stream=stdout, columns=columns))
+    stdout.write(render(envelope, fmt, stream=stdout, columns=columns, verbatim=verbatim))
     return EXIT_OK
 
 

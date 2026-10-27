@@ -2525,9 +2525,10 @@ clipboard from fantasy.espn.com, and this reads them back. It runs `pbpaste`
 (macOS), `wl-paste` or `xclip -o -selection clipboard` (Linux), or PowerShell's
 `Get-Clipboard` (Windows), takes `espn_s2` and `SWID` out of the
 `document.cookie`-style string (either order; other cookies are ignored),
-stores them through the same `save_credentials` as a typed login, and then
+stores them through the same `save_credentials` as a typed login, and
 **clears the clipboard**, because for a moment it held your session
-credentials. Clearing is best effort and reported as `clipboard_cleared`; if
+credentials. It clears as soon as the clipboard is known to hold a valid pair,
+even if storing then fails. Clearing is best effort and reported as `clipboard_cleared`; if
 it is `false`, copy something else yourself.
 
 `data` adds, beside `stored` / `repaired` / `keychain_service`:
@@ -2619,7 +2620,9 @@ URL is static and holds no secret. Clicked on fantasy.espn.com while logged in,
 it filters `document.cookie` to `espn_s2` and `SWID` (neither is HttpOnly),
 writes them to the clipboard with `navigator.clipboard.writeText`, and alerts
 success, or "not logged in" when either is missing. Then run
-`fantasy-sports auth login --from-clipboard`.
+`fantasy-sports auth login --from-clipboard`. At a terminal (`--output table`)
+the URL is printed on one unwrapped line below the table so it can be copied
+intact.
 
 <!-- sample: auth-bookmarklet -->
 ```bash

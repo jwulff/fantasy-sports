@@ -159,11 +159,15 @@ def _add_rows(table: Any, data: Any, columns: Sequence[str] = ()) -> bool:
     return False
 
 
-def render(envelope: Envelope, columns: Sequence[str] = ()) -> str:
+def render(envelope: Envelope, columns: Sequence[str] = (), verbatim: Sequence[str] = ()) -> str:
     """Render ``envelope`` as a header line plus a table.
 
     ``columns`` (dotted row paths) narrows a list of rows to those fields, for
     commands whose rows nest structures that would wrap past reading.
+
+    ``verbatim`` names keys of an object ``data`` that leave the table and are
+    printed after it, each on one unwrapped line. A value someone copies out of
+    the terminal (a bookmarklet URL) must not be folded at 100 columns.
     """
     from rich.box import SIMPLE
     from rich.console import Console
@@ -182,6 +186,10 @@ def render(envelope: Envelope, columns: Sequence[str] = ()) -> str:
     console.print(_header_line(payload))
 
     data = payload["data"]
+    verbatim_rows: list[tuple[str, str]] = []
+    if verbatim and isinstance(data, Mapping):
+        verbatim_rows = [(key, str(data[key])) for key in verbatim if key in data]
+        data = {key: value for key, value in data.items() if key not in verbatim}
     if data is None or (isinstance(data, list | Mapping) and not data):
         console.print("(no rows)")
     else:
@@ -192,6 +200,12 @@ def render(envelope: Envelope, columns: Sequence[str] = ()) -> str:
             console.print(
                 "`raw` omitted from this table; use --output json for the provider payload."
             )
+
+    for key, value in verbatim_rows:
+        from rich.text import Text
+
+        console.print(f"{key}:")
+        console.print(Text(value), soft_wrap=True)
 
     if payload["sources"]:
         console.print(
