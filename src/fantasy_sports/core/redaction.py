@@ -172,11 +172,23 @@ def scrub(value: Any) -> Any:
     Error ``details`` are field names, paths, and status codes — but they are
     assembled by callers, and a caller is exactly who puts a credential
     somewhere it does not belong. Non-string scalars are returned untouched.
+
+    **Mapping keys are scrubbed too**, at every depth. They are caller-supplied
+    strings just as much as the values are: ``WriteDivergedError.expected`` /
+    ``observed`` are keyed by player id, and #106 had to redact those keys by
+    hand inside that one class precisely because the base did not. A key is
+    where an id goes when the value is the thing it points at, which makes it
+    the half of the map a value-only scrub cannot see
+    (``docs/memory/credential-leak-channels.md``, channel 2).
+
+    A key that is *not* a string is not a credential, so it passes through
+    unchanged rather than being coerced: ``scrub`` preserves shape, and turning
+    ``4046`` into ``"4046"`` would be a shape change every caller would inherit.
     """
     if isinstance(value, str):
         return redact(value)
     if isinstance(value, Mapping):
-        return {key: scrub(item) for key, item in value.items()}
+        return {scrub(key): scrub(item) for key, item in value.items()}
     if isinstance(value, list):
         return [scrub(item) for item in value]
     if isinstance(value, tuple):

@@ -84,8 +84,10 @@ not consume an exit number.
 ADR-0004 fixed. `remediation` on a `WRITE_REJECTED` is ESPN's message, redacted
 at construction like every other string; it is the one place provider prose
 reaches a payload, by design, because it is what a human acts on. The base-class
-scrub redacts registered secrets in string values, not in mapping keys, so
-`WriteDivergedError` redacts its own keys.
+scrub redacts registered secrets in string values *and* mapping keys
+(jwulff/fantasy-sports#116), so no error type redacts its own keys. At the time
+this ADR was written `scrub` walked values only, which is why
+`WriteDivergedError` did it locally; that local step is gone.
 
 ## Alternatives considered
 

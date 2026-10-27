@@ -276,3 +276,58 @@ def test_a_registered_secret_is_also_redacted_in_its_percent_encoded_spelling():
         assert FAKE_SWID_BARE not in redact("GET /fans/%7B0F1E2D3C-4B5A-6978-8796-A5B4C3D2E1F0%7D")
     finally:
         forget_secrets()
+
+
+def test_scrub_redacts_mapping_keys_as_well_as_values():
+    """The registry half of #116: ``scrub`` walks keys, at every depth.
+
+    A key is where an id goes when the value is the thing it points at, so a
+    value-only walk misses exactly the half of the map a caller is most likely
+    to fill with a caller-supplied id. ``WriteDivergedError.expected`` /
+    ``observed`` are keyed by player id, which is how #106 found the gap and
+    patched it inside that one class.
+    """
+    from fantasy_sports.core.redaction import (
+        REDACTED,
+        forget_secrets,
+        remember_secret,
+        scrub,
+    )
+
+    forget_secrets()
+    try:
+        remember_secret(FAKE_ESPN_S2)
+        scrubbed = scrub(
+            {
+                FAKE_ESPN_S2: "depth one",
+                "request": {FAKE_ESPN_S2: ["depth two"]},
+                "kept": "an ordinary value",
+                7: "a non-string key is not a credential",
+            }
+        )
+
+        assert FAKE_ESPN_S2 not in json.dumps(scrubbed)
+        # Keys are replaced rather than dropped, so callers keep their shape.
+        assert scrubbed[REDACTED] == "depth one"
+        assert scrubbed["request"][REDACTED] == ["depth two"]
+        assert scrubbed["kept"] == "an ordinary value"
+        # A non-string key is left alone: `scrub` preserves shape, and coercing
+        # it would be a change every caller inherits.
+        assert scrubbed[7] == "a non-string key is not a credential"
+    finally:
+        forget_secrets()
+
+
+def test_scrub_leaves_an_unregistered_key_alone():
+    """Control: proves the test above measures the scrub set, not a blanket erase.
+
+    Without this, a ``scrub`` that replaced every mapping key would pass every
+    assertion above while destroying every ``details`` map in the codebase.
+    """
+    from fantasy_sports.core.redaction import forget_secrets, scrub
+
+    forget_secrets()
+    try:
+        assert scrub({FAKE_SWID: "value"}) == {FAKE_SWID: "value"}
+    finally:
+        forget_secrets()
