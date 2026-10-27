@@ -1,0 +1,24 @@
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "espn",
+  "league_id": null,
+  "season": null,
+  "generated_at": "2026-10-27T15:24:37Z",
+  "data_as_of": null,
+  "data_age_seconds": null,
+  "sources": [],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": null,
+  "error": {
+    "code": "AUTH_MISSING",
+    "message": "The clipboard does not hold both ESPN cookies (espn_s2 and SWID). Nothing was stored.",
+    "retryable": false,
+    "agent_action": "Ask the human to run `fantasy-sports auth login`.",
+    "remediation": "Run `fantasy-sports auth bookmarklet`, add the printed URL as a bookmark, click it on fantasy.espn.com while logged in, then run `auth login --from-clipboard` again.",
+    "details": {
+      "reason": "no_cookies_on_clipboard"
+    },
+    "health": null
+  }
+}

@@ -681,7 +681,7 @@ Options (accepted before or after the command):
 
 Commands:
   add           Add a free agent to your own team, optionally dropping a player. Irreversible.
-  auth          3 subcommands: login, logout, status
+  auth          4 subcommands: bookmarklet, login, logout, status
   box-scores    List both lineups for a week's matchups, player by player, with projections.
   cancel-claim  Withdraw one of your own pending waiver claims by its transaction id. Writes.
   claim         Submit a waiver claim, with a bid where the league uses FAAB; can drop a player. Irreversible.
@@ -2357,8 +2357,8 @@ fantasy-sports auth status
 ### `auth login`
 
 Prompts for `espn_s2` and `SWID` without echoing them and stores both in the
-Keychain, or — with `--from-browser` — reads them from a local browser and
-skips the prompt. The prompt guidance goes to stderr so stdout is still only the
+Keychain, or — with `--from-browser` or `--from-clipboard` — imports them from
+a local browser or the clipboard and skips the prompt. The prompt guidance goes to stderr so stdout is still only the
 envelope — which also means a *failed* login's stderr is guidance followed
 by the error envelope, not one JSON document; the prompting form is the one
 form not meant to be driven by a program. Nothing is written until both values
@@ -2511,6 +2511,136 @@ fantasy-sports auth status
       "expiry_warn_days": 7
     },
     "warnings": []
+  },
+  "error": null
+}
+```
+<!-- /sample -->
+
+#### `auth login --from-clipboard`
+
+The any-browser path, for Safari, Windows, Linux with a keyring, or a remote
+host: [`auth bookmarklet`](#auth-bookmarklet) puts the two cookies on the
+clipboard from fantasy.espn.com, and this reads them back. It runs `pbpaste`
+(macOS), `wl-paste` or `xclip -o -selection clipboard` (Linux), or PowerShell's
+`Get-Clipboard` (Windows), takes `espn_s2` and `SWID` out of the
+`document.cookie`-style string (either order; other cookies are ignored),
+stores them through the same `save_credentials` as a typed login, and then
+**clears the clipboard**, because for a moment it held your session
+credentials. Clearing is best effort and reported as `clipboard_cleared`; if
+it is `false`, copy something else yourself.
+
+`data` adds, beside `stored` / `repaired` / `keychain_service`:
+
+| Key | Meaning |
+|---|---|
+| `source` | `{"clipboard": true}` |
+| `clipboard_cleared` | whether a clipboard tool accepted the overwrite |
+
+| Situation | Result |
+|---|---|
+| Clipboard lacks either cookie, or a value is not valid (a SWID that is not a GUID) | `AUTH_MISSING`; the remediation names the bookmarklet. The clipboard is left untouched, and its text never appears in the error |
+| No clipboard tool installed, or it fails | `AUTH_MISSING` with `details.reason` (`no_clipboard_tool`, `read_failed`, `unsupported_platform`) |
+| Together with `--from-browser` | `CONFIG_INVALID` (`kind: "argument"`) |
+
+<!-- sample: auth-login-clipboard -->
+```bash
+fantasy-sports auth login --from-clipboard
+# no league (replayed). Exit 0, stdout. The clipboard held what the bookmarklet wrote (placeholder cookies, plus an unrelated cookie that is ignored); the clipboard tool is stubbed:
+```
+```json
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "espn",
+  "league_id": null,
+  "season": null,
+  "generated_at": "2026-10-27T15:24:37Z",
+  "data_as_of": null,
+  "data_age_seconds": null,
+  "sources": [],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": {
+    "stored": [
+      "espn_s2",
+      "swid"
+    ],
+    "repaired": [],
+    "keychain_service": "fantasy-sports",
+    "source": {
+      "clipboard": true
+    },
+    "clipboard_cleared": true
+  },
+  "error": null
+}
+```
+<!-- /sample -->
+
+The unparseable case, with something else on the clipboard:
+
+<!-- sample: auth-login-clipboard.unparseable -->
+```bash
+fantasy-sports auth login --from-clipboard
+# no league (replayed). Exit 3, stderr. The clipboard held something else; its text is never echoed, and it is left untouched:
+```
+```json
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "espn",
+  "league_id": null,
+  "season": null,
+  "generated_at": "2026-10-27T15:24:37Z",
+  "data_as_of": null,
+  "data_age_seconds": null,
+  "sources": [],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": null,
+  "error": {
+    "code": "AUTH_MISSING",
+    "message": "The clipboard does not hold both ESPN cookies (espn_s2 and SWID). Nothing was stored.",
+    "retryable": false,
+    "agent_action": "Ask the human to run `fantasy-sports auth login`.",
+    "remediation": "Run `fantasy-sports auth bookmarklet`, add the printed URL as a bookmark, click it on fantasy.espn.com while logged in, then run `auth login --from-clipboard` again.",
+    "details": {
+      "reason": "no_cookies_on_clipboard"
+    },
+    "health": null
+  }
+}
+```
+<!-- /sample -->
+
+### `auth bookmarklet`
+
+Prints the `javascript:` URL for a bookmark, and one line of instructions. The
+URL is static and holds no secret. Clicked on fantasy.espn.com while logged in,
+it filters `document.cookie` to `espn_s2` and `SWID` (neither is HttpOnly),
+writes them to the clipboard with `navigator.clipboard.writeText`, and alerts
+success, or "not logged in" when either is missing. Then run
+`fantasy-sports auth login --from-clipboard`.
+
+<!-- sample: auth-bookmarklet -->
+```bash
+fantasy-sports auth bookmarklet
+# no league (replayed). Exit 0, stdout:
+```
+```json
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "espn",
+  "league_id": null,
+  "season": null,
+  "generated_at": "2026-10-27T15:24:37Z",
+  "data_as_of": null,
+  "data_age_seconds": null,
+  "sources": [],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": {
+    "bookmarklet": "javascript:(function(){var want=['espn_s2','SWID'],found=document.cookie.split(';').map(function(c){return c.trim()}).filter(function(c){return want.indexOf(c.split('=')[0])>-1});if(found.length<2){alert('Not logged in: ESPN cookies espn_s2 and SWID not found. Log in at fantasy.espn.com and try again.');return}navigator.clipboard.writeText(found.join('; ')).then(function(){alert('ESPN cookies copied. Now run: fantasy-sports auth login --from-clipboard')},function(){alert('Could not write to the clipboard.')})})();",
+    "instructions": "Create a browser bookmark whose URL is the bookmarklet, open fantasy.espn.com while logged in, click it, then run `fantasy-sports auth login --from-clipboard`."
   },
   "error": null
 }

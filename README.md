@@ -105,9 +105,29 @@ so treat them like a password: never paste them into an issue or a shell
 argument, and if you think they have leaked, log out of ESPN to invalidate
 them ([SECURITY.md](SECURITY.md#if-a-cookie-leaks)).
 
-### 3. Or paste them
+### 3. Or use the bookmarklet, or paste them
 
-If you use Safari, another browser, or a host with no browser, copy the cookies
+**Any browser, via the clipboard.** Safari, Windows, and a browser on another
+machine are not covered by `--from-browser`, but a bookmarklet works in all of
+them. Print it, save the URL it gives you as a bookmark, then click that bookmark
+while logged in at fantasy.espn.com:
+
+```bash
+fantasy-sports auth bookmarklet
+```
+
+The click puts `espn_s2` and `SWID` on your clipboard and says so. Then:
+
+```bash
+fantasy-sports auth login --from-clipboard
+```
+
+stores them in the Keychain and clears the clipboard, since for those few
+seconds it held your session credentials
+([SECURITY.md](SECURITY.md#importing-cookies-from-the-clipboard)). It needs
+`pbpaste` (macOS), `wl-paste` or `xclip` (Linux), or PowerShell (Windows).
+
+**Or copy them by hand.** If you would rather not use a bookmarklet, copy the cookies
 by hand. While logged in at fantasy.espn.com, open DevTools and go to
 Application → Cookies (Chrome) or Storage → Cookies (Firefox), then select
 `https://fantasy.espn.com`. Copy the value of `espn_s2`, and the value of
@@ -232,7 +252,8 @@ fails if a committed sample no longer matches what the code renders.
 | [`experts injuries`](docs/commands.md#experts-injuries) | Injuries with practice reports and probability of playing |
 | [`experts news`](docs/commands.md#experts-news) | Player news with the fantasy-impact line |
 | [`auth status`](docs/commands.md#auth-status) | Which credentials are configured, from where, and how old |
-| [`auth login`](docs/commands.md#auth-login) | Store the two ESPN cookies in the Keychain: imported from a browser (`--from-browser`) or prompted for without echo |
+| [`auth login`](docs/commands.md#auth-login) | Store the two ESPN cookies in the Keychain: imported from a browser (`--from-browser`) or the clipboard (`--from-clipboard`), or prompted for without echo |
+| [`auth bookmarklet`](docs/commands.md#auth-bookmarklet) | Print the bookmarklet that copies your ESPN cookies to the clipboard |
 | [`auth logout`](docs/commands.md#auth-logout) | Remove them from the Keychain and `config.toml`; report what it cannot unset |
 
 The [global options](docs/commands.md#global-options) — `--league`,

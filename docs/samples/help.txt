@@ -15,7 +15,7 @@ Options (accepted before or after the command):
 
 Commands:
   add           Add a free agent to your own team, optionally dropping a player. Irreversible.
-  auth          3 subcommands: login, logout, status
+  auth          4 subcommands: bookmarklet, login, logout, status
   box-scores    List both lineups for a week's matchups, player by player, with projections.
   cancel-claim  Withdraw one of your own pending waiver claims by its transaction id. Writes.
   claim         Submit a waiver claim, with a bid where the league uses FAAB; can drop a player. Irreversible.

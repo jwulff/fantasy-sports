@@ -460,7 +460,7 @@ register(
     CommandSpec(
         name="login",
         group="auth",
-        summary="Store ESPN cookies in the Keychain: prompted for, or imported via --from-browser.",
+        summary="Store ESPN cookies: prompted for, or via --from-browser / --from-clipboard.",
         handler="fantasy_sports.commands.auth:login",
         shape=DataShape.OBJECT,
         takes_league=False,
@@ -481,7 +481,26 @@ register(
                 "(e.g. `Default`, `Profile 1`).",
                 annotation=str | None,
             ),
+            Param(
+                name="from_clipboard",
+                help="Import espn_s2 and SWID from the clipboard (put there by the "
+                "`auth bookmarklet` bookmarklet), store them, then clear the clipboard. "
+                "Works in any browser. Mutually exclusive with --from-browser.",
+                annotation=bool,
+                default=False,
+            ),
         ),
+    )
+)
+
+register(
+    CommandSpec(
+        name="bookmarklet",
+        group="auth",
+        summary="Print the bookmarklet that copies your ESPN cookies for --from-clipboard.",
+        handler="fantasy_sports.commands.auth:bookmarklet",
+        shape=DataShape.OBJECT,
+        takes_league=False,
     )
 )
 

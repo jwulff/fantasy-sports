@@ -75,6 +75,32 @@ local browser profile instead of asking you to paste them. What that involves:
 - **Not supported:** Safari (its cookie file needs Full Disk Access), Windows,
   and Linux Chrome-family stores (libsecret). They are reported as skipped.
 
+## Importing cookies from the clipboard
+
+`fantasy-sports auth bookmarklet` prints a static `javascript:` bookmarklet, and
+`fantasy-sports auth login --from-clipboard` reads what it copies. What that
+involves:
+
+- **The clipboard briefly holds your session credentials.** From the bookmarklet
+  click until the command runs, `espn_s2` and `SWID` sit on the system clipboard,
+  readable by any process on your account and by clipboard-history tools and
+  clipboard sync (Universal Clipboard, Windows clipboard history, cloud
+  clipboards), which may keep a copy this tool cannot erase. Run the command right
+  after clicking, and turn clipboard history off, or clear it, if you use it.
+- **The command clears the clipboard.** After a successful store it overwrites the
+  clipboard with nothing (`pbcopy`, `wl-copy --clear` or `xclip`, PowerShell
+  `Set-Clipboard`) and reports `clipboard_cleared` in its output. This is best
+  effort: when it is `false`, copy something else yourself. On a failure, the
+  clipboard is left untouched, because it may hold something that is not ours to
+  erase.
+- **Clipboard text is never echoed.** It is wrapped in `Secret` the moment it is
+  read; an error says only that the clipboard did not hold both cookies, never
+  what it held.
+- **The bookmarklet holds no secret.** It reads `document.cookie` at click time
+  on an ESPN page, keeps only the two named cookies (neither is HttpOnly), and
+  writes them to the clipboard. Read the URL before you save it; a bookmarklet
+  runs with the page's authority.
+
 ## What is redacted, and where
 
 **In memory and in errors.** A resolved credential is wrapped in `Secret`,

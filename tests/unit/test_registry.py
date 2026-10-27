@@ -41,6 +41,7 @@ V01_SURFACE = frozenset(
         "claim",
         "claims",
         "drop",
+        "auth bookmarklet",
         "auth login",
         "auth logout",
         "auth status",

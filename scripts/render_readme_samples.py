@@ -44,6 +44,7 @@ Usage::
     uv run python scripts/render_readme_samples.py --splice  # splice committed samples
     uv run python scripts/render_readme_samples.py --check   # exit 1 if the docs drifted
     uv run python scripts/render_readme_samples.py --only-experts  # offline; keeps live samples
+    uv run python scripts/render_readme_samples.py --new-auth      # offline; adds new auth samples
 
 This is a development script. It is not part of the wheel and nothing in
 ``src/`` imports it; the test imports only its pure functions.
@@ -1215,10 +1216,51 @@ def _auth_samples(recorder: Recorder) -> None:
             stderr_ok=True,
         )
         recorder.run("auth-status", ["auth", "status"], **replayed)
+        recorder.run("auth-bookmarklet", ["auth", "bookmarklet"], **replayed)
+        with _fake_clipboard("not cookies"):
+            recorder.run(
+                "auth-login-clipboard.unparseable",
+                ["auth", "login", "--from-clipboard"],
+                **replayed,
+                expect=None,
+                note="The clipboard held something else; its text is never echoed, and it is "
+                "left untouched",
+            )
+        with _fake_clipboard(f"theme=dark; espn_s2={PLACEHOLDER_S2}; SWID={PLACEHOLDER_SWID}"):
+            recorder.run(
+                "auth-login-clipboard",
+                ["auth", "login", "--from-clipboard"],
+                **replayed,
+                note="The clipboard held what the bookmarklet wrote (placeholder cookies, plus "
+                "an unrelated cookie that is ignored); the clipboard tool is stubbed",
+            )
         recorder.run("auth-logout", ["auth", "logout"], **replayed)
     finally:
         getpass.getpass = original_getpass  # type: ignore[assignment]
         keyring.set_keyring(original_keyring)
+
+
+@contextlib.contextmanager
+def _fake_clipboard(text: str) -> Iterator[None]:
+    """Stand in for the macOS clipboard tools; the real clipboard is never touched."""
+    from types import SimpleNamespace
+
+    state = {"text": text}
+    original_run, original_platform = subprocess.run, sys.platform
+
+    def fake(argv: list[str], **kwargs: Any) -> Any:
+        if argv[0] == "pbpaste":
+            return SimpleNamespace(returncode=0, stdout=state["text"].encode(), stderr=b"")
+        state["text"] = ""
+        return SimpleNamespace(returncode=0, stdout=b"", stderr=b"")
+
+    subprocess.run = fake  # type: ignore[assignment]
+    sys.platform = "darwin"
+    try:
+        yield
+    finally:
+        subprocess.run = original_run  # type: ignore[assignment]
+        sys.platform = original_platform
 
 
 def _memory_keyring_class() -> type:
@@ -1408,6 +1450,23 @@ def generate_experts() -> None:
     print(f"wrote {len(fresh)} samples to {SAMPLES_DIR.relative_to(REPO)}")
 
 
+def generate_new_auth() -> None:
+    """Add the samples for ``auth`` commands not yet committed, keeping every other sample.
+
+    Like :func:`generate_experts`, this exists so a new offline command does not
+    rewrite the live samples. Samples already in the index are left byte-for-byte as
+    they are (their ``generated_at`` would otherwise churn); only new names are added.
+    """
+    known = {entry["name"] for entry in json.loads(INDEX_FILE.read_text(encoding="utf-8"))}
+    with tempfile.TemporaryDirectory(prefix="fantasy-sports-samples-") as tmp:
+        recorder = Recorder(Sandbox(Path(tmp)))
+        recorder.sandbox.write_config(SYNTHETIC_CONFIG)
+        _auth_samples(recorder)
+        fresh = [sample for sample in recorder.samples if sample.name not in known]
+    merge_samples(fresh)
+    print(f"added {len(fresh)} samples to {SAMPLES_DIR.relative_to(REPO)}")
+
+
 def merge_samples(samples: list[Sample]) -> None:
     """Write ``samples`` over their namesakes and append the new ones to the index."""
     entries = json.loads(INDEX_FILE.read_text(encoding="utf-8"))
@@ -1443,9 +1502,16 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="regenerate just the experts samples and --help, keeping every other sample",
     )
+    mode.add_argument(
+        "--new-auth",
+        action="store_true",
+        help="offline: add only the not-yet-committed auth samples, keeping every other sample",
+    )
     args = parser.parse_args(argv)
     if args.only_experts:
         generate_experts()
+    elif args.new_auth:
+        generate_new_auth()
     elif not (args.splice or args.check):
         generate()
     return splice_docs(check=args.check)

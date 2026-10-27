@@ -1,0 +1,25 @@
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "espn",
+  "league_id": null,
+  "season": null,
+  "generated_at": "2026-10-27T15:24:37Z",
+  "data_as_of": null,
+  "data_age_seconds": null,
+  "sources": [],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": {
+    "stored": [
+      "espn_s2",
+      "swid"
+    ],
+    "repaired": [],
+    "keychain_service": "fantasy-sports",
+    "source": {
+      "clipboard": true
+    },
+    "clipboard_cleared": true
+  },
+  "error": null
+}

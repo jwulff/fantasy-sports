@@ -805,7 +805,7 @@ def test_the_login_spec_declares_both_params_and_the_handler_accepts_them():
     from fantasy_sports.commands import REGISTRY
 
     spec = REGISTRY["auth login"]
-    assert [p.name for p in spec.params] == ["from_browser", "profile"]
+    assert [p.name for p in spec.params] == ["from_browser", "profile", "from_clipboard"]
     assert spec.params[0].cli_flags == ("--from-browser",)
     assert spec.params[0].display == "--from-browser [TEXT]"
 

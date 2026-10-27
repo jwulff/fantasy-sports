@@ -986,5 +986,44 @@
     "note": null,
     "offline": true,
     "file": "leagues-discover.table.txt"
+  },
+  {
+    "name": "auth-bookmarklet",
+    "command": "fantasy-sports auth bookmarklet",
+    "source": "replayed",
+    "league": "no league",
+    "exit": 0,
+    "stream": "stdout",
+    "format": "json",
+    "trimmed": false,
+    "note": null,
+    "offline": true,
+    "file": "auth-bookmarklet.json"
+  },
+  {
+    "name": "auth-login-clipboard.unparseable",
+    "command": "fantasy-sports auth login --from-clipboard",
+    "source": "replayed",
+    "league": "no league",
+    "exit": 3,
+    "stream": "stderr",
+    "format": "json",
+    "trimmed": false,
+    "note": "The clipboard held something else; its text is never echoed, and it is left untouched",
+    "offline": true,
+    "file": "auth-login-clipboard.unparseable.json"
+  },
+  {
+    "name": "auth-login-clipboard",
+    "command": "fantasy-sports auth login --from-clipboard",
+    "source": "replayed",
+    "league": "no league",
+    "exit": 0,
+    "stream": "stdout",
+    "format": "json",
+    "trimmed": false,
+    "note": "The clipboard held what the bookmarklet wrote (placeholder cookies, plus an unrelated cookie that is ignored); the clipboard tool is stubbed",
+    "offline": true,
+    "file": "auth-login-clipboard.json"
   }
 ]
