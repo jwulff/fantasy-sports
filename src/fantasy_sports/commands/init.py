@@ -103,7 +103,11 @@ def init(
 
 
 def _stdin_is_tty() -> bool:
-    return sys.stdin.isatty()
+    """Whether a person can answer a prompt. A closed or odd stdin is "no"."""
+    try:
+        return bool(sys.stdin.isatty())
+    except (AttributeError, ValueError, OSError):
+        return False
 
 
 def _credentials(*, dry_run: bool) -> tuple[dict[str, Any], str]:

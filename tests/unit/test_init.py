@@ -470,3 +470,15 @@ def test_several_existing_leagues_without_a_default_are_left_for_the_user(fakes:
     data = init_command.init().data
     assert data["default"] is None and data["next_step"] is None
     assert "default" not in written_config()
+
+
+@pytest.mark.parametrize("failure", [ValueError("closed"), OSError("bad fd")])
+def test_a_stdin_whose_isatty_raises_counts_as_no_terminal(
+    monkeypatch: pytest.MonkeyPatch, failure: Exception
+):
+    class Stdin:
+        def isatty(self) -> bool:
+            raise failure
+
+    monkeypatch.setattr("sys.stdin", Stdin())
+    assert init_command._stdin_is_tty() is False
