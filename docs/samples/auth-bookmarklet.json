@@ -3,12 +3,13 @@
   "provider": "espn",
   "league_id": null,
   "season": null,
-  "generated_at": "2026-10-27T15:58:34Z",
+  "generated_at": "2026-10-27T17:24:20Z",
   "data_as_of": null,
   "data_age_seconds": null,
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": {
     "bookmarklet": "javascript:(function(){var want=['espn_s2','SWID'],found=document.cookie.split(';').map(function(c){return c.trim()}).filter(function(c){return want.indexOf(c.split('=')[0])>-1}),has=function(n){return found.some(function(c){return c.split('=')[0]===n})};if(!has('espn_s2')||!has('SWID')){alert(!has('espn_s2')&&!has('SWID')?'Not logged in: ESPN cookies espn_s2 and SWID not found. Log in at fantasy.espn.com and try again.':has('SWID')?'Found SWID but not espn_s2. This browser hides espn_s2 from page scripts (HttpOnly). Use fantasy-sports auth login --from-browser, or copy espn_s2 from DevTools > Application > Cookies.':'Found espn_s2 but not SWID. Log in at fantasy.espn.com and try again.');return}navigator.clipboard.writeText(found.join('; ')).then(function(){alert('ESPN cookies copied. Now run: fantasy-sports auth login --from-clipboard')},function(){alert('Could not write to the clipboard.')})})();",
     "instructions": "Create a browser bookmark whose URL is the bookmarklet, open fantasy.espn.com while logged in, click it, then run `fantasy-sports auth login --from-clipboard`."

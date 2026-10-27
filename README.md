@@ -299,31 +299,31 @@ fantasy-sports standings
   "provider": "espn",
   "league_id": "1234",
   "season": 2018,
-  "generated_at": "2026-09-12T19:31:26Z",
-  "data_as_of": "2026-09-12T19:31:25Z",
+  "generated_at": "2026-10-27T17:24:14Z",
+  "data_as_of": "2026-10-27T17:24:14Z",
   "data_age_seconds": 0,
   "sources": [
     {
       "name": "mTeam+mRoster+mMatchup+mSettings+mStandings",
-      "fetched_at": "2026-09-12T19:31:25Z",
+      "fetched_at": "2026-10-27T17:24:14Z",
       "age_seconds": 0,
       "cached": true
     },
     {
       "name": "players_wl",
-      "fetched_at": "2026-09-12T19:31:25Z",
+      "fetched_at": "2026-10-27T17:24:14Z",
       "age_seconds": 0,
       "cached": true
     },
     {
       "name": "proTeamSchedules_wl",
-      "fetched_at": "2026-09-12T19:31:26Z",
+      "fetched_at": "2026-10-27T17:24:14Z",
       "age_seconds": 0,
       "cached": true
     },
     {
       "name": "mDraftDetail",
-      "fetched_at": "2026-09-12T19:31:26Z",
+      "fetched_at": "2026-10-27T17:24:14Z",
       "age_seconds": 0,
       "cached": true
     }
@@ -421,7 +421,7 @@ fantasy-sports box-scores --week 1
   "provider": null,
   "league_id": null,
   "season": null,
-  "generated_at": "2026-09-12T19:31:30Z",
+  "generated_at": "2026-10-27T17:24:19Z",
   "data_as_of": null,
   "data_age_seconds": null,
   "sources": [],

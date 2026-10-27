@@ -1,4 +1,4 @@
-fantasypros · season 2026 · generated 2026-10-20T16:09:09Z · data age 0s
+fantasypros · season 2026 · generated 2026-10-27T17:24:20Z · data age 0s
 rank_ecr   name                 pro_team   pos_rank   rank_ave   opponent   owned_espn_pct   espn_id
 ────────────────────────────────────────────────────────────────────────────────────────────────────
 1          Jahmyr Gibbs         DET        RB1        1.17       vs. GB     99.8             4429795

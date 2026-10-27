@@ -3,37 +3,37 @@
   "provider": "espn",
   "league_id": "99",
   "season": 2026,
-  "generated_at": "2026-10-15T07:34:31Z",
-  "data_as_of": "2026-10-15T07:34:31Z",
+  "generated_at": "2026-10-27T17:24:20Z",
+  "data_as_of": "2026-10-27T17:24:20Z",
   "data_age_seconds": 0,
   "sources": [
     {
       "name": "mTeam+mRoster+mMatchup+mSettings+mStandings",
-      "fetched_at": "2026-10-15T07:34:31Z",
+      "fetched_at": "2026-10-27T17:24:20Z",
       "age_seconds": 0,
       "cached": true
     },
     {
       "name": "players_wl",
-      "fetched_at": "2026-10-15T07:34:31Z",
+      "fetched_at": "2026-10-27T17:24:20Z",
       "age_seconds": 0,
       "cached": true
     },
     {
       "name": "proTeamSchedules_wl",
-      "fetched_at": "2026-10-15T07:34:31Z",
+      "fetched_at": "2026-10-27T17:24:20Z",
       "age_seconds": 0,
       "cached": true
     },
     {
       "name": "mDraftDetail",
-      "fetched_at": "2026-10-15T07:34:31Z",
+      "fetched_at": "2026-10-27T17:24:20Z",
       "age_seconds": 0,
       "cached": true
     },
     {
       "name": "mPendingTransactions",
-      "fetched_at": "2026-10-15T07:34:31Z",
+      "fetched_at": "2026-10-27T17:24:20Z",
       "age_seconds": 0,
       "cached": true
     }

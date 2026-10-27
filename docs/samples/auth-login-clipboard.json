@@ -3,12 +3,13 @@
   "provider": "espn",
   "league_id": null,
   "season": null,
-  "generated_at": "2026-10-27T15:24:37Z",
+  "generated_at": "2026-10-27T17:24:20Z",
   "data_as_of": null,
   "data_age_seconds": null,
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": {
     "stored": [
       "espn_s2",

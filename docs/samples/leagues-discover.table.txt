@@ -1,4 +1,4 @@
-espn · generated 2026-10-27T15:14:48Z · data age 0s
+espn · generated 2026-10-27T17:24:20Z · data age 0s
 league_id   season   sport      name                 team_id   is_manager
 ─────────────────────────────────────────────────────────────────────────
 99          2026     football   Synthetic Gridiron   3         true      

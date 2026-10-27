@@ -3,7 +3,7 @@
   "provider": null,
   "league_id": null,
   "season": null,
-  "generated_at": "2026-09-12T19:31:28Z",
+  "generated_at": "2026-10-27T17:24:16Z",
   "data_as_of": null,
   "data_age_seconds": null,
   "sources": [],
@@ -48,27 +48,31 @@
         "status": "ok",
         "summary": "ESPN credentials are configured.",
         "details": {
-          "generated_at": "2026-09-12T19:31:27.898284Z",
+          "generated_at": "2026-10-27T17:24:16.525365Z",
           "complete": true,
           "credentials": [
             {
               "name": "espn_s2",
               "present": true,
+              "required": true,
               "source": "env",
               "age_days": null,
               "age_basis": "not-tracked:env",
               "stored_at": null,
               "last_success_at": null,
+              "expires_at": null,
               "freshness": "unknown"
             },
             {
               "name": "swid",
               "present": true,
+              "required": true,
               "source": "env",
               "age_days": null,
               "age_basis": "not-tracked:env",
               "stored_at": null,
               "last_success_at": null,
+              "expires_at": null,
               "freshness": "unknown"
             }
           ],
@@ -76,9 +80,11 @@
             "days": 30.0,
             "source": "default",
             "verified": false,
-            "note": "Unverified heuristic, not a known ESPN cookie lifetime. ESPN publishes no expiry, and no library source or community report reviewed states a concrete one. Override with FANTASY_SPORTS_STALE_AFTER_DAYS."
+            "note": "Unverified heuristic, not a known ESPN cookie lifetime. ESPN publishes no expiry, and no library source or community report reviewed states a concrete one. Override with FANTASY_SPORTS_STALE_AFTER_DAYS.",
+            "expiry_warn_days": 7
           },
-          "warnings": []
+          "warnings": [],
+          "sources_match": true
         }
       },
       {
@@ -129,27 +135,7 @@
         "summary": "Could not reach the health manifest (offline, GitHub unreachable, or not yet published).",
         "details": {}
       },
-      {
-        "name": "leagues_reachable",
-        "status": "skipped",
-        "summary": "1 league(s) configured; pass --live to check reachability.",
-        "details": {
-          "leagues": [
-            "public"
-          ]
-        }
-      },
-      {
-        "name": "fantasypros",
-        "status": "skipped",
-        "summary": "No FantasyPros API key configured (optional). Set FANTASY_SPORTS_FANTASYPROS_API_KEY or run `fantasy-sports auth login` to enable expert rankings.",
-        "details": {
-          "present": false,
-          "source": null,
-          "tier": null,
-          "probed": false
-        }
-      }
+      "… 2 more items"
     ]
   },
   "error": null
