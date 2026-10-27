@@ -28,6 +28,8 @@ from fantasy_sports.auth import browser, chain, staleness
 from fantasy_sports.commands import auth as auth_commands
 from fantasy_sports.core.errors import AuthMissingError, ConfigInvalidError
 
+browser_real = browser.find_espn_cookies
+
 # Sentinels that cannot occur by accident in any rendered output.
 COOKIE_S2 = "AEBsentinelS2cookievalue0123456789abcdefXYZ%2Fzz"
 PASSWORD = "SafeStorageSENTINELpassword/with+chars=="
@@ -52,6 +54,25 @@ def _no_real_subprocess(monkeypatch: pytest.MonkeyPatch):
         pytest.fail("a test reached the real subprocess / Keychain")
 
     monkeypatch.setattr(subprocess, "run", refuse)
+
+
+@pytest.fixture(autouse=True)
+def _pin_platform_to_macos(monkeypatch: pytest.MonkeyPatch):
+    """Chrome-family stores are only read on macOS, so the fixtures here assume it.
+
+    The command and CLI tests reach ``find_espn_cookies`` without the ``platform``
+    seam, so on a Linux runner ``sys.platform`` would skip every Chrome-family
+    scan. The default is pinned at call time (a default argument would be bound
+    once, ``docs/memory/default-args-defeat-monkeypatch.md``); a test that passes
+    ``platform=`` explicitly, like the Linux ones, still wins.
+    """
+    real = browser.find_espn_cookies
+
+    def pinned(*args: Any, **kwargs: Any) -> browser.BrowserSearch:
+        kwargs.setdefault("platform", "darwin")
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(browser, "find_espn_cookies", pinned)
 
 
 @pytest.fixture
@@ -852,3 +873,14 @@ def test_a_session_cookie_import_reports_null_expiry(home: Path, passwords, keyc
     data = auth_commands.login(from_browser="chrome").data
     assert data["expires_at"] == {"espn_s2": None, "swid": None}
     assert staleness.load_auth_state().for_name("espn_s2").expires_at is None
+
+
+def test_the_default_platform_is_what_the_interpreter_reports(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """With no seam and no pin, Linux skips the Chrome family: CI's view."""
+    monkeypatch.setattr(browser, "find_espn_cookies", browser_real)
+    monkeypatch.setattr("sys.platform", "linux")
+    (tmp_path / ".config" / "google-chrome").mkdir(parents=True)
+    found = browser.find_espn_cookies(home=tmp_path)
+    assert any(line.startswith("Chrome: unsupported on linux") for line in found.skipped)
