@@ -74,8 +74,13 @@ def status() -> Envelope:
     return Envelope.success(provider=PROVIDER, data=data)
 
 
-def login() -> Envelope:
-    """Prompt for ESPN's two cookies and store them in the Keychain.
+def login(*, from_browser: str | None = None, profile: str | None = None) -> Envelope:
+    """Store ESPN's two cookies in the Keychain: prompted for, or read from a browser.
+
+    With ``from_browser`` the cookies are read from a local browser profile
+    (:func:`_login_from_browser`) and the prompt is never shown. Without it:
+
+    Prompt for ESPN's two cookies and store them in the Keychain.
 
     Each value is read without echo. Nothing is written until every value has
     normalized successfully: a half-saved cookie pair is worse than an unsaved
@@ -91,8 +96,17 @@ def login() -> Envelope:
     blank refuses the whole login.
     """
     from fantasy_sports.auth.chain import ALL_CREDENTIALS, save_credentials
-    from fantasy_sports.core.errors import AuthMissingError
+    from fantasy_sports.core.errors import AuthMissingError, ConfigInvalidError
     from fantasy_sports.output.envelope import Envelope
+
+    if from_browser is not None:
+        return _login_from_browser(from_browser, profile)
+    if profile is not None:
+        raise ConfigInvalidError(
+            "--profile only applies with --from-browser.",
+            kind="argument",
+            remediation="Add --from-browser, or drop --profile to be prompted for the cookies.",
+        )
 
     values: dict[str, str] = {}
     for spec in ALL_CREDENTIALS:
@@ -115,6 +129,114 @@ def login() -> Envelope:
     }
     require_shape(data, command="auth login")
     return Envelope.success(provider=PROVIDER, data=data)
+
+
+def _login_from_browser(from_browser: str, profile: str | None) -> Envelope:
+    """Import the cookie pair from a local browser profile and store it.
+
+    Picks the single profile holding both cookies; if several do, the one whose
+    ``espn_s2`` expires last, and ``profiles_seen`` names the others. Storage
+    goes through :func:`~fantasy_sports.auth.chain.save_credentials`, so SWID
+    normalization and ``record_stored`` happen exactly as for a typed login, and
+    the cookies' real expiry is recorded beside ``stored_at``.
+
+    ``data`` carries where the cookies came from and when they expire — never a
+    value, a length, or a prefix.
+    """
+    from datetime import UTC, datetime
+
+    from fantasy_sports.auth.browser import BROWSER_NAMES, find_espn_cookies
+    from fantasy_sports.auth.chain import ALL_CREDENTIALS, save_credentials
+    from fantasy_sports.commands import FROM_BROWSER_ANY
+    from fantasy_sports.core.errors import ConfigInvalidError
+    from fantasy_sports.output.envelope import Envelope
+
+    name = None if from_browser == FROM_BROWSER_ANY else from_browser
+    try:
+        search = find_espn_cookies(name, profile)
+    except ValueError:
+        raise ConfigInvalidError(
+            f"Unknown browser {from_browser!r}.",
+            kind="argument",
+            remediation=f"Pass one of: {', '.join(BROWSER_NAMES)}; or no name to search them all.",
+        ) from None
+
+    candidates = search.complete
+    if not candidates:
+        raise _no_browser_cookies(search, name, profile)
+    floor = datetime.min.replace(tzinfo=UTC)
+    chosen = max(candidates, key=lambda found: found.espn_s2_expires_at or floor)
+    assert chosen.espn_s2 is not None and chosen.swid is not None  # `complete`
+
+    repaired = save_credentials(
+        {"espn_s2": chosen.espn_s2.reveal(), "swid": chosen.swid.reveal()},
+        specs=ALL_CREDENTIALS,
+        expires_at=chosen.expires_at(),
+    )
+    data = {
+        "stored": ["espn_s2", "swid"],
+        "repaired": sorted(repaired),
+        "keychain_service": _service(),
+        "source": {"browser": chosen.browser, "profile": chosen.profile},
+        "expires_at": {key: _iso(moment) for key, moment in chosen.expires_at().items()},
+        "profiles_seen": [
+            {
+                "browser": found.browser,
+                "profile": found.profile,
+                "complete": found.complete,
+                "chosen": found is chosen,
+            }
+            for found in search.profiles
+        ],
+        "searched": list(search.searched),
+        "skipped": list(search.skipped),
+    }
+    require_shape(data, command="auth login")
+    return Envelope.success(provider=PROVIDER, data=data)
+
+
+def _iso(moment: object) -> str | None:
+    from datetime import UTC, datetime
+
+    if not isinstance(moment, datetime):
+        return None
+    return moment.astimezone(UTC).isoformat().replace("+00:00", "Z")
+
+
+def _no_browser_cookies(search: object, name: str | None, profile: str | None):
+    """The ``AUTH_MISSING`` for "no profile holds both cookies".
+
+    The remediation lists every profile that was opened and every store that
+    could not be, so "I am logged in to ESPN in Chrome" and "Chrome was never
+    searched" are distinguishable from the error alone.
+    """
+    from fantasy_sports.auth.browser import BROWSER_NAMES, BrowserSearch
+    from fantasy_sports.core.errors import AuthMissingError
+
+    assert isinstance(search, BrowserSearch)
+    scope = name or "any browser"
+    if profile:
+        scope += f", profile {profile}"
+    searched = (
+        ", ".join(search.searched) or f"no profiles found (looked for {', '.join(BROWSER_NAMES)})"
+    )
+    parts = [f"Searched: {searched}."]
+    if search.skipped:
+        parts.append("Skipped: " + "; ".join(search.skipped) + ".")
+    if search.keychain_denied:
+        parts.append(
+            "macOS Keychain access was denied, so an encrypted cookie store could not be read; "
+            "run the command again and choose Allow or Always Allow at the prompt."
+        )
+    parts.append(
+        "Log into fantasy.espn.com in one of these browsers and try again, or run "
+        "`fantasy-sports auth login` without --from-browser to paste the cookies."
+    )
+    return AuthMissingError(
+        f"No browser profile holds both ESPN cookies ({scope}). Nothing was stored.",
+        remediation=" ".join(parts),
+        details={"searched": list(search.searched), "skipped": list(search.skipped)},
+    )
 
 
 def logout() -> Envelope:

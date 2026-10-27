@@ -87,6 +87,11 @@ class Param:
 
     required: bool = False
 
+    flag_value: Any = None
+    """Makes the option's value optional: the bare flag means this value, and
+    ``--flag NAME`` still takes one. ``None`` means the value is mandatory.
+    typer cannot express this, so ``cli.app.run`` inserts it into argv."""
+
     @property
     def cli_flags(self) -> tuple[str, ...]:
         return self.flags or (f"--{self.name.replace('_', '-')}",)
@@ -96,6 +101,8 @@ class Param:
         """What the value looks like in help, or ``None`` for a flag."""
         if self.annotation is bool:
             return None
+        if self.flag_value is not None:
+            return "[TEXT]"
         return "INTEGER" if self.annotation in (int, int | None) else "TEXT"
 
     @property
@@ -446,14 +453,35 @@ register(
     )
 )
 
+FROM_BROWSER_ANY = "*"
+"""What a bare ``auth login --from-browser`` passes: search every browser."""
+
 register(
     CommandSpec(
         name="login",
         group="auth",
-        summary="Store ESPN cookies in the Keychain. Prompts without echoing; never prints them.",
+        summary="Store ESPN cookies in the Keychain: prompted for, or imported via --from-browser.",
         handler="fantasy_sports.commands.auth:login",
         shape=DataShape.OBJECT,
         takes_league=False,
+        params=(
+            Param(
+                name="from_browser",
+                help="Import espn_s2 and SWID from a local browser profile instead of "
+                "prompting. Bare, searches chrome, chromium, brave, edge, arc and firefox; "
+                "with a NAME, only that browser. If several profiles hold both cookies, the "
+                "one expiring last is used. On macOS the first read asks for Keychain "
+                "access to the browser's Safe Storage entry.",
+                annotation=str | None,
+                flag_value=FROM_BROWSER_ANY,
+            ),
+            Param(
+                name="profile",
+                help="With --from-browser, only read this profile directory "
+                "(e.g. `Default`, `Profile 1`).",
+                annotation=str | None,
+            ),
+        ),
     )
 )
 

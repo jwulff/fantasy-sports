@@ -42,6 +42,36 @@ visible to `ps` and to any process listing a co-tenant on the same machine can
 read, so the only interactive entry point is the no-echo prompt in
 `auth login`.
 
+## Importing cookies from a browser
+
+`fantasy-sports auth login --from-browser` reads `espn_s2` and `SWID` out of a
+local browser profile instead of asking you to paste them. What that involves:
+
+- **The macOS Keychain prompt.** Chrome-family browsers (Chrome, Chromium,
+  Brave, Edge, Arc) encrypt cookie values with a key derived from a "Safe
+  Storage" Keychain item that the browser owns. To decrypt, the tool runs
+  `security find-generic-password -w -s "<Browser> Safe Storage"`, and macOS
+  asks you to approve it: "fantasy-sports wants to use your confidential
+  information stored in 'Chrome Safe Storage'". **Allow** grants it for that
+  one run. **Always Allow** grants this tool permanent access to that item, and
+  that item decrypts *every* cookie in that browser's store, not only ESPN's.
+  Prefer Allow unless you will re-import often, and revoke an Always Allow in
+  Keychain Access (find the item, Access Control tab).
+- **No secret in a process listing.** The Safe Storage password comes back on
+  the `security` command's stdout; its argument list holds only the item name.
+  Decryption runs in-process in pure Python (`auth/_aes.py`), so the derived key
+  is never handed to `openssl` or any other child process either.
+- **A throwaway copy of the cookie file.** Chrome keeps its cookie database
+  locked, so the file is copied to a private temporary directory, read there,
+  and the copy is deleted on the way out (including on error). Firefox's store
+  is plaintext, so its copy is the only place a cookie value touches disk
+  outside the browser's own profile, for the moments the import runs.
+- **What is stored.** Exactly what a typed login stores: the two cookies in the
+  Keychain under the `fantasy-sports` service, plus their expiry timestamps in
+  the metadata file (`auth-state.json`, which never holds a value).
+- **Not supported:** Safari (its cookie file needs Full Disk Access), Windows,
+  and Linux Chrome-family stores (libsecret). They are reported as skipped.
+
 ## What is redacted, and where
 
 **In memory and in errors.** A resolved credential is wrapped in `Secret`,

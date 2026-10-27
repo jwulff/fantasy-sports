@@ -74,20 +74,38 @@ Open your league at fantasy.espn.com. The id is the `leagueId=` query
 parameter on any page for that league, for example
 `https://fantasy.espn.com/football/league?leagueId=123456`.
 
-### 2. Copy the two cookies
+### 2. Import the two cookies
 
 ESPN has no API keys; your browser's session cookies stand in for a login.
-While logged in at fantasy.espn.com, open DevTools and go to Application →
-Cookies (Chrome) or Storage → Cookies (Firefox), then select
-`https://fantasy.espn.com`. Copy the value of `espn_s2`, and the value of
-`SWID` including its curly braces (`{...}`).
+Log into fantasy.espn.com in Chrome, Brave, Edge, Arc, Chromium or Firefox,
+then run:
+
+```bash
+fantasy-sports auth login --from-browser
+```
+
+That reads `espn_s2` and `SWID` straight from your browser profile and stores
+both in the macOS Keychain, so there is nothing to copy. Name a browser
+(`--from-browser chrome`) or a profile (`--profile "Profile 1"`) to narrow
+the search; with several profiles logged in, the one whose cookie expires
+last is used and the others are listed. The first time, macOS asks whether
+`fantasy-sports` may use the browser's "Safe Storage" Keychain item; see
+[SECURITY.md](SECURITY.md#importing-cookies-from-a-browser) for what that
+grants. Because the browser also records when each cookie expires,
+`auth status` reports a real expiry instead of a guess.
 
 These are session credentials. Anyone holding them can act as you on ESPN,
 so treat them like a password: never paste them into an issue or a shell
 argument, and if you think they have leaked, log out of ESPN to invalidate
 them ([SECURITY.md](SECURITY.md#if-a-cookie-leaks)).
 
-### 3. Store them
+### 3. Or paste them
+
+If you use Safari, another browser, or a host with no browser, copy the cookies
+by hand. While logged in at fantasy.espn.com, open DevTools and go to
+Application → Cookies (Chrome) or Storage → Cookies (Firefox), then select
+`https://fantasy.espn.com`. Copy the value of `espn_s2`, and the value of
+`SWID` including its curly braces (`{...}`). Then:
 
 ```bash
 fantasy-sports auth login
@@ -208,7 +226,7 @@ fails if a committed sample no longer matches what the code renders.
 | [`experts injuries`](docs/commands.md#experts-injuries) | Injuries with practice reports and probability of playing |
 | [`experts news`](docs/commands.md#experts-news) | Player news with the fantasy-impact line |
 | [`auth status`](docs/commands.md#auth-status) | Which credentials are configured, from where, and how old |
-| [`auth login`](docs/commands.md#auth-login) | Store the two ESPN cookies in the Keychain, without echoing them |
+| [`auth login`](docs/commands.md#auth-login) | Store the two ESPN cookies in the Keychain: imported from a browser (`--from-browser`) or prompted for without echo |
 | [`auth logout`](docs/commands.md#auth-logout) | Remove them from the Keychain and `config.toml`; report what it cannot unset |
 
 The [global options](docs/commands.md#global-options) — `--league`,

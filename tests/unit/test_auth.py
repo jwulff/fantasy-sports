@@ -973,3 +973,172 @@ def test_an_absent_required_credential_still_breaks_completeness_beside_an_optio
     )
     assert status.complete is False
     assert [w.split(":")[0] for w in status.warnings] == ["espn_s2"]
+
+
+# ---------------------------------------------------------------------------
+# A cookie's real expiry (#156) replaces the age heuristic
+# ---------------------------------------------------------------------------
+
+
+def _expiring_state(
+    expires_at: datetime | None, *, stored_days_ago: int = 3
+) -> staleness.AuthState:
+    return staleness.AuthState(
+        entries={
+            "espn_s2": staleness.CredentialEvents(
+                stored_at=NOW - timedelta(days=stored_days_ago), expires_at=expires_at
+            )
+        }
+    )
+
+
+def test_a_known_expiry_far_off_is_fresh_even_past_the_age_heuristic():
+    state = _expiring_state(NOW + timedelta(days=300), stored_days_ago=90)
+    row = staleness.build_auth_status(
+        _keychain_set(), state=state, now=NOW, environ={}
+    ).credentials[0]
+    assert row.freshness is staleness.Freshness.FRESH  # 90 days old would be STALE by heuristic
+    assert row.age_basis == "expires_at"
+    assert row.age == timedelta(days=90)
+    assert row.expires_at == NOW + timedelta(days=300)
+
+
+def test_an_expiry_inside_the_warning_window_is_stale_and_says_when():
+    state = _expiring_state(NOW + timedelta(days=6, hours=23))
+    status = staleness.build_auth_status(_keychain_set(), state=state, now=NOW, environ={})
+    assert status.credentials[0].freshness is staleness.Freshness.STALE
+    assert "expires 2026-09-12" in status.warnings[0]
+    assert "7-day" in status.warnings[0]
+    assert "Unverified heuristic" not in status.warnings[0]
+
+
+def test_the_warning_window_boundary_is_inclusive_at_seven_days():
+    at_edge = staleness.build_auth_status(
+        _keychain_set(), state=_expiring_state(NOW + timedelta(days=7)), now=NOW, environ={}
+    )
+    past_edge = staleness.build_auth_status(
+        _keychain_set(),
+        state=_expiring_state(NOW + timedelta(days=7, seconds=1)),
+        now=NOW,
+        environ={},
+    )
+    assert at_edge.credentials[0].freshness is staleness.Freshness.STALE
+    assert past_edge.credentials[0].freshness is staleness.Freshness.FRESH
+
+
+def test_a_passed_expiry_is_expired_with_a_remedy():
+    state = _expiring_state(NOW - timedelta(seconds=1))
+    status = staleness.build_auth_status(_keychain_set(), state=state, now=NOW, environ={})
+    assert status.credentials[0].freshness is staleness.Freshness.EXPIRED
+    assert "expired 2026-09-05" in status.warnings[0]
+    assert "--from-browser" in status.warnings[0]
+
+
+def test_an_expiry_without_a_stored_at_still_derives_freshness():
+    state = staleness.AuthState(
+        entries={"espn_s2": staleness.CredentialEvents(expires_at=NOW + timedelta(days=2))}
+    )
+    row = staleness.build_auth_status(
+        _keychain_set(), state=state, now=NOW, environ={}
+    ).credentials[0]
+    assert row.freshness is staleness.Freshness.STALE
+    assert row.age is None and row.age_basis == "expires_at"
+
+
+def test_an_expiry_does_not_describe_an_env_credential():
+    """Same rule as `stored_at`: what we recorded belongs to what we wrote to the Keychain."""
+    env_set = chain.CredentialSet(
+        resolved={
+            "espn_s2": chain.ResolvedCredential(
+                name="espn_s2", source=chain.CredentialSource.ENV, secret=chain.Secret("abcdefghij")
+            )
+        },
+        missing=(),
+    )
+    state = _expiring_state(NOW - timedelta(days=1))
+    row = staleness.build_auth_status(env_set, state=state, now=NOW, environ={}).credentials[0]
+    assert row.freshness is staleness.Freshness.UNKNOWN
+    assert row.expires_at is None
+
+
+def test_without_an_expiry_the_age_heuristic_still_decides():
+    row = staleness.build_auth_status(
+        _keychain_set(), state=_expiring_state(None, stored_days_ago=45), now=NOW, environ={}
+    ).credentials[0]
+    assert row.freshness is staleness.Freshness.STALE
+    assert row.age_basis == "stored_at"
+
+
+def test_status_payload_carries_expires_at_and_the_warning_window():
+    payload = staleness.build_auth_status(
+        _keychain_set(), state=_expiring_state(NOW + timedelta(days=30)), now=NOW, environ={}
+    ).to_payload()
+    assert payload["credentials"][0]["expires_at"] == "2026-10-05T12:00:00Z"
+    assert payload["credentials"][0]["age_basis"] == "expires_at"
+    assert payload["staleness_threshold"]["expiry_warn_days"] == 7
+    assert payload["staleness_threshold"]["verified"] is False
+
+
+def test_expiry_survives_a_state_file_round_trip(tmp_path):
+    path = tmp_path / "auth-state.json"
+    when = datetime(2027, 11, 29, 19, 21, 31, tzinfo=UTC)
+    staleness.record_stored(["espn_s2", "swid"], now=NOW, path=path, expires_at={"espn_s2": when})
+    loaded = staleness.load_auth_state(path)
+    assert loaded.for_name("espn_s2").expires_at == when
+    assert loaded.for_name("swid").expires_at is None
+    assert (
+        json.loads(path.read_text())["credentials"]["espn_s2"]["expires_at"]
+        == "2027-11-29T19:21:31Z"
+    )
+
+
+def test_restoring_a_value_without_an_expiry_clears_the_old_one(tmp_path):
+    path = tmp_path / "auth-state.json"
+    when = datetime(2027, 11, 29, tzinfo=UTC)
+    staleness.record_stored(["espn_s2"], now=NOW, path=path, expires_at={"espn_s2": when})
+    staleness.record_stored(["espn_s2"], now=NOW, path=path)
+    assert staleness.load_auth_state(path).for_name("espn_s2").expires_at is None
+
+
+def test_recording_success_keeps_the_expiry(tmp_path):
+    path = tmp_path / "auth-state.json"
+    when = datetime(2027, 11, 29, tzinfo=UTC)
+    staleness.record_stored(["espn_s2"], now=NOW, path=path, expires_at={"espn_s2": when})
+    staleness.record_success(["espn_s2"], now=NOW + timedelta(hours=1), path=path)
+    assert staleness.load_auth_state(path).for_name("espn_s2").expires_at == when
+
+
+def test_forget_stored_clears_the_expiry_and_keeps_last_success(tmp_path):
+    path = tmp_path / "auth-state.json"
+    when = datetime(2027, 11, 29, tzinfo=UTC)
+    staleness.record_stored(["espn_s2"], now=NOW, path=path, expires_at={"espn_s2": when})
+    staleness.record_success(["espn_s2"], now=NOW, path=path)
+    staleness.forget_stored(["espn_s2"], path=path)
+    events = staleness.load_auth_state(path).for_name("espn_s2")
+    assert events.expires_at is None and events.stored_at is None
+    assert events.last_success_at is not None
+
+
+def test_forget_stored_drops_an_expiry_only_entry_entirely(tmp_path):
+    path = tmp_path / "auth-state.json"
+    staleness.save_auth_state(
+        staleness.AuthState(
+            entries={"espn_s2": staleness.CredentialEvents(expires_at=NOW + timedelta(days=9))}
+        ),
+        path,
+    )
+    staleness.forget_stored(["espn_s2"], path=path)
+    assert "espn_s2" not in staleness.load_auth_state(path).entries
+
+
+def test_save_credentials_passes_the_expiry_through_to_the_state_file(tmp_path):
+    path = tmp_path / "auth-state.json"
+    when = datetime(2027, 11, 29, tzinfo=UTC)
+    chain.save_credentials(
+        {"espn_s2": SECRET, "swid": SWID_BRACED},
+        writer=lambda name, value: None,
+        state_path=path,
+        now=NOW,
+        expires_at={"espn_s2": when},
+    )
+    assert staleness.load_auth_state(path).for_name("espn_s2").expires_at == when

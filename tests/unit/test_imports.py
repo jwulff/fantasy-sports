@@ -93,3 +93,18 @@ def test_no_core_or_provider_module_mentions_the_reports_layer():
         if "fantasy_sports.reports" in path.read_text(encoding="utf-8")
     ]
     assert offenders == []
+
+
+def test_the_browser_importer_defers_sqlite_and_subprocess_to_call_time():
+    """#156: `sqlite3`, `subprocess` and the pure-Python AES cost nothing until used."""
+    modules = _modules_after("import fantasy_sports.auth.browser")
+    assert not (modules & {"sqlite3", "subprocess"})
+
+
+def test_resolving_auth_login_does_not_import_the_browser_importer():
+    probe = (
+        "from fantasy_sports.commands import REGISTRY\n"
+        "REGISTRY['auth login'].resolve()\n"
+        "import sys; assert 'fantasy_sports.auth.browser' not in sys.modules"
+    )
+    subprocess.run([sys.executable, "-c", probe], check=True)

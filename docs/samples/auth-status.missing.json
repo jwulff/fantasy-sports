@@ -3,14 +3,14 @@
   "provider": "espn",
   "league_id": null,
   "season": null,
-  "generated_at": "2026-10-16T02:48:00Z",
+  "generated_at": "2026-10-27T15:00:17Z",
   "data_as_of": null,
   "data_age_seconds": null,
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
   "data": {
-    "generated_at": "2026-10-16T02:48:00.291156Z",
+    "generated_at": "2026-10-27T15:00:17.562626Z",
     "complete": false,
     "credentials": [
       {
@@ -22,6 +22,7 @@
         "age_basis": "absent",
         "stored_at": null,
         "last_success_at": null,
+        "expires_at": null,
         "freshness": "missing"
       },
       {
@@ -33,6 +34,7 @@
         "age_basis": "absent",
         "stored_at": null,
         "last_success_at": null,
+        "expires_at": null,
         "freshness": "missing"
       },
       {
@@ -44,6 +46,7 @@
         "age_basis": "absent",
         "stored_at": null,
         "last_success_at": null,
+        "expires_at": null,
         "freshness": "missing"
       }
     ],
@@ -51,7 +54,8 @@
       "days": 30.0,
       "source": "default",
       "verified": false,
-      "note": "Unverified heuristic, not a known ESPN cookie lifetime. ESPN publishes no expiry, and no library source or community report reviewed states a concrete one. Override with FANTASY_SPORTS_STALE_AFTER_DAYS."
+      "note": "Unverified heuristic, not a known ESPN cookie lifetime. ESPN publishes no expiry, and no library source or community report reviewed states a concrete one. Override with FANTASY_SPORTS_STALE_AFTER_DAYS.",
+      "expiry_warn_days": 7
     },
     "warnings": [
       "espn_s2: not configured. Run `fantasy-sports auth login`.",

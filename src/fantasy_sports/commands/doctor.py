@@ -230,7 +230,9 @@ def _credentials_check() -> DoctorCheck:
             "if they belong to different ESPN accounts, writes are refused after the "
             "first one. Run `fantasy-sports auth login` to store both together."
         )
-    elif any(status.freshness is Freshness.STALE for status in report.credentials):
+    elif any(
+        status.freshness in (Freshness.STALE, Freshness.EXPIRED) for status in report.credentials
+    ):
         status = CheckStatus.WARN
         summary = "ESPN credentials are configured, but at least one looks stale."
     else:

@@ -582,6 +582,7 @@ def save_credentials(
     writer: Callable[[str, str], None] | None = None,
     state_path: Path | None = None,
     now: datetime | None = None,
+    expires_at: Mapping[str, datetime | None] | None = None,
 ) -> tuple[str, ...]:
     """Normalize and store credentials; return the names that were repaired.
 
@@ -593,6 +594,10 @@ def save_credentials(
     Returns the names whose stored form differs from what was passed in, so
     ``auth login`` (#9) can tell the user what it fixed. Credential values are
     never returned, logged, or included in the raised error.
+
+    ``expires_at`` carries each cookie's own expiry when the values came from a
+    browser (``auth login --from-browser``); it is recorded beside ``stored_at``
+    so ``auth status`` can report a measured lifetime.
     """
     known = {spec.name: spec for spec in specs}
     unknown = sorted(set(values) - set(known))
@@ -617,5 +622,5 @@ def save_credentials(
     # CredentialSource, so a module-scope import here would be a cycle.
     from fantasy_sports.auth import staleness
 
-    staleness.record_stored(normalized.keys(), now=now, path=state_path)
+    staleness.record_stored(normalized.keys(), now=now, path=state_path, expires_at=expires_at)
     return tuple(repaired)

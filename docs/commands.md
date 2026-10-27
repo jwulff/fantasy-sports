@@ -2034,14 +2034,14 @@ fantasy-sports auth status
   "provider": "espn",
   "league_id": null,
   "season": null,
-  "generated_at": "2026-10-16T02:47:59Z",
+  "generated_at": "2026-10-27T15:00:17Z",
   "data_as_of": null,
   "data_age_seconds": null,
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
   "data": {
-    "generated_at": "2026-10-16T02:47:59.877671Z",
+    "generated_at": "2026-10-27T15:00:17.428068Z",
     "complete": true,
     "credentials": [
       {
@@ -2053,6 +2053,7 @@ fantasy-sports auth status
         "age_basis": "not-tracked:env",
         "stored_at": null,
         "last_success_at": null,
+        "expires_at": null,
         "freshness": "unknown"
       },
       {
@@ -2064,6 +2065,7 @@ fantasy-sports auth status
         "age_basis": "absent",
         "stored_at": null,
         "last_success_at": null,
+        "expires_at": null,
         "freshness": "missing"
       },
       {
@@ -2075,6 +2077,7 @@ fantasy-sports auth status
         "age_basis": "not-tracked:env",
         "stored_at": null,
         "last_success_at": null,
+        "expires_at": null,
         "freshness": "unknown"
       }
     ],
@@ -2082,7 +2085,8 @@ fantasy-sports auth status
       "days": 30.0,
       "source": "default",
       "verified": false,
-      "note": "Unverified heuristic, not a known ESPN cookie lifetime. ESPN publishes no expiry, and no library source or community report reviewed states a concrete one. Override with FANTASY_SPORTS_STALE_AFTER_DAYS."
+      "note": "Unverified heuristic, not a known ESPN cookie lifetime. ESPN publishes no expiry, and no library source or community report reviewed states a concrete one. Override with FANTASY_SPORTS_STALE_AFTER_DAYS.",
+      "expiry_warn_days": 7
     },
     "warnings": []
   },
@@ -2105,14 +2109,14 @@ fantasy-sports auth status
   "provider": "espn",
   "league_id": null,
   "season": null,
-  "generated_at": "2026-10-16T02:48:00Z",
+  "generated_at": "2026-10-27T15:00:17Z",
   "data_as_of": null,
   "data_age_seconds": null,
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
   "data": {
-    "generated_at": "2026-10-16T02:48:00.291156Z",
+    "generated_at": "2026-10-27T15:00:17.562626Z",
     "complete": false,
     "credentials": [
       {
@@ -2124,6 +2128,7 @@ fantasy-sports auth status
         "age_basis": "absent",
         "stored_at": null,
         "last_success_at": null,
+        "expires_at": null,
         "freshness": "missing"
       },
       {
@@ -2135,6 +2140,7 @@ fantasy-sports auth status
         "age_basis": "absent",
         "stored_at": null,
         "last_success_at": null,
+        "expires_at": null,
         "freshness": "missing"
       },
       {
@@ -2146,6 +2152,7 @@ fantasy-sports auth status
         "age_basis": "absent",
         "stored_at": null,
         "last_success_at": null,
+        "expires_at": null,
         "freshness": "missing"
       }
     ],
@@ -2153,7 +2160,8 @@ fantasy-sports auth status
       "days": 30.0,
       "source": "default",
       "verified": false,
-      "note": "Unverified heuristic, not a known ESPN cookie lifetime. ESPN publishes no expiry, and no library source or community report reviewed states a concrete one. Override with FANTASY_SPORTS_STALE_AFTER_DAYS."
+      "note": "Unverified heuristic, not a known ESPN cookie lifetime. ESPN publishes no expiry, and no library source or community report reviewed states a concrete one. Override with FANTASY_SPORTS_STALE_AFTER_DAYS.",
+      "expiry_warn_days": 7
     },
     "warnings": [
       "espn_s2: not configured. Run `fantasy-sports auth login`.",
@@ -2168,10 +2176,11 @@ fantasy-sports auth status
 ### `auth login`
 
 Prompts for `espn_s2` and `SWID` without echoing them and stores both in the
-Keychain. The prompt guidance goes to stderr so stdout is still only the
+Keychain, or — with `--from-browser` — reads them from a local browser and
+skips the prompt. The prompt guidance goes to stderr so stdout is still only the
 envelope — which also means a *failed* login's stderr is guidance followed
-by the error envelope, not one JSON document; this is the one command not
-meant to be driven by a program. Nothing is written until both values
+by the error envelope, not one JSON document; the prompting form is the one
+form not meant to be driven by a program. Nothing is written until both values
 validate; a SWID pasted
 without its braces is repaired and reported under `repaired`. No value ever
 reaches the output. This sample answered the prompts itself and stored into
@@ -2209,6 +2218,48 @@ fantasy-sports auth login
 ```
 <!-- /sample -->
 
+#### `auth login --from-browser [NAME] [--profile DIR]`
+
+Imports the cookie pair from a browser you are already logged in to, so there
+is nothing to copy out of DevTools. `NAME` is one of `chrome`, `chromium`,
+`brave`, `edge`, `arc` (macOS) or `firefox` (macOS and Linux); a bare
+`--from-browser` searches all of them. `--profile` narrows to one profile
+directory (`Default`, `Profile 1`, a Firefox `abc123.default-release`).
+
+With no `NAME`, the profile holding both cookies is used; if several do, the
+one whose `espn_s2` **expires last** wins and the others are listed. The values
+go through the same `save_credentials` as a typed login, so SWID repair and the
+`auth status` bookkeeping are identical, and the cookies' own **expiry** is
+recorded too: `auth status` then reports `expires_at` and derives `freshness`
+from it (`expired`, or `stale` inside the seven-day warning window) instead of
+the unverified age heuristic.
+
+On macOS the first read of a Chrome-family store triggers the system prompt
+"fantasy-sports wants to use your confidential information stored in 'Chrome
+Safe Storage'". That is expected. See
+[SECURITY.md](../SECURITY.md#importing-cookies-from-a-browser) for what
+**Always Allow** grants.
+
+`data` adds, beside `stored` / `repaired` / `keychain_service`:
+
+| Key | Meaning |
+|---|---|
+| `source` | `{"browser": "Chrome", "profile": "Default"}`: where the cookies came from |
+| `expires_at` | `{"espn_s2": "...Z", "swid": "...Z"}`; `null` for a session cookie |
+| `profiles_seen` | every profile holding an ESPN cookie: `browser`, `profile`, `complete`, `chosen` |
+| `searched` / `skipped` | profiles whose store was opened, and why any browser or store was not read (Keychain denied, unsupported platform or encryption, unreadable store) |
+
+No cookie value, length, or prefix appears anywhere in the output. Failures:
+
+| Situation | Result |
+|---|---|
+| No profile holds both cookies | `AUTH_MISSING`; the remediation lists every browser/profile searched, and tells you to log into fantasy.espn.com in one of them or run `auth login` without the flag |
+| Keychain access denied at the prompt | `AUTH_MISSING`; the remediation says so |
+| Linux or Windows Chrome-family store (`v11` / libsecret / DPAPI) | reported under `skipped`, never a crash |
+| Unknown `NAME`, or `--profile` without `--from-browser` | `CONFIG_INVALID` (`kind: "argument"`) |
+
+Safari is not supported (its cookie file needs Full Disk Access).
+
 `auth status` immediately afterwards reports the Keychain as the source and
 an age of zero days:
 
@@ -2223,14 +2274,14 @@ fantasy-sports auth status
   "provider": "espn",
   "league_id": null,
   "season": null,
-  "generated_at": "2026-10-16T02:48:00Z",
+  "generated_at": "2026-10-27T15:00:17Z",
   "data_as_of": null,
   "data_age_seconds": null,
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
   "data": {
-    "generated_at": "2026-10-16T02:48:00.295423Z",
+    "generated_at": "2026-10-27T15:00:17.569852Z",
     "complete": true,
     "credentials": [
       {
@@ -2240,8 +2291,9 @@ fantasy-sports auth status
         "source": "keychain",
         "age_days": 0.0,
         "age_basis": "stored_at",
-        "stored_at": "2026-10-16T02:48:00.293204Z",
+        "stored_at": "2026-10-27T15:00:17.565625Z",
         "last_success_at": null,
+        "expires_at": null,
         "freshness": "fresh"
       },
       {
@@ -2253,6 +2305,7 @@ fantasy-sports auth status
         "age_basis": "absent",
         "stored_at": null,
         "last_success_at": null,
+        "expires_at": null,
         "freshness": "missing"
       },
       {
@@ -2262,8 +2315,9 @@ fantasy-sports auth status
         "source": "keychain",
         "age_days": 0.0,
         "age_basis": "stored_at",
-        "stored_at": "2026-10-16T02:48:00.293204Z",
+        "stored_at": "2026-10-27T15:00:17.565625Z",
         "last_success_at": null,
+        "expires_at": null,
         "freshness": "fresh"
       }
     ],
@@ -2271,7 +2325,8 @@ fantasy-sports auth status
       "days": 30.0,
       "source": "default",
       "verified": false,
-      "note": "Unverified heuristic, not a known ESPN cookie lifetime. ESPN publishes no expiry, and no library source or community report reviewed states a concrete one. Override with FANTASY_SPORTS_STALE_AFTER_DAYS."
+      "note": "Unverified heuristic, not a known ESPN cookie lifetime. ESPN publishes no expiry, and no library source or community report reviewed states a concrete one. Override with FANTASY_SPORTS_STALE_AFTER_DAYS.",
+      "expiry_warn_days": 7
     },
     "warnings": []
   },

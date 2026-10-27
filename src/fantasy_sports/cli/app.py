@@ -206,6 +206,34 @@ def _provider_hint(spec: CommandSpec) -> str | None:
     return None
 
 
+def _fill_optional_values(argv: Sequence[str]) -> list[str]:
+    """Give a bare ``--flag`` its registered ``Param.flag_value``.
+
+    typer 0.27 does not support an option whose value is optional (it warns that
+    ``is_flag``/``flag_value`` are unsupported and still demands an argument), so
+    ``auth login --from-browser`` with no NAME would be a usage error. A bare
+    flag — last on the line, or followed by another option — gets its declared
+    default inserted here, so ``--from-browser`` and ``--from-browser firefox``
+    are both accepted and the handler sees a value either way.
+    """
+    from fantasy_sports.commands import REGISTRY
+
+    defaults = {
+        flag: param.flag_value
+        for spec in REGISTRY.values()
+        for param in spec.params
+        if param.flag_value is not None
+        for flag in param.cli_flags
+    }
+    args = list(argv)
+    filled: list[str] = []
+    for index, token in enumerate(args):
+        filled.append(token)
+        if token in defaults and (index + 1 == len(args) or args[index + 1].startswith("-")):
+            filled.append(defaults[token])
+    return filled
+
+
 def run(argv: Sequence[str]) -> int:
     """Execute ``argv`` through typer, returning a process exit code.
 
@@ -220,7 +248,7 @@ def run(argv: Sequence[str]) -> int:
 
     app = build_app()
     try:
-        result = app(args=list(argv), standalone_mode=False)
+        result = app(args=_fill_optional_values(argv), standalone_mode=False)
     except typer.Abort:
         return 130
     except typer.TyperException as exc:

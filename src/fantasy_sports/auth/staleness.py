@@ -14,6 +14,13 @@ below is a **heuristic, labelled unverified in the payload itself** and
 overridable by the user, and the number the report leads with is the measured
 age, not a prediction.
 
+**One credential has a measured lifetime: an imported one.** ``auth login
+--from-browser`` (``auth/browser.py``) reads the cookie's real ``expires_at``
+from the browser's cookie store, and a known expiry replaces the heuristic: the
+credential is ``expired`` once it passes, and warns inside
+:data:`EXPIRY_WARN_WINDOW` of it. A value pasted by hand has no expiry, so it
+keeps the age heuristic.
+
 Age has a second honesty constraint. It is only knowable for a credential this
 tool saved, because that is the only moment we observed. A value handed to us
 through the environment or hand-written into a config file has no knowable
@@ -43,6 +50,7 @@ from fantasy_sports.config import paths
 
 __all__ = [
     "DEFAULT_STALE_AFTER",
+    "EXPIRY_WARN_WINDOW",
     "HEURISTIC_NOTE",
     "STALE_AFTER_ENV",
     "AuthStatus",
@@ -63,6 +71,9 @@ __all__ = [
 
 DEFAULT_STALE_AFTER = timedelta(days=30)
 """Unverified heuristic. See :data:`HEURISTIC_NOTE` before changing it."""
+
+EXPIRY_WARN_WINDOW = timedelta(days=7)
+"""How far ahead of a *known* expiry ``auth status`` starts warning."""
 
 STALE_AFTER_ENV = "FANTASY_SPORTS_STALE_AFTER_DAYS"
 
@@ -89,7 +100,11 @@ class Freshness(StrEnum):
     """Present and younger than the (unverified) staleness threshold."""
 
     STALE = "stale"
-    """Present and older than the threshold. A warning, not a verdict."""
+    """Present and older than the threshold, or inside :data:`EXPIRY_WARN_WINDOW`
+    of a known expiry. A warning, not a verdict."""
+
+    EXPIRED = "expired"
+    """Present, but its known ``expires_at`` has passed."""
 
 
 class ThresholdSource(StrEnum):
@@ -120,11 +135,15 @@ class CredentialEvents:
 
     stored_at: datetime | None = None
     last_success_at: datetime | None = None
+    expires_at: datetime | None = None
+    """The cookie's own expiry, when ``auth login --from-browser`` read it."""
 
     def to_payload(self) -> dict[str, str]:
         payload: dict[str, str] = {}
         if self.stored_at is not None:
             payload["stored_at"] = _isoformat(self.stored_at)
+        if self.expires_at is not None:
+            payload["expires_at"] = _isoformat(self.expires_at)
         if self.last_success_at is not None:
             payload["last_success_at"] = _isoformat(self.last_success_at)
         return payload
@@ -181,6 +200,7 @@ def load_auth_state(path: Path | None = None) -> AuthState:
         name: CredentialEvents(
             stored_at=_parse(events.get("stored_at")),
             last_success_at=_parse(events.get("last_success_at")),
+            expires_at=_parse(events.get("expires_at")),
         )
         for name, events in credentials.items()
         if isinstance(events, dict)
@@ -212,16 +232,23 @@ def _touch(
     field: str,
     now: datetime | None,
     path: Path | None,
+    expires_at: Mapping[str, datetime | None] | None = None,
 ) -> AuthState:
     moment = now or datetime.now(UTC)
     state = load_auth_state(path)
     entries = dict(state.entries)
     for name in names:
         existing = entries.get(name, CredentialEvents())
+        # A new stored value replaces the old one, expiry included: an expiry
+        # carried over from the previous value would describe the wrong cookie.
         entries[name] = (
-            CredentialEvents(stored_at=moment, last_success_at=existing.last_success_at)
+            CredentialEvents(
+                stored_at=moment,
+                last_success_at=existing.last_success_at,
+                expires_at=(expires_at or {}).get(name),
+            )
             if field == "stored_at"
-            else CredentialEvents(stored_at=existing.stored_at, last_success_at=moment)
+            else replace(existing, last_success_at=moment)
         )
     updated = AuthState(entries=entries)
     save_auth_state(updated, path)
@@ -229,10 +256,19 @@ def _touch(
 
 
 def record_stored(
-    names: Iterable[str], *, now: datetime | None = None, path: Path | None = None
+    names: Iterable[str],
+    *,
+    now: datetime | None = None,
+    path: Path | None = None,
+    expires_at: Mapping[str, datetime | None] | None = None,
 ) -> AuthState:
-    """Record that these credentials were saved now. Called by ``auth login``."""
-    return _touch(names, field="stored_at", now=now, path=path)
+    """Record that these credentials were saved now. Called by ``auth login``.
+
+    ``expires_at`` maps a credential name to the cookie's own expiry when the
+    value was read from a browser; a name absent from it (or ``None``) records
+    no expiry, and clears any left by the value it replaces.
+    """
+    return _touch(names, field="stored_at", now=now, path=path, expires_at=expires_at)
 
 
 def forget_stored(names: Iterable[str], *, path: Path | None = None) -> AuthState:
@@ -241,9 +277,10 @@ def forget_stored(names: Iterable[str], *, path: Path | None = None) -> AuthStat
     ``stored_at`` describes the value *this tool wrote to the Keychain*. Once
     that entry is gone the timestamp describes nothing, and leaving it behind
     would let a later Keychain entry written by some other tool inherit a
-    confident, wrong age. ``last_success_at`` survives: it is evidence about
-    the credential *name*, and it is the signal ``auth status`` leads with
-    when a value arrives from the environment with no knowable age.
+    confident, wrong age. ``expires_at`` is dropped for the same reason.
+    ``last_success_at`` survives: it is evidence about the credential *name*,
+    and it is the signal ``auth status`` leads with when a value arrives from
+    the environment with no knowable age.
 
     Nothing is written when there is nothing to forget, so a logout on a
     host that never ran ``auth login`` creates no state file and no directory.
@@ -253,7 +290,7 @@ def forget_stored(names: Iterable[str], *, path: Path | None = None) -> AuthStat
     changed = False
     for name in names:
         existing = entries.get(name)
-        if existing is None or existing.stored_at is None:
+        if existing is None or (existing.stored_at is None and existing.expires_at is None):
             continue
         changed = True
         if existing.last_success_at is None:
@@ -322,6 +359,8 @@ class CredentialStatus:
     last_success_at: datetime | None
     freshness: Freshness
     required: bool = True
+    expires_at: datetime | None = None
+    """The cookie's own expiry, when known and still describing the stored value."""
     """Whether this tool needs the credential at all. ESPN's cookies are
     required; the FantasyPros API key is optional (ADR-0011), so its absence
     is reported but never makes the report incomplete."""
@@ -340,6 +379,7 @@ class CredentialStatus:
             "age_basis": self.age_basis,
             "stored_at": _isoformat(self.stored_at) if self.stored_at else None,
             "last_success_at": (_isoformat(self.last_success_at) if self.last_success_at else None),
+            "expires_at": _isoformat(self.expires_at) if self.expires_at else None,
             "freshness": self.freshness.value,
         }
 
@@ -370,6 +410,21 @@ class AuthStatus:
         for status in self.credentials:
             if not status.present and status.required:
                 notes.append(f"{status.name}: not configured. Run `fantasy-sports auth login`.")
+            elif status.freshness is Freshness.EXPIRED:
+                notes.append(
+                    f"{status.name}: expired {_isoformat(status.expires_at)}. "
+                    "Log into fantasy.espn.com and run `fantasy-sports auth login --from-browser`."
+                    if status.expires_at
+                    else f"{status.name}: expired."
+                )
+            elif status.freshness is Freshness.STALE and status.age_basis == "expires_at":
+                notes.append(
+                    f"{status.name}: expires {_isoformat(status.expires_at)}, inside the "
+                    f"{EXPIRY_WARN_WINDOW.days}-day warning window. Log into fantasy.espn.com "
+                    "and run `fantasy-sports auth login --from-browser` to refresh it."
+                    if status.expires_at
+                    else f"{status.name}: about to expire."
+                )
             elif status.freshness is Freshness.STALE:
                 notes.append(
                     f"{status.name}: stored {status.age_days} days ago, past the "
@@ -388,6 +443,7 @@ class AuthStatus:
                 "source": self.threshold_source.value,
                 "verified": self.threshold_verified,
                 "note": HEURISTIC_NOTE,
+                "expiry_warn_days": EXPIRY_WARN_WINDOW.days,
             },
             "warnings": list(self.warnings),
         }
@@ -459,8 +515,21 @@ def _status_for(
     # the chain resolved from the environment or a config file, that value may
     # be a completely different cookie, and attributing our timestamp to it
     # would report a confident, wrong age — worse than reporting none.
-    knowable = source is CredentialSource.KEYCHAIN and events.stored_at is not None
-    if knowable:
+    from_keychain = source is CredentialSource.KEYCHAIN
+    knowable = from_keychain and events.stored_at is not None
+    expires_at = events.expires_at if from_keychain else None
+    if expires_at is not None:
+        # A measured expiry beats the age heuristic. Age is still reported
+        # when we know it; only the verdict moves.
+        age = None if events.stored_at is None else now - events.stored_at
+        if expires_at <= now:
+            freshness = Freshness.EXPIRED
+        elif expires_at - now <= EXPIRY_WARN_WINDOW:
+            freshness = Freshness.STALE
+        else:
+            freshness = Freshness.FRESH
+        basis = "expires_at"
+    elif knowable:
         assert events.stored_at is not None  # narrowed by `knowable`
         age = now - events.stored_at
         freshness = Freshness.STALE if age > limit else Freshness.FRESH
@@ -478,4 +547,5 @@ def _status_for(
         stored_at=events.stored_at,
         last_success_at=events.last_success_at,
         freshness=freshness,
+        expires_at=expires_at,
     )
