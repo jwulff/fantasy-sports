@@ -72,9 +72,11 @@ _COMMANDS: Mapping[str, Sequence[tuple[Sequence[str], Sequence[str]]]] = {
         (("wl-paste", "--no-newline"), ("wl-copy", "--clear")),
         (("xclip", "-o", "-selection", "clipboard"), ("xclip", "-selection", "clipboard")),
     ],
+    # No `-Raw` on Get-Clipboard: Windows PowerShell 5.1 (`powershell`) lacks it, and the
+    # bookmarklet writes one line.
     "win32": [
         (
-            ("powershell", "-NoProfile", "-Command", "Get-Clipboard -Raw"),
+            ("powershell", "-NoProfile", "-Command", "Get-Clipboard"),
             ("powershell", "-NoProfile", "-Command", "Set-Clipboard -Value $null"),
         )
     ],

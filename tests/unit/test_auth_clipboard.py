@@ -56,7 +56,7 @@ class FakeClipboard:
         is_read = (
             argv[0] in ("pbpaste", "wl-paste")
             or (argv[0] == "xclip" and "-o" in argv)
-            or "Get-Clipboard -Raw" in argv
+            or "Get-Clipboard" in argv
         )
         if is_read:
             code = 1 if self.fail else 0
@@ -192,7 +192,7 @@ def test_a_successful_envelope_carries_no_value_length_or_prefix(home, pasteboar
     [
         ("darwin", ["pbpaste"]),
         ("linux", ["wl-paste", "--no-newline"]),
-        ("win32", ["powershell", "-NoProfile", "-Command", "Get-Clipboard -Raw"]),
+        ("win32", ["powershell", "-NoProfile", "-Command", "Get-Clipboard"]),
     ],
 )
 def test_read_uses_the_platforms_tool(platform: str, expected_first: list[str]):
