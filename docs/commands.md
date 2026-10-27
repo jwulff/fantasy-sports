@@ -2638,14 +2638,14 @@ fantasy-sports auth bookmarklet
   "provider": "espn",
   "league_id": null,
   "season": null,
-  "generated_at": "2026-10-27T15:24:37Z",
+  "generated_at": "2026-10-27T15:48:16Z",
   "data_as_of": null,
   "data_age_seconds": null,
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
   "data": {
-    "bookmarklet": "javascript:(function(){var want=['espn_s2','SWID'],found=document.cookie.split(';').map(function(c){return c.trim()}).filter(function(c){return want.indexOf(c.split('=')[0])>-1});if(found.length<2){alert('Not logged in: ESPN cookies espn_s2 and SWID not found. Log in at fantasy.espn.com and try again.');return}navigator.clipboard.writeText(found.join('; ')).then(function(){alert('ESPN cookies copied. Now run: fantasy-sports auth login --from-clipboard')},function(){alert('Could not write to the clipboard.')})})();",
+    "bookmarklet": "javascript:(function(){var want=['espn_s2','SWID'],found=document.cookie.split(';').map(function(c){return c.trim()}).filter(function(c){return want.indexOf(c.split('=')[0])>-1});if(!want.every(function(n){return found.some(function(c){return c.split('=')[0]===n})})){alert('Not logged in: ESPN cookies espn_s2 and SWID not found. Log in at fantasy.espn.com and try again.');return}navigator.clipboard.writeText(found.join('; ')).then(function(){alert('ESPN cookies copied. Now run: fantasy-sports auth login --from-clipboard')},function(){alert('Could not write to the clipboard.')})})();",
     "instructions": "Create a browser bookmark whose URL is the bookmarklet, open fantasy.espn.com while logged in, click it, then run `fantasy-sports auth login --from-clipboard`."
   },
   "error": null

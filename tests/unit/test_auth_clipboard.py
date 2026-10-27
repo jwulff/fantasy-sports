@@ -468,3 +468,10 @@ def test_a_post_write_failure_clears_the_clipboard_and_leaks_nothing(
     )
     for secret in (COOKIE_S2, SWID, SWID.strip("{}")):
         assert secret not in rendered
+
+
+def test_the_bookmarklet_requires_each_name_not_just_two_cookies():
+    """Two ``espn_s2`` entries and no ``SWID`` must not count as complete."""
+    url = clipboard.BOOKMARKLET
+    assert "found.length" not in url
+    assert "want.every(" in url and "found.some(" in url

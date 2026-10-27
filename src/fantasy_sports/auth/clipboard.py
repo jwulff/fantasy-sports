@@ -48,7 +48,7 @@ BOOKMARKLET = (
     "found=document.cookie.split(';')"
     ".map(function(c){return c.trim()})"
     ".filter(function(c){return want.indexOf(c.split('=')[0])>-1});"
-    "if(found.length<2){"
+    "if(!want.every(function(n){return found.some(function(c){return c.split('=')[0]===n})})){"
     "alert('Not logged in: ESPN cookies espn_s2 and SWID not found. "
     "Log in at fantasy.espn.com and try again.');return}"
     "navigator.clipboard.writeText(found.join('; ')).then("
