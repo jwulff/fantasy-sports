@@ -17,6 +17,8 @@ reimplements none of them.
    other key survives (``docs/memory/config-toml-is-a-shared-namespace.md``), and
    an existing ``default`` is never changed.
 4. **Doctor.** The offline health checks run last and their result is included.
+   Not on a dry run: the cache and health checks create their files, so a dry
+   run reports ``doctor: null`` rather than write.
 
 The *current season* is the latest season among the leagues in a sport this
 version can read. It is derived from what ESPN lists rather than from the clock,
@@ -41,6 +43,7 @@ from typing import TYPE_CHECKING, Any
 from fantasy_sports.commands.context import require_shape
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
+    from fantasy_sports.config.leagues import LeagueConfig
     from fantasy_sports.core.models import DiscoveredLeague
     from fantasy_sports.output.envelope import Envelope
 
@@ -56,6 +59,7 @@ def init(
     *, season: int | None = None, all_seasons: bool = False, dry_run: bool = False
 ) -> Envelope:
     """Import credentials, discover leagues, write ``config.toml``, run the doctor."""
+    from fantasy_sports.config import leagues as league_config
     from fantasy_sports.core.errors import ConfigInvalidError
     from fantasy_sports.output.envelope import DataSource, Envelope, utc_now
     from fantasy_sports.providers import espn_fan
@@ -67,10 +71,13 @@ def init(
             remediation="Pass one season with --season, or every listed season with --all-seasons.",
         )
 
+    # Parsed before anything is stored or fetched: a config that cannot be read
+    # must fail before the Keychain has been touched.
+    config = league_config.load()
     credentials, swid = _credentials(dry_run=dry_run)
     leagues = _discover(swid)
     fetched_at = utc_now()
-    plan = _plan(leagues, season=season, all_seasons=all_seasons)
+    plan = _plan(config, leagues, season=season, all_seasons=all_seasons)
     path = _write(plan, dry_run=dry_run)
 
     data: dict[str, Any] = {
@@ -80,7 +87,7 @@ def init(
         "default": plan.default,
         "next_step": plan.next_step,
         "config_path": str(path),
-        "doctor": _doctor(),
+        "doctor": None if dry_run else _doctor(),
     }
     require_shape(data, command="init")
     return Envelope.success(
@@ -231,13 +238,17 @@ def _row(slug: str | None, league: DiscoveredLeague, **extra: Any) -> dict[str, 
     return row
 
 
-def _plan(leagues: list[DiscoveredLeague], *, season: int | None, all_seasons: bool) -> _Plan:
+def _plan(
+    config: LeagueConfig,
+    leagues: list[DiscoveredLeague],
+    *,
+    season: int | None,
+    all_seasons: bool,
+) -> _Plan:
     from fantasy_sports.commands.leagues import slugs
-    from fantasy_sports.config import leagues as league_config
     from fantasy_sports.providers.espn_fan import READABLE_SPORTS
 
     plan = _Plan()
-    config = league_config.load()
     readable = [league for league in leagues if league.sport in READABLE_SPORTS]
     unreadable = [league for league in leagues if league.sport not in READABLE_SPORTS]
 

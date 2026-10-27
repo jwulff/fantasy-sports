@@ -1886,14 +1886,14 @@ holds gets `-2`, `-3`, and so on.
 |---|---|
 | `--season N` | Write profiles for season `N` instead of the current one |
 | `--all-seasons` | Write a profile for every listed season, past ones included. Cannot be combined with `--season` |
-| `--dry-run` | Report what would be written. Writes neither `config.toml` nor the Keychain; reads the browser's cookies (or the stored ones) so discovery can run, and never prompts |
+| `--dry-run` | Report what would be written. Writes nothing (not `config.toml`, the Keychain, or the cache `doctor` would create), so `doctor` is `null`; reads the browser's cookies (or the stored ones) so discovery can run, and never prompts |
 
 `data` holds `dry_run`, `credentials` (`source` is `browser`, `prompt` or
 `stored`, with the `browser` and `profile` for the first; `stored` says whether
 the Keychain was written), `leagues` (`written` and `skipped` rows of `slug`,
 `provider`, `league_id`, `season`, `sport`), `default`, `next_step` (a one-line fix, or
 `null`), `config_path`, and
-`doctor` (`status`, `ok`, and each check's `name`, `status` and `summary`). No
+`doctor` (`null` on a dry run; else `status`, `ok`, and each check's `name`, `status` and `summary`). No
 credential value appears anywhere, and league names, which are free text, are
 left out of the rows.
 
@@ -1917,13 +1917,13 @@ fantasy-sports init
   "provider": "espn",
   "league_id": null,
   "season": null,
-  "generated_at": "2026-10-27T17:24:01Z",
-  "data_as_of": "2026-10-27T17:24:01Z",
+  "generated_at": "2026-10-27T17:30:25Z",
+  "data_as_of": "2026-10-27T17:30:25Z",
   "data_age_seconds": 0,
   "sources": [
     {
       "name": "fan.api:fans",
-      "fetched_at": "2026-10-27T17:24:01Z",
+      "fetched_at": "2026-10-27T17:30:25Z",
       "age_seconds": 0,
       "cached": false
     }

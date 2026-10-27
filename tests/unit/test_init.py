@@ -319,6 +319,8 @@ def test_an_unreadable_config_is_config_invalid_and_not_overwritten(fakes: Fakes
     with pytest.raises(ConfigInvalidError):
         init_command.init()
     assert config_file().read_text() == "this is [not toml"
+    # ...and it failed before the Keychain, the browser or ESPN was touched.
+    assert fakes.keychain == {} and fakes.searches == 0 and fakes.swids == []
 
 
 # --------------------------------------------------------------------------- #
@@ -334,6 +336,17 @@ def test_dry_run_reports_without_writing_the_config_or_the_keychain(fakes: Fakes
     assert data["default"] == "synthetic-gridiron"
     assert not config_file().exists()
     assert fakes.keychain == {}
+    assert data["doctor"] is None
+
+
+def test_dry_run_leaves_every_xdg_tree_byte_for_byte_unchanged(fakes: Fakes, tmp_path: Path):
+    def snapshot() -> dict[str, bytes]:
+        return {str(p): p.read_bytes() for p in sorted(tmp_path.rglob("*")) if p.is_file()}
+
+    seed('[auth]\nnote = "x"\n')
+    before = snapshot()
+    init_command.init(dry_run=True)
+    assert snapshot() == before
 
 
 def test_dry_run_with_no_browser_uses_stored_credentials_and_never_prompts(fakes: Fakes):
