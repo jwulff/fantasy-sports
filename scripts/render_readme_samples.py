@@ -747,6 +747,7 @@ def replayed_samples(recorder: Recorder) -> None:
     _write_samples(recorder)
     experts_samples(recorder)
     leagues_samples(recorder)
+    init_samples(recorder)
     sandbox.write_config(PUBLIC_CONFIG)
 
 
@@ -852,6 +853,55 @@ def leagues_samples(recorder: Recorder) -> None:
         )
     finally:
         requests.get = original_get
+
+
+def init_samples(recorder: Recorder) -> None:
+    """``init``, run end to end against fakes at the three outside seams.
+
+    The browser search returns one invented profile, ``requests.get`` is the
+    unit tests' ``FakeFanApi`` serving the synthetic fan.api listing, and the
+    Keychain is :class:`MemoryKeyring`. The config is written into the throwaway
+    XDG tree, which starts empty: a fresh install. ``doctor`` runs for real and
+    its python/version lines belong to the machine, so this sample is exempt
+    from the offline regeneration like ``doctor`` itself.
+    """
+    sys.path.insert(0, str(REPO / "tests"))
+    import keyring
+    import requests
+    from _harness import FakeFanApi
+
+    from fantasy_sports.auth import browser
+    from fantasy_sports.auth.chain import Secret
+
+    profile = browser.ProfileCookies(
+        "Chrome", "Default", espn_s2=Secret(PLACEHOLDER_S2), swid=Secret(PLACEHOLDER_SWID)
+    )
+    original = (requests.get, browser.find_espn_cookies, keyring.get_keyring())
+    requests.get = FakeFanApi()
+    browser.find_espn_cookies = lambda *a, **k: browser.BrowserSearch(  # type: ignore[assignment]
+        profiles=(profile,), searched=("Chrome/Default",)
+    )
+    keyring.set_keyring(MemoryKeyring())
+    env = recorder.sandbox.env(credentials=False)
+    env.pop("PYTHON_KEYRING_BACKEND")
+    recorder.sandbox.write_config(None)
+    try:
+        recorder.run(
+            "init",
+            ["init"],
+            source="replayed",
+            league="no league, synthetic fan.api account listing, invented browser profile",
+            env=env,
+            drop=CREDENTIAL_VARS,
+            offline=False,
+            note="a fresh install: the hockey league is skipped, the football league is written",
+            stderr_ok=True,
+            raw_keys=4,
+        )
+    finally:
+        requests.get, browser.find_espn_cookies = original[0], original[1]
+        keyring.set_keyring(original[2])
+        recorder.sandbox.write_config(None)
 
 
 JOURNAL_SALT = "fantasy-sports/sample-journal/v1"
@@ -1435,6 +1485,7 @@ def generate_experts() -> None:
         recorder.sandbox.write_config(SYNTHETIC_CONFIG)
         experts_samples(recorder)
         leagues_samples(recorder)
+        init_samples(recorder)
         help_text = subprocess.run(
             [str(console_script()), "--help"],
             check=True,

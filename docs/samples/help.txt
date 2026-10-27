@@ -24,6 +24,7 @@ Commands:
   drop          Release a player from your own team to waivers. Irreversible.
   experts       4 subcommands: injuries, news, projections, rankings
   free-agents   List unrostered players, optionally filtered to one position.
+  init          One-command setup: import cookies, discover leagues, write config.toml, run doctor.
   journal       4 subcommands: digest, list, reverse, show
   league        1 subcommand: info
   leagues       1 subcommand: discover

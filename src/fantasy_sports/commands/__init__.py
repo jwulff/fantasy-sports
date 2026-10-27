@@ -458,6 +458,37 @@ register(
     )
 )
 
+register(
+    CommandSpec(
+        name="init",
+        summary=(
+            "One-command setup: import cookies, discover leagues, write config.toml, run doctor."
+        ),
+        handler="fantasy_sports.commands.init:init",
+        shape=DataShape.OBJECT,
+        takes_league=False,
+        params=(
+            Param(
+                name="season",
+                help="Write profiles for this season only, instead of the current one.",
+                annotation=int | None,
+            ),
+            Param(
+                name="all_seasons",
+                help="Write a profile for every season listed, past ones included.",
+                annotation=bool,
+                default=False,
+            ),
+            Param(
+                name="dry_run",
+                help="Report what would be written without writing config.toml or the Keychain.",
+                annotation=bool,
+                default=False,
+            ),
+        ),
+    )
+)
+
 FROM_BROWSER_ANY = "*"
 """What a bare ``auth login --from-browser`` passes: search every browser."""
 

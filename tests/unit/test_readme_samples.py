@@ -17,9 +17,9 @@ These tests hold three things about that (jwulff/fantasy-sports#93):
   to its committed copy, timestamps aside, so a change to what a command
   renders fails CI until the samples are regenerated. The replayed and
   synthetic samples come from their own fixtures; the live ones are replayed
-  from the committed canary recording of the same public league. The six
-  the index marks ``offline: false`` — ``--help``, the pipe, ``doctor``, the
-  two ``kona_player_info`` reads, and the 2019 probe — depend on the machine
+  from the committed canary recording of the same public league. The seven
+  the index marks ``offline: false`` — ``--help``, the pipe, ``doctor``, ``init``
+  (which embeds it), the two ``kona_player_info`` reads, and the 2019 probe — depend on the machine
   or on a request the recording never captured, and are held by the envelope
   tests only.
 
@@ -297,9 +297,17 @@ def test_the_regeneration_covers_every_offline_sample_and_only_those(regenerated
     assert set(regenerated) == set(OFFLINE_SAMPLES)
 
 
-def test_only_the_six_environment_dependent_samples_are_exempt():
+def test_only_the_seven_environment_dependent_samples_are_exempt():
     exempt = {n for n, e in INDEX.items() if not e["offline"]}
-    assert exempt == {"help", "pipe", "doctor", "raw.unfiltered", "raw.filter", "option-season"}
+    assert exempt == {
+        "help",
+        "pipe",
+        "doctor",
+        "init",
+        "raw.unfiltered",
+        "raw.filter",
+        "option-season",
+    }
 
 
 def test_the_help_sample_is_what_the_fast_path_renders_today():

@@ -48,6 +48,7 @@ V01_SURFACE = frozenset(
         "box-scores",
         "doctor",
         "free-agents",
+        "init",
         "journal digest",
         "journal list",
         "journal reverse",
@@ -91,7 +92,8 @@ def test_the_v01_surface_is_registered_and_nothing_else_is():
     accepting and declining are #142. The four `experts`
     commands (jwulff/fantasy-sports#129) are the FantasyPros reads: rankings,
     projections, injuries and news. `leagues discover` (#157) lists the account's
-    leagues from fan.api, so a first run needs no `leagueId=` fished from a URL.
+    leagues from fan.api, so a first run needs no `leagueId=` fished from a URL. `init` (#158)
+    composes the cookie import, discovery, the config write and `doctor` into one command.
     """
     assert set(REGISTRY) == V01_SURFACE
 

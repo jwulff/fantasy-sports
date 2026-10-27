@@ -15,9 +15,9 @@ the README. `tests/unit/test_readme_samples.py` regenerates every sample it
 can without the network — the replayed and synthetic ones from their
 fixtures, the live ones from the committed canary recording of the same
 league — and fails if a committed sample no longer matches what the code
-renders, or if the docs and the samples disagree. Six samples depend on the
+renders, or if the docs and the samples disagree. Seven samples depend on the
 machine or on a request the recording never captured (`--help`, the pipe,
-`doctor`, the two `kona_player_info` reads, and the 2019 probe); the four
+`doctor`, `init`, which embeds it, the two `kona_player_info` reads, and the 2019 probe); the four
 JSON ones are held to the envelope contract, `--help` is compared to what
 the fast path renders from the registry, and the pipe sample must be the
 head of the standings envelope. Regenerate with:
@@ -696,6 +696,7 @@ Commands:
   drop          Release a player from your own team to waivers. Irreversible.
   experts       4 subcommands: injuries, news, projections, rankings
   free-agents   List unrostered players, optionally filtered to one position.
+  init          One-command setup: import cookies, discover leagues, write config.toml, run doctor.
   journal       4 subcommands: digest, list, reverse, show
   league        1 subcommand: info
   leagues       1 subcommand: discover
@@ -1846,6 +1847,155 @@ fantasy-sports raw --view kona_player_info --filter '{"players":{"limit":2,"sort
           "… 12 keys"
         ]
       }
+    }
+  },
+  "error": null
+}
+```
+<!-- /sample -->
+
+### `init`
+
+One command from a fresh install to a first league read. It composes the pieces
+you would otherwise run by hand, and reimplements none of them:
+
+1. **Cookies.** The same import as `auth login --from-browser`, searching every
+   supported browser. If no profile holds both cookies and stdin is a terminal,
+   it falls back to the `auth login` prompt. Without a terminal it fails
+   `AUTH_MISSING` rather than hang.
+2. **Discovery.** The same listing as `leagues discover`, from the stored SWID.
+3. **Config.** One `[leagues.<slug>]` table per league of the current season is
+   added to `config.toml`. The current season is the latest one listed for a
+   sport this version can read. Leagues in another sport are reported
+   `skipped` with `reason: "unsupported-sport"` and never written.
+4. **Doctor.** The offline `doctor` checks run last; their summary is in the
+   envelope.
+
+It never clobbers. A table for the same `league_id` and `season` is left alone
+and reported `skipped` with `reason: "already-configured"` (and the `slug` it
+already has); every other key in `config.toml` survives; a `default` that is
+already set is never changed. `default` is set only when exactly one league is
+written and the file had no `default` and no leagues, so adding a league can
+never quietly redirect an existing one. A slug an unrelated league already
+holds gets `-2`, `-3`, and so on.
+
+| Option | |
+|---|---|
+| `--season N` | Write profiles for season `N` instead of the current one |
+| `--all-seasons` | Write a profile for every listed season, past ones included. Cannot be combined with `--season` |
+| `--dry-run` | Report what would be written. Writes neither `config.toml` nor the Keychain; reads the browser's cookies (or the stored ones) so discovery can run, and never prompts |
+
+`data` holds `dry_run`, `credentials` (`source` is `browser`, `prompt` or
+`stored`, with the `browser` and `profile` for the first; `stored` says whether
+the Keychain was written), `leagues` (`written` and `skipped` rows of `slug`,
+`provider`, `league_id`, `season`, `sport`), `default`, `config_path`, and
+`doctor` (`status`, `ok`, and each check's `name`, `status` and `summary`). No
+credential value appears anywhere, and league names, which are free text, are
+left out of the rows.
+
+- **No browser has the cookies, and no terminal:** `AUTH_MISSING`; nothing is
+  stored or written.
+- **`config.toml` cannot be parsed:** `CONFIG_INVALID`; the file is not touched.
+- **An account with no leagues:** success with empty `written` and `skipped`.
+
+The sample is a fresh install against an invented browser profile and the
+synthetic fan.api listing; its `doctor` block is the machine's own, which is why
+it is one of the samples that is not regenerated offline.
+
+<!-- sample: init -->
+```bash
+fantasy-sports init
+# no league, synthetic fan.api account listing, invented browser profile (replayed). Exit 0, stdout, trimmed with …. a fresh install: the hockey league is skipped, the football league is written:
+```
+```json
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "espn",
+  "league_id": null,
+  "season": null,
+  "generated_at": "2026-10-27T15:38:55Z",
+  "data_as_of": null,
+  "data_age_seconds": null,
+  "sources": [],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": {
+    "dry_run": false,
+    "credentials": {
+      "source": "browser",
+      "browser": "Chrome",
+      "profile": "Default",
+      "stored": true
+    },
+    "leagues": {
+      "written": [
+        {
+          "slug": "synthetic-gridiron",
+          "provider": "espn",
+          "league_id": "99",
+          "season": 2026,
+          "sport": "football"
+        }
+      ],
+      "skipped": [
+        {
+          "slug": null,
+          "provider": "espn",
+          "league_id": "1234",
+          "season": 2026,
+          "sport": "hockey",
+          "reason": "unsupported-sport"
+        }
+      ]
+    },
+    "default": "synthetic-gridiron",
+    "config_path": "~/.config/fantasy-sports/config.toml",
+    "doctor": {
+      "status": "ok",
+      "ok": true,
+      "checks": [
+        {
+          "name": "python",
+          "status": "ok",
+          "summary": "fantasy-sports 0.1.0.dev0 on Python 3.12.13."
+        },
+        {
+          "name": "config",
+          "status": "ok",
+          "summary": "1 league(s) configured in ~/.config/fantasy-sports/config.toml."
+        },
+        {
+          "name": "credentials",
+          "status": "ok",
+          "summary": "ESPN credentials are configured."
+        },
+        {
+          "name": "cache",
+          "status": "ok",
+          "summary": "Cache reachable: 0 entrie(s), 32,768 byte(s) at ~/.cache/fantasy-sports/http-cache.sqlite3."
+        },
+        {
+          "name": "journal",
+          "status": "ok",
+          "summary": "No journal yet at ~/.local/state/fantasy-sports/journal.sqlite; it is created by the first write."
+        },
+        {
+          "name": "notify",
+          "status": "ok",
+          "summary": "Notifications are off; set [notify] irreversible_command to be told about adds, drops, and claims."
+        },
+        {
+          "name": "version",
+          "status": "ok",
+          "summary": "You are on the latest version (0.1.0.dev0)."
+        },
+        {
+          "name": "provider_status",
+          "status": "ok",
+          "summary": "No known provider issues reported."
+        },
+        "… 2 more items"
+      ]
     }
   },
   "error": null

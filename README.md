@@ -61,14 +61,43 @@ uv run fantasy-sports --help
 
 ## First run
 
-Five steps take a fresh install to a first successful command. Every read
-command needs both ESPN cookies, even for a public league: the CLI resolves
-the credential chain before it sends anything, so with no cookies configured
-it exits `AUTH_MISSING` without making a request. (For a public league ESPN
-never reads them, so two well-formed placeholders satisfy the chain — that is
-how the reference's samples are generated without any secret.)
+Three commands take a fresh install to a first successful read:
 
-### 1. Find your league id
+```bash
+uv tool install fantasy-sports
+fantasy-sports init
+fantasy-sports league info
+```
+
+`init` does the setup in one pass. It imports your `espn_s2` and `SWID`
+cookies from a logged-in browser into the macOS Keychain, lists the leagues
+your account plays in, writes a `[leagues.<name>]` profile for each of this
+season's leagues to `config.toml`, and runs the `doctor` checks. Log into
+fantasy.espn.com in Chrome, Brave, Edge, Arc, Chromium or Firefox first. With
+exactly one league and a fresh config it also sets that league as the
+`default`, which is why a bare `league info` works.
+
+It never overwrites your work: a league already in `config.toml` is reported
+as `skipped`, other keys in the file survive, and an existing `default` is left
+alone. `--dry-run` shows what would be written without writing anything,
+`--season 2025` targets another year, and `--all-seasons` includes past ones.
+If no browser holds the cookies and you are at a terminal, `init` prompts for
+them instead; without a terminal it fails `AUTH_MISSING`. See
+[`init`](docs/commands.md#init) for the full envelope. Only football leagues
+are written for now; other sports are listed as `skipped`.
+
+Every read command needs both ESPN cookies, even for a public league: the CLI
+resolves the credential chain before it sends anything, so with no cookies
+configured it exits `AUTH_MISSING` without making a request. (For a public
+league ESPN never reads them, so two well-formed placeholders satisfy the
+chain, which is how the reference's samples are generated without any secret.)
+
+### Manual setup
+
+Everything `init` does can be done step by step, for a host with no browser, a
+league `init` cannot see, or when you would rather edit the file yourself.
+
+#### 1. Find your league id
 
 Once your cookies are stored (step 3), `fantasy-sports leagues discover`
 lists every league your account belongs to, and `--config-snippet` adds a
@@ -79,7 +108,7 @@ Or find it by hand: open your league at fantasy.espn.com. The id is the
 `leagueId=` query parameter on any page for that league, for example
 `https://fantasy.espn.com/football/league?leagueId=123456`.
 
-### 2. Import the two cookies
+#### 2. Import the two cookies
 
 ESPN has no API keys; your browser's session cookies stand in for a login.
 Log into fantasy.espn.com in Chrome, Brave, Edge, Arc, Chromium or Firefox,
@@ -120,7 +149,7 @@ so treat them like a password: never paste them into an issue or a shell
 argument, and if you think they have leaked, log out of ESPN to invalidate
 them ([SECURITY.md](SECURITY.md#if-a-cookie-leaks)).
 
-### 3. Or use the bookmarklet, or paste them
+#### 3. Or use the bookmarklet, or paste them
 
 **Any browser, via the clipboard.** Safari, Windows, and Linux with a keyring
 are not covered by `--from-browser`, but a bookmarklet works in any browser,
@@ -165,7 +194,7 @@ no Keychain (cron, CI, headless Linux) can supply the cookies through the
 a `[credentials]` table in `config.toml`; the full resolution order is in
 [SECURITY.md](SECURITY.md#where-your-credentials-are-stored).
 
-### 4. Write the config file
+#### 4. Write the config file
 
 Create `~/.config/fantasy-sports/config.toml` (`$XDG_CONFIG_HOME` is
 honored on every platform, including macOS). Each `[leagues.<name>]` table
@@ -195,7 +224,7 @@ implied when only one league is configured. A misspelled key inside a
 `[leagues.<name>]` table fails as `CONFIG_INVALID` rather than being
 silently ignored.
 
-### 5. Check, then run
+#### 5. Check, then run
 
 ```bash
 fantasy-sports doctor
@@ -253,6 +282,7 @@ fails if a committed sample no longer matches what the code renders.
 | [`free-agents`](docs/commands.md#free-agents) | Unrostered players, optionally filtered to one position |
 | [`transactions`](docs/commands.md#transactions) | Recent roster moves, newest first |
 | [`raw`](docs/commands.md#raw) | One ESPN view passed straight through, payload unmodified |
+| [`init`](docs/commands.md#init) | One-command setup: import cookies, discover leagues, write `config.toml`, run `doctor` |
 | [`doctor`](docs/commands.md#doctor) | Every health check: config, credentials, cache, journal, version, provider status |
 | [`lineup set`](docs/commands.md#lineup-set) | Move your own team's players to explicit slots, journaled and read back. **Writes** |
 | [`add`](docs/commands.md#add) | Add a free agent, optionally dropping a player. Irreversible; needs `--acknowledge-irreversible`. **Writes** |

@@ -1,0 +1,92 @@
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "espn",
+  "league_id": null,
+  "season": null,
+  "generated_at": "2026-10-27T15:38:55Z",
+  "data_as_of": null,
+  "data_age_seconds": null,
+  "sources": [],
+  "untrusted": {},
+  "raw_omitted": false,
+  "data": {
+    "dry_run": false,
+    "credentials": {
+      "source": "browser",
+      "browser": "Chrome",
+      "profile": "Default",
+      "stored": true
+    },
+    "leagues": {
+      "written": [
+        {
+          "slug": "synthetic-gridiron",
+          "provider": "espn",
+          "league_id": "99",
+          "season": 2026,
+          "sport": "football"
+        }
+      ],
+      "skipped": [
+        {
+          "slug": null,
+          "provider": "espn",
+          "league_id": "1234",
+          "season": 2026,
+          "sport": "hockey",
+          "reason": "unsupported-sport"
+        }
+      ]
+    },
+    "default": "synthetic-gridiron",
+    "config_path": "~/.config/fantasy-sports/config.toml",
+    "doctor": {
+      "status": "ok",
+      "ok": true,
+      "checks": [
+        {
+          "name": "python",
+          "status": "ok",
+          "summary": "fantasy-sports 0.1.0.dev0 on Python 3.12.13."
+        },
+        {
+          "name": "config",
+          "status": "ok",
+          "summary": "1 league(s) configured in ~/.config/fantasy-sports/config.toml."
+        },
+        {
+          "name": "credentials",
+          "status": "ok",
+          "summary": "ESPN credentials are configured."
+        },
+        {
+          "name": "cache",
+          "status": "ok",
+          "summary": "Cache reachable: 0 entrie(s), 32,768 byte(s) at ~/.cache/fantasy-sports/http-cache.sqlite3."
+        },
+        {
+          "name": "journal",
+          "status": "ok",
+          "summary": "No journal yet at ~/.local/state/fantasy-sports/journal.sqlite; it is created by the first write."
+        },
+        {
+          "name": "notify",
+          "status": "ok",
+          "summary": "Notifications are off; set [notify] irreversible_command to be told about adds, drops, and claims."
+        },
+        {
+          "name": "version",
+          "status": "ok",
+          "summary": "You are on the latest version (0.1.0.dev0)."
+        },
+        {
+          "name": "provider_status",
+          "status": "ok",
+          "summary": "No known provider issues reported."
+        },
+        "… 2 more items"
+      ]
+    }
+  },
+  "error": null
+}
