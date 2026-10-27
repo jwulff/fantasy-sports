@@ -2542,6 +2542,7 @@ it is `false`, copy something else yourself.
 |---|---|
 | Clipboard lacks either cookie, or a value is not valid (a SWID that is not a GUID) | `AUTH_MISSING`; the remediation names the bookmarklet. The clipboard is left untouched, and its text never appears in the error |
 | No clipboard tool installed, or it fails | `AUTH_MISSING` with `details.reason` (`no_clipboard_tool`, `read_failed`, `unsupported_platform`) |
+| Storing fails (locked Keychain, unwritable state file) | `CONFIG_INVALID` (`kind: "credential_store"`, `details.cause` names the exception type only); the clipboard is cleared anyway, so click the bookmarklet again |
 | Together with `--from-browser` | `CONFIG_INVALID` (`kind: "argument"`) |
 
 <!-- sample: auth-login-clipboard -->

@@ -434,14 +434,37 @@ def test_cli_table_output_keeps_the_bookmarklet_on_one_line(capsys):
     assert clipboard.BOOKMARKLET in capsys.readouterr().out.splitlines()
 
 
-def test_the_clipboard_is_cleared_even_when_bookkeeping_fails_after_the_store(
+def _failed_login() -> ConfigInvalidError:
+    """Holds no secret in its own locals: a test frame on the traceback is rendered too."""
+    with pytest.raises(ConfigInvalidError) as caught:
+        auth_commands.login(from_clipboard=True)
+    return caught.value
+
+
+def test_a_post_write_failure_clears_the_clipboard_and_leaks_nothing(
     home, pasteboard, keychain, monkeypatch
 ):
     def explode(*args: Any, **kwargs: Any):
         raise OSError("state file unwritable")
 
     monkeypatch.setattr(staleness, "record_stored", explode)
-    with pytest.raises(OSError):
-        auth_commands.login(from_clipboard=True)
+    error = _failed_login()
     assert keychain["espn_s2"] == COOKIE_S2
     assert pasteboard.text == ""
+    assert error.details == {
+        "kind": "credential_store",
+        "cause": "OSError",
+        "clipboard_cleared": True,
+    }
+    assert error.__cause__ is None and error.__context__ is None
+    rendered = " ".join(
+        [
+            str(error),
+            json.dumps(error.details),
+            "".join(
+                traceback.TracebackException.from_exception(error, capture_locals=True).format()
+            ),
+        ]
+    )
+    for secret in (COOKIE_S2, SWID, SWID.strip("{}")):
+        assert secret not in rendered

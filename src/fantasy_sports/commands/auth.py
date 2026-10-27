@@ -223,7 +223,7 @@ def _login_from_clipboard() -> Envelope:
     """
     from fantasy_sports.auth import clipboard
     from fantasy_sports.auth.chain import ALL_CREDENTIALS, save_credentials
-    from fantasy_sports.core.errors import AuthMissingError
+    from fantasy_sports.core.errors import AuthMissingError, ConfigInvalidError
     from fantasy_sports.output.envelope import Envelope
 
     bookmarklet_hint = (
@@ -258,14 +258,29 @@ def _login_from_clipboard() -> Envelope:
 
     # The clipboard held a valid credential pair, so it is ours to clear whether or
     # not the store below succeeds: a failure after the Keychain write (the
-    # bookkeeping file) must not leave the cookies behind.
+    # bookkeeping file) must not leave the cookies behind. A storage failure is
+    # turned into a data-free error *outside* the handler: ``save_credentials``'
+    # frame holds the plain values, and it would otherwise ride the traceback
+    # (docs/memory/credential-leak-channels.md).
+    failed: str | None = None
+    repaired: tuple[str, ...] = ()
     try:
         repaired = save_credentials(
             {"espn_s2": found["espn_s2"].reveal(), "swid": found["swid"].reveal()},
             specs=ALL_CREDENTIALS,
         )
-    finally:
-        cleared = clipboard.clear_clipboard()
+    except Exception as problem:  # noqa: BLE001 - re-raised below without its frames
+        failed = type(problem).__name__
+    cleared = clipboard.clear_clipboard()
+    if failed is not None:
+        raise ConfigInvalidError(
+            f"Could not store the credentials ({failed}); the clipboard was "
+            f"{'cleared' if cleared else 'NOT cleared'}.",
+            kind="credential_store",
+            remediation="Unlock the Keychain or fix the file the cause names, click the "
+            "bookmarklet again, and re-run `fantasy-sports auth login --from-clipboard`.",
+            details={"cause": failed, "clipboard_cleared": cleared},
+        )
     data = {
         "stored": ["espn_s2", "swid"],
         "repaired": sorted(repaired),

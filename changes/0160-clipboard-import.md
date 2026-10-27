@@ -26,10 +26,14 @@ any browser. Closes #160, part of #155.
   failure into a flag outside the `except` block and the command raises a
   data-free `AUTH_MISSING` of its own. The same shape exists in the
   `--from-browser` path; not touched here (out of scope), noted for a follow-up.
-- The clipboard is cleared once it is known to hold a valid cookie pair, in a
-  `finally` around `save_credentials`, so a failure after the Keychain write
+- The clipboard is cleared once it is known to hold a valid cookie pair, whether
+  or not `save_credentials` then succeeds, so a failure after the Keychain write
   (the bookkeeping file) cannot leave the cookies behind; the price is that a
-  Keychain failure also costs one bookmarklet click. When the clipboard holds no
+  Keychain failure also costs one bookmarklet click. A storage failure becomes a
+  data-free `CONFIG_INVALID` (`kind: "credential_store"`, as `auth logout` uses)
+  raised outside the `except` block: preflight showed `save_credentials`' frame,
+  holding both plain values, otherwise rides the traceback. The same shape exists
+  in the `--from-browser` path (follow-up, out of scope here). When the clipboard holds no
   valid pair it is never touched (it may hold something that is not ours to
   erase). Clearing is best effort and surfaces as `clipboard_cleared`.
 - `--output table` (the TTY default) folds any cell at 100 columns, which would
