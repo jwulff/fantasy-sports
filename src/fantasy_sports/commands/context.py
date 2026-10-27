@@ -206,6 +206,7 @@ def success(
         data=data,
         sources=sources,
         untrusted=untrusted,
+        warnings=tuple(getattr(ctx.provider, "warnings", None) or ()),
     )
 
 

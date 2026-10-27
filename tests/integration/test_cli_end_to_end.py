@@ -48,6 +48,7 @@ ENVELOPE_KEYS = [
     "sources",
     "untrusted",
     "raw_omitted",
+    "warnings",
     "data",
     "error",
 ]

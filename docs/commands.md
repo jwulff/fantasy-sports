@@ -146,6 +146,7 @@ fantasy-sports standings --league public --no-raw
     "…": "… 9 more entries"
   },
   "raw_omitted": true,
+  "warnings": [],
   "data": [
     {
       "provider": "espn",
@@ -188,6 +189,7 @@ fantasy-sports league info --season 2019
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": null,
   "error": {
     "code": "LEAGUE_NOT_FOUND",
@@ -256,6 +258,7 @@ fantasy-sports standings --fresh --no-raw
     "…": "… 9 more entries"
   },
   "raw_omitted": true,
+  "warnings": [],
   "data": [
     {
       "provider": "espn",
@@ -329,6 +332,7 @@ fantasy-sports standings --no-cache --no-raw
     "…": "… 9 more entries"
   },
   "raw_omitted": true,
+  "warnings": [],
   "data": [
     {
       "provider": "espn",
@@ -518,6 +522,7 @@ fantasy-sports teams
     "…": "… 8 more entries"
   },
   "raw_omitted": false,
+  "warnings": [],
   "data": [
     {
       "provider": "espn",
@@ -613,6 +618,7 @@ fantasy-sports teams --no-raw
     "…": "… 8 more entries"
   },
   "raw_omitted": true,
+  "warnings": [],
   "data": [
     {
       "provider": "espn",
@@ -756,6 +762,7 @@ fantasy-sports league info
     "name": "Arizona 1234"
   },
   "raw_omitted": false,
+  "warnings": [],
   "data": {
     "provider": "espn",
     "provider_id": "1234",
@@ -851,6 +858,7 @@ fantasy-sports standings
     "…": "… 8 more entries"
   },
   "raw_omitted": false,
+  "warnings": [],
   "data": [
     {
       "provider": "espn",
@@ -953,6 +961,7 @@ fantasy-sports roster --team 1
   ],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": [
     {
       "provider": "espn",
@@ -1089,6 +1098,7 @@ fantasy-sports roster --team 'FANTASY GOD' --week 1 --no-raw
   ],
   "untrusted": {},
   "raw_omitted": true,
+  "warnings": [],
   "data": [
     {
       "provider": "espn",
@@ -1211,6 +1221,7 @@ fantasy-sports matchups --week 1
   ],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": [
     {
       "provider": "espn",
@@ -1328,6 +1339,7 @@ fantasy-sports box-scores --week 1
   ],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": [
     {
       "provider": "espn",
@@ -1503,6 +1515,7 @@ fantasy-sports free-agents --pos WR --limit 5 --week 2
   ],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": [
     {
       "provider": "espn",
@@ -1611,6 +1624,7 @@ fantasy-sports transactions --limit 5
   ],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": [
     {
       "provider": "espn",
@@ -1699,6 +1713,7 @@ fantasy-sports raw --view mSettings
   ],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": {
     "mSettings": {
       "view": "mSettings",
@@ -1775,6 +1790,7 @@ fantasy-sports raw --view kona_player_info
   ],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": {
     "kona_player_info": {
       "view": "kona_player_info",
@@ -1817,6 +1833,7 @@ fantasy-sports raw --view kona_player_info --filter '{"players":{"limit":2,"sort
   ],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": {
     "kona_player_info": {
       "view": "kona_player_info",
@@ -2050,6 +2067,7 @@ fantasy-sports doctor
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": {
     "status": "warn",
     "ok": false,
@@ -2221,6 +2239,7 @@ fantasy-sports auth status
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": {
     "generated_at": "2026-10-27T15:00:17.428068Z",
     "complete": true,
@@ -2296,6 +2315,7 @@ fantasy-sports auth status
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": {
     "generated_at": "2026-10-27T15:00:17.562626Z",
     "complete": false,
@@ -2384,6 +2404,7 @@ fantasy-sports auth login
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": {
     "stored": [
       "espn_s2",
@@ -2462,6 +2483,7 @@ fantasy-sports auth status
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": {
     "generated_at": "2026-10-27T15:00:17.569852Z",
     "complete": true,
@@ -2685,6 +2707,7 @@ fantasy-sports auth logout
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": {
     "removed": [
       "espn_s2",
@@ -2822,6 +2845,7 @@ fantasy-sports lineup set --team 1 --set 2002=BE --set 'Katherine Johnson=WR'
   ],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": {
     "team_id": "1",
     "kind": "lineup",
@@ -2916,6 +2940,7 @@ fantasy-sports lineup set --team 1 --set 2002=BE --set 'Katherine Johnson=WR' --
   ],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": {
     "team_id": "1",
     "kind": "lineup",
@@ -3068,6 +3093,7 @@ fantasy-sports add --team 1 --player 'Barbara Liskov' --drop 'Katherine Johnson'
   ],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": {
     "team_id": "1",
     "kind": "add",
@@ -3183,6 +3209,7 @@ fantasy-sports add --team 1 --player 'Barbara Liskov' --drop 'Katherine Johnson'
   ],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": {
     "team_id": "1",
     "kind": "add",
@@ -3292,6 +3319,7 @@ fantasy-sports drop --team 1 --player 2003 --dry-run
   ],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": {
     "team_id": "1",
     "kind": "drop",
@@ -3436,6 +3464,7 @@ fantasy-sports claim --team 1 --player 'Radia Perlman' --bid 7 --dry-run
   ],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": {
     "team_id": "1",
     "kind": "claim",
@@ -3555,6 +3584,7 @@ fantasy-sports claims --team 1
   ],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": [
     {
       "provider": "espn",
@@ -3675,6 +3705,7 @@ fantasy-sports cancel-claim --team 1 --id 5d0c6e2a-7f41-4b9e-a3c8-1e6f2b9d4a70
   ],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": {
     "team_id": "1",
     "kind": "cancel",
@@ -3810,6 +3841,7 @@ fantasy-sports trades --team 1
     "[0].comment": ""
   },
   "raw_omitted": false,
+  "warnings": [],
   "data": [
     {
       "provider": "espn",
@@ -3950,6 +3982,7 @@ fantasy-sports trade propose --team 1 --with 2 --give 'Grace Hopper' --get 'Alan
   ],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": {
     "team_id": "1",
     "kind": "trade",
@@ -4053,6 +4086,7 @@ fantasy-sports trade propose --team 1 --with 2 --give 'Grace Hopper' --get 'Alan
   ],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": {
     "team_id": "1",
     "kind": "trade",
@@ -4192,6 +4226,7 @@ fantasy-sports trade cancel --team 1 --id 5d0c6e2a-7f41-4b9e-a3c8-1e6f2b9d4a70
   ],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": {
     "team_id": "1",
     "kind": "trade_cancel",
@@ -4283,6 +4318,7 @@ fantasy-sports journal list
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": [
     {
       "id": "c47d19ab-52e0-4f3c-8a16-9e0b3d7a2c55",
@@ -4430,6 +4466,7 @@ fantasy-sports journal digest --since 2026-09-12T00:00:00Z --irreversible
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": [
     {
       "id": "c47d19ab-52e0-4f3c-8a16-9e0b3d7a2c55",
@@ -4522,6 +4559,7 @@ fantasy-sports journal show --id 0f8a9c2e-6b1d-4e57-9a3c-2d7b5e1f4a60
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": {
     "id": "0f8a9c2e-6b1d-4e57-9a3c-2d7b5e1f4a60",
     "recorded_at": "2026-09-12T18:29:24.880Z",
@@ -4650,6 +4688,7 @@ fantasy-sports journal reverse --id 6e1f0b3a-2c4d-4e8f-9a1b-3c5d7e9f1a2b
   ],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": {
     "team_id": "1",
     "kind": "reverse",
@@ -4762,6 +4801,7 @@ fantasy-sports experts rankings --pos RB
   ],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": [
     {
       "fp_id": 22968,
@@ -4844,6 +4884,7 @@ fantasy-sports experts rankings --pos RB --week 5
   ],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": [
     {
       "fp_id": 22968,
@@ -4904,6 +4945,7 @@ fantasy-sports experts rankings --pos RB --ros
   ],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": [
     {
       "fp_id": 22968,
@@ -5015,6 +5057,7 @@ fantasy-sports experts projections --pos RB
   ],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": [
     {
       "fp_id": 22968,
@@ -5113,6 +5156,7 @@ fantasy-sports experts projections --player 4430807
   ],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": [
     {
       "fp_id": 23133,
@@ -5167,6 +5211,7 @@ fantasy-sports experts projections --player 'Josh A'
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": null,
   "error": {
     "code": "CONFIG_INVALID",
@@ -5265,6 +5310,7 @@ fantasy-sports experts injuries
   ],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": [
     {
       "fp_id": 19784,
@@ -5390,6 +5436,7 @@ fantasy-sports experts news
     "…": "… 16 more entries"
   },
   "raw_omitted": false,
+  "warnings": [],
   "data": [
     {
       "id": 614924,
@@ -5514,6 +5561,7 @@ fantasy-sports standings
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": null,
   "error": {
     "code": "AUTH_MISSING",
@@ -5555,6 +5603,7 @@ fantasy-sports standings
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": null,
   "error": {
     "code": "AUTH_EXPIRED",
@@ -5598,6 +5647,7 @@ fantasy-sports standings --league nope
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": null,
   "error": {
     "code": "LEAGUE_NOT_FOUND",
@@ -5631,6 +5681,7 @@ fantasy-sports standings
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": null,
   "error": {
     "code": "LEAGUE_NOT_FOUND",
@@ -5665,6 +5716,7 @@ fantasy-sports roster --team Nobody
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": null,
   "error": {
     "code": "LEAGUE_NOT_FOUND",
@@ -5701,6 +5753,7 @@ fantasy-sports roster --team Team
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": null,
   "error": {
     "code": "LEAGUE_NOT_FOUND",
@@ -5748,6 +5801,7 @@ fantasy-sports standings
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": null,
   "error": {
     "code": "CONFIG_INVALID",
@@ -5783,6 +5837,7 @@ fantasy-sports free-agents --pos PUNTER --week 2
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": null,
   "error": {
     "code": "CONFIG_INVALID",
@@ -5823,6 +5878,7 @@ fantasy-sports drop --team 1 --player 'Katherine Johnson'
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": null,
   "error": {
     "code": "CONFIG_INVALID",
@@ -5865,6 +5921,7 @@ fantasy-sports raw --view mSettings --filter not-json
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": null,
   "error": {
     "code": "CONFIG_INVALID",
@@ -5905,6 +5962,7 @@ fantasy-sports standings
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": null,
   "error": {
     "code": "PROVIDER_UNAVAILABLE",
@@ -5945,6 +6003,7 @@ fantasy-sports standings
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": null,
   "error": {
     "code": "RATE_LIMITED",
@@ -5988,6 +6047,7 @@ fantasy-sports standings
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": null,
   "error": {
     "code": "SCHEMA_DRIFT",
@@ -6032,6 +6092,7 @@ fantasy-sports box-scores --week 1
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": null,
   "error": {
     "code": "NOT_AVAILABLE",
@@ -6066,6 +6127,7 @@ fantasy-sports free-agents --pos RB --limit 5
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": null,
   "error": {
     "code": "NOT_AVAILABLE",
@@ -6114,6 +6176,7 @@ fantasy-sports lineup set --team 1 --set 2002=BE --set 'Katherine Johnson=WR'
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": null,
   "error": {
     "code": "WRITE_REJECTED",
@@ -6160,6 +6223,7 @@ fantasy-sports lineup set --team 1 --set 2002=BE --set 'Katherine Johnson=WR'
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": null,
   "error": {
     "code": "WRITE_DIVERGED",

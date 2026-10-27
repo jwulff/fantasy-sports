@@ -141,6 +141,7 @@ from fantasy_sports.core.models import (
 )
 from fantasy_sports.core.redaction import (
     CASSETTE_SWID_SALT,
+    redact,
     remember_secret,
     scrub_body,
     scrub_credential_patterns,
@@ -156,6 +157,7 @@ from fantasy_sports.output.envelope import (
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from pathlib import Path
 
+    from fantasy_sports.auth.reimport import Reimported
     from fantasy_sports.cache.store import CacheMode, CacheStore
 
 __all__ = [
@@ -542,6 +544,7 @@ class _Transport:
         http: Callable[..., Any] | None = None,
         now: Callable[[], datetime] = utc_now,
         on_auth_reason: Callable[[str | None], None] | None = None,
+        recovery: Any = None,
     ) -> None:
         self._request = espn_request
         self._season = season
@@ -554,6 +557,9 @@ class _Transport:
         self._http = http
         self._now = now
         self._on_auth_reason = on_auth_reason
+        self._recovery = recovery
+        """The provider, asked for fresh cookies when ESPN refuses a request
+        (``cookies_after_refusal`` / ``settled``, jwulff/fantasy-sports#159)."""
         self.responses: dict[str, RawResponse] = {}
         self.completed_through: int | None = None
         """Scoring periods at or below this are finished and cache forever."""
@@ -823,8 +829,17 @@ class _Transport:
         *,
         extend: str,
         view: str,
+        retry: bool = True,
     ) -> Any:
-        """One real HTTP request, with the two things ``espn-api`` does not do."""
+        """One real HTTP request, with the two things ``espn-api`` does not do.
+
+        And, once per provider, one more request if ESPN refuses this one and
+        the browser holds a different cookie pair (#159): the refusal is the
+        library's ``ESPNAccessDenied``, raised only after its own alternate-shape
+        probe, so this never fires for a season that simply wanted the other URL.
+        """
+        from espn_api.requests.espn_requests import ESPNAccessDenied
+
         response = self._send(url, params, headers)
         status = response.status_code
 
@@ -843,9 +858,26 @@ class _Transport:
             # not surface the body. If the retry succeeds this is discarded.
             self._report_auth_reason(_auth_reason(response))
 
-        alternate = self._request.checkRequestStatus(
-            status, extend=extend, params=params, headers=headers
-        )
+        try:
+            alternate = self._request.checkRequestStatus(
+                status, extend=extend, params=params, headers=headers
+            )
+        except ESPNAccessDenied:
+            fresh = None
+            if retry and self._recovery is not None:
+                fresh = self._recovery.cookies_after_refusal(dict(self._request.cookies or {}))
+            if fresh is None:
+                raise
+            sent = self._request.cookies
+            self._request.cookies = fresh
+            try:
+                body = self._live(url, params, headers, extend=extend, view=view, retry=False)
+            except BaseException:
+                self._request.cookies = sent
+                self._recovery.settled(accepted=False)
+                raise
+            self._recovery.settled(accepted=True)
+            return body
         if alternate is not None:
             # The alternate URL shape worked: this was never an auth failure,
             # it was the current-vs-historical season shape. This is the whole
@@ -1047,6 +1079,8 @@ class EspnProvider:
         now: Callable[[], datetime] | None = None,
         free_agent_limit: int = 50,
         auth_state_path: Path | None = None,
+        reimport: Callable[[Mapping[str, str], Any], Reimported | None] | None = None,
+        persist: Callable[[Reimported], bool] | None = None,
     ) -> None:
         # Kept unrevealed, only so the write path can report credential age
         # (R12a); `build_auth_status` needs the chain's own record of where each
@@ -1067,6 +1101,22 @@ class EspnProvider:
         # (docs/memory/default-args-defeat-monkeypatch.md).
         self._http_post = http_post
         self._auth_state_path = auth_state_path
+        # Resolved at call time like the two above: `auth.reimport.attempt` is
+        # looked up when a refusal happens, so a test that patches it (or
+        # passes its own) reaches a provider built before the patch.
+        self._reimport = reimport
+        self._persist = persist
+        self._reimport_attempted = False
+        """The browser is consulted at most once per provider, i.e. per CLI
+        invocation, whether or not it had anything to offer (#159)."""
+        self._reimported: Reimported | None = None
+        self._pending: tuple[dict[str, str], Any] | None = None
+        """The pair (and credential set) a swapped-in browser pair replaced, until
+        ESPN accepts or refuses the retry that used it."""
+        self.warnings: list[str] = []
+        """Notices a successful command should surface: today only the browser
+        re-import. Never carries a value. ``commands.context.success`` copies
+        them onto the envelope."""
         # Same rule for the clock: `utc_now` is looked up when no clock is
         # given, so a test or the doc-sample generator that patches the
         # module's `utc_now` reaches a provider `open_read` built.
@@ -1119,6 +1169,145 @@ class EspnProvider:
     def _note_auth_reason(self, reason: str | None) -> None:
         """Record ESPN's typed 401 reason for the classifier. Never a value."""
         self._auth_reason = reason
+
+    # --- browser re-import (jwulff/fantasy-sports#159) ---------------------- #
+    #
+    # The retry lives where the request does: `_Transport._live` for a GET and
+    # `_post` for the write. Wrapping the league *build* instead would miss the
+    # normal case of a bootstrap served from the cache while a later live view
+    # (or the write) goes out with the stale cookie.
+    #
+    # Only the 401 that `_access_denied` turns into LEAGUE_NOT_FOUND or
+    # AUTH_EXPIRED (or the write host's 401) triggers it, and only when a
+    # complete pair was sent. The classification itself is untouched
+    # (docs/memory/espn-401-tells-you-nothing.md): the trigger is not "ESPN says
+    # the cookie is bad", which it never says, but "the browser holds a
+    # different pair than the one we sent".
+
+    def _current_cookies(self) -> dict[str, str]:
+        return {"espn_s2": self._credentials["espn_s2"], "SWID": self._credentials["swid"]}
+
+    def cookies_after_refusal(self, sent: Mapping[str, str] | None) -> dict[str, str] | None:
+        """Cookies to retry a refused request with, or ``None`` to raise as before.
+
+        The first call consults the browser (at most once per provider, i.e. per
+        CLI invocation, whether or not it had anything) and swaps a newer pair
+        in *unsaved*; :meth:`settled` saves it once ESPN accepts the retry or
+        puts the sent pair back if it does not. A later call, from a transport
+        that was built before the swap and still holds the old cookies, just
+        gets the pair now in force.
+        """
+        if not self.has_credentials:
+            return None
+        current = self._current_cookies()
+        if self._reimported is not None:
+            return current if dict(sent or {}) != current else None
+        if self._reimport_attempted:
+            return None
+        self._reimport_attempted = True
+        if self._reimport is None:
+            from fantasy_sports.auth.reimport import attempt
+
+            reimport = attempt
+        else:
+            reimport = self._reimport
+        found = reimport(dict(self._credentials), self._credential_set)
+        if found is None:
+            return None
+
+        self._pending = (dict(self._credentials), self._credential_set)
+        self._reimported = found
+        for name, secret in found.secrets().items():
+            self._credentials[name] = secret.reveal()
+        if self._credential_set is not None:
+            self._credential_set = _restored(self._credential_set, found)
+        return self._current_cookies()
+
+    def settled(self, *, accepted: bool) -> None:
+        """The retry that used a swapped-in pair is over: save it, or put the sent one back."""
+        pending, self._pending = self._pending, None
+        found = self._reimported
+        if pending is None or found is None:
+            return
+        previous, previous_set = pending
+        if not accepted:
+            self._credentials.update(previous)
+            self._credential_set = previous_set
+            return
+        if self._persist is None:
+            from fantasy_sports.auth.reimport import commit
+
+            persist = commit
+        else:
+            persist = self._persist
+        found = replace(found, saved=bool(persist(found)))
+        self._reimported = found
+        if not found.saved:
+            # What is in use is not what is stored, so no stored age describes it.
+            self._credential_set = None
+        self._warn_reimported()
+
+    def _import_after_write_refusal(self) -> Reimported | None:
+        """After a write host 401: fetch and save a newer same-account pair, resend nothing.
+
+        A write is sent exactly once (brief §8 item 1): the repo has only seen
+        this host's 401 on reversible lineup swaps, never on an irreversible
+        add, drop or claim, so "401 means not applied" is unproven exactly where
+        a wrong guess is a double-apply. Nothing here can prove the pair works,
+        but the next invocation needs it, so it is saved now (a failed save
+        restores the Keychain exactly, and counts as no import). Only the same
+        SWID qualifies, and the pair is never swapped into this provider.
+        """
+        if not self.has_credentials:
+            return None
+        if self._reimported is not None:
+            # A preflight read already used (and saved) a fresh pair and the
+            # write host refused it too: say so, but there is nothing new to say.
+            return replace(self._reimported, fresh=False)
+        if self._reimport_attempted:
+            return None
+        self._reimport_attempted = True
+        if self._reimport is None:
+            from fantasy_sports.auth.reimport import attempt
+
+            reimport = attempt
+        else:
+            reimport = self._reimport
+        found = reimport(dict(self._credentials), self._credential_set)
+        if found is None or _guid_key(found.swid.reveal()) != _guid_key(self._credentials["swid"]):
+            return None
+        if self._persist is None:
+            from fantasy_sports.auth.reimport import commit
+
+            persist = commit
+        else:
+            persist = self._persist
+        if not persist(found):
+            return None
+        self._reimported = replace(found, saved=True)
+        return self._reimported
+
+    def _warn_reimported(self) -> None:
+        """Say that a retry with a browser pair succeeded. Names, never values."""
+        found = self._reimported
+        if found is None:
+            return
+        outcome = (
+            "It was saved to the Keychain."
+            if found.saved
+            else "It could not be saved to the Keychain, so the next run will need it again."
+        )
+        notice = (
+            f"ESPN refused the stored cookies, but {found.label} held a newer pair and this "
+            f"request was retried with it. {outcome}"
+        )
+        if notice not in self.warnings:
+            self.warnings.append(notice)
+        # Also posted process-wide, so a command that builds its envelope without
+        # `commands.context.success` still reports it (core/notices.py).
+        from fantasy_sports.core import notices
+
+        notices.add(notice)
 
     # --- reads ------------------------------------------------------------- #
 
@@ -2121,20 +2310,67 @@ class EspnProvider:
 
         url = WRITE_URL.format(season=write.season, league_id=write.league_id)
         cookies = {"espn_s2": self._credentials["espn_s2"]}
+        response = self._send_write(url, body, cookies, write)
+        fetched_at = self._now()
+        status = _as_int(getattr(response, "status_code", None))
+        imported = self._import_after_write_refusal() if status == 401 else None
+        payload = _write_payload(response, swid_salt=self._swid_salt())
+        if status == 200:
+            # Purge before parsing: the write applied whether or not the body
+            # turns out to be readable, and a stale roster served after a
+            # successful write is the incoherence R10 exists to prevent.
+            self._after_success(write)
+        try:
+            result = _write_outcome(
+                status,
+                payload,
+                headers=getattr(response, "headers", None) or {},
+                cookies_sent=bool(cookies.get("espn_s2")),
+                write=write,
+            )
+        except WriteRejectedError as exc:
+            if imported is not None and exc.kind == "auth":
+                exc._record_detail("reimported_from_browser", imported.source)
+            if imported is not None and imported.fresh and exc.kind == "auth":
+                exc.remediation = redact(
+                    f"ESPN refused the stored cookies; a newer espn_s2 for the same account "
+                    f"was imported from {imported.label} and saved. Nothing was sent twice. "
+                    "Run the command again."
+                )
+            raise
+        self.last_fetch = FetchRecord(
+            responses={
+                **(self.last_fetch.responses if self.last_fetch is not None else {}),
+                "transactions": RawResponse(
+                    view="transactions", payload=payload, fetched_at=fetched_at, cached=False
+                ),
+            }
+        )
+        self._check_identity(write, result)
+        if result.member_id:
+            self._echoed_members[(write.league_id, write.season)] = result.member_id
+        return result
+
+    def _send_write(
+        self, url: str, body: Mapping[str, Any], cookies: Mapping[str, str], write: _Write
+    ) -> Any:
+        """The one POST attempt; any transport failure is an unknown outcome.
+
+        Exactly one attempt. There is no retry loop anywhere on this path: a
+        write whose outcome is unknown must be read back, not re-sent (brief §8
+        item 1).
+        """
         post = self._http_post
         if post is None:
             import requests
 
             post = requests.post
         try:
-            # Exactly one attempt. There is no retry loop anywhere on this
-            # path: a write whose outcome is unknown must be read back, not
-            # re-sent (brief §8 item 1).
-            response = post(
+            return post(
                 url,
                 json=body,
                 headers=dict(_WRITE_HEADERS),
-                cookies=cookies,
+                cookies=dict(cookies),
                 timeout=WRITE_TIMEOUT_SECONDS,
             )
         except Exception as exc:  # noqa: BLE001 - every transport failure is "unknown"
@@ -2150,34 +2386,6 @@ class EspnProvider:
                     "team_id": str(write.team_id),
                 },
             ) from exc
-
-        fetched_at = self._now()
-        payload = _write_payload(response, swid_salt=self._swid_salt())
-        status = _as_int(getattr(response, "status_code", None))
-        if status == 200:
-            # Purge before parsing: the write applied whether or not the body
-            # turns out to be readable, and a stale roster served after a
-            # successful write is the incoherence R10 exists to prevent.
-            self._after_success(write)
-        result = _write_outcome(
-            status,
-            payload,
-            headers=getattr(response, "headers", None) or {},
-            cookies_sent=bool(cookies.get("espn_s2")),
-            write=write,
-        )
-        self.last_fetch = FetchRecord(
-            responses={
-                **(self.last_fetch.responses if self.last_fetch is not None else {}),
-                "transactions": RawResponse(
-                    view="transactions", payload=payload, fetched_at=fetched_at, cached=False
-                ),
-            }
-        )
-        self._check_identity(write, result)
-        if result.member_id:
-            self._echoed_members[(write.league_id, write.season)] = result.member_id
-        return result
 
     def _check_identity(self, write: _Write, result: WriteResult) -> None:
         """Prove, after the fact, that the session that wrote is the one the
@@ -2319,6 +2527,7 @@ class EspnProvider:
             http=self._http,
             now=self._now,
             on_auth_reason=self._note_auth_reason,
+            recovery=self,
         )
         yield request, transport
 
@@ -2332,6 +2541,7 @@ class EspnProvider:
             http=self._http,
             now=self._now,
             on_auth_reason=self._note_auth_reason,
+            recovery=self,
         )
 
     def _transport(self, league_id: str, season: int) -> _Transport:
@@ -2392,6 +2602,23 @@ class EspnProvider:
 
 
 _EPOCH: Final[datetime] = from_epoch_millis(0)
+
+
+def _restored(credential_set: Any, found: Reimported) -> Any:
+    """``credential_set`` with the re-imported pair recorded as Keychain-sourced.
+
+    That is where :func:`~fantasy_sports.auth.reimport.attempt` just saved it,
+    so the credential-age block a write reports (R12a) reads the fresh
+    ``stored_at`` rather than attributing the old cookie's age to the new one.
+    """
+    from fantasy_sports.auth.chain import CredentialSource, ResolvedCredential
+
+    resolved = dict(credential_set.resolved)
+    for name, secret in found.secrets().items():
+        resolved[name] = ResolvedCredential(
+            name=name, source=CredentialSource.KEYCHAIN, secret=secret
+        )
+    return replace(credential_set, resolved=resolved)
 
 
 def _revealed(credentials: Mapping[str, Any] | None) -> dict[str, str]:
@@ -2532,6 +2759,10 @@ def _access_denied(exc: BaseException, *, view: str, provider: EspnProvider) -> 
     details: dict[str, Any] = {"view": view, "status": 401}
     if reason:
         details["espn_reason"] = reason
+    if provider._reimported is not None:
+        # A newer browser pair was already saved and tried, and ESPN refused
+        # that too; say so, so an agent does not repeat the attempt (#159).
+        details["reimported_from_browser"] = provider._reimported.source
 
     if not provider.has_credentials:
         missing = provider.missing_credentials

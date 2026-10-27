@@ -229,6 +229,10 @@ class Envelope:
     payload needs that answer to tell "suppressed" from "never had it"
     (jwulff/fantasy-sports#52).
     """
+    warnings: tuple[str, ...] = ()
+    """Notices about a *successful* run, e.g. that a newer browser cookie pair was
+    imported to get it (jwulff/fantasy-sports#159). Plain sentences, never a
+    credential value. Always present in the JSON, ``[]`` when there are none."""
     health: Mapping[str, Any] | None = None
     """The client health check's verdict (ADR-0005 §11.3), ``error`` only.
 
@@ -252,6 +256,7 @@ class Envelope:
         sources: Sequence[DataSource] = (),
         generated_at: datetime | None = None,
         untrusted: Mapping[str, str] | None = None,
+        warnings: Sequence[str] = (),
     ) -> Envelope:
         """Wrap a payload."""
         return cls(
@@ -263,6 +268,7 @@ class Envelope:
             sources=tuple(sources),
             generated_at=generated_at or utc_now(),
             untrusted=dict(untrusted or {}),
+            warnings=tuple(warnings),
         )
 
     @classmethod
@@ -336,6 +342,7 @@ class Envelope:
             "sources": sources,
             "untrusted": {str(key): str(value) for key, value in self.untrusted.items()},
             "raw_omitted": self.raw_omitted,
+            "warnings": list(self.warnings),
             "data": _plain(self.data),
             "error": error,
         }

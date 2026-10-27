@@ -108,6 +108,7 @@ that will get it wrong once.
   ],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": [],
   "error": null
 }
@@ -346,6 +347,25 @@ replacing it. `espn-api` keeps no structured attribute for these refusals — a
 bare `Exception` with a sentence, nothing else — so the adapter keys off the
 known message text, matched against the specific known refusals rather than a
 loose substring.
+
+### Amendment, 2026-10-27: `warnings`
+
+**`warnings` is a new envelope key, added below `raw_omitted` and above `data`,
+always present** (jwulff/fantasy-sports#159). Additive rather than a schema
+bump, on the same precedent as `untrusted` and `raw_omitted`: `warnings: []` is
+exactly what every earlier envelope would have reported, because nothing used to
+need saying. It is a list of plain sentences about a run that *succeeded* and
+that a consumer may want to know about -- today, only that ESPN refused the
+stored cookies and a newer pair from the user's browser was imported and
+retried with. It never carries a credential, a length or a prefix, and a
+failure envelope reports `[]`: a failed run says what happened in `error`. The
+CLI also prints each entry to stderr as `warning: ...`, so a person sees it
+without parsing stdout.
+
+A second refusal after such an import is not a warning but part of the error:
+`LEAGUE_NOT_FOUND` / `AUTH_EXPIRED` then carries
+`details.reimported_from_browser: {"browser", "profile"}`. The classification
+itself is unchanged (`docs/memory/espn-401-tells-you-nothing.md`).
 
 ## Consequences
 

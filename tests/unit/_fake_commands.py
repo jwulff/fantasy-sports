@@ -79,3 +79,19 @@ def raises_auth_expired() -> Any:
 def returns_the_wrong_shape() -> Envelope:
     """A success envelope whose ``data`` is neither a list nor a mapping."""
     return Envelope.success(provider="espn", data="not a collection")
+
+
+def posts_a_notice() -> Envelope:
+    """A command that builds its own envelope around a provider that posted a notice."""
+    from fantasy_sports.core import notices
+
+    notices.add("a provider repaired something")
+    return _envelope("notice-ran")
+
+
+def posts_a_notice_then_fails() -> Envelope:
+    from fantasy_sports.core import notices
+    from fantasy_sports.core.errors import LeagueNotFoundError
+
+    notices.add("this must not leak into the next command")
+    raise LeagueNotFoundError("nope")

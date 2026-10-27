@@ -36,6 +36,7 @@
     "name": "Arizona 1234"
   },
   "raw_omitted": false,
+  "warnings": [],
   "data": {
     "provider": "espn",
     "provider_id": "1234",

@@ -145,10 +145,15 @@ def _with_signature(func: Any, params: Sequence[Param], *, name: str) -> Any:
 
 def _dispatch(spec: CommandSpec, ctx: Any, values: Mapping[str, Any]) -> int:
     """Run one command and emit its envelope. Returns the process exit status."""
+    import sys
+    from dataclasses import replace
+
     import typer
 
+    from fantasy_sports.core import notices
     from fantasy_sports.output import emit, emit_failure, resolve_format
 
+    notices.drain()  # nothing posted before this command belongs to it
     merged = _merge_globals(spec, ctx, values)
     fmt = merged.pop("output", None)
     no_raw = merged.pop("no_raw", False)
@@ -162,11 +167,21 @@ def _dispatch(spec: CommandSpec, ctx: Any, values: Mapping[str, Any]) -> int:
     except (typer.Exit, typer.Abort, typer.TyperException):
         raise
     except Exception as exc:  # noqa: BLE001 - classified by the taxonomy, never a traceback
+        notices.drain()
         return emit_failure(exc, provider=_provider_hint(spec))
     # Only a success envelope reaches here — a raised exception already
     # returned above — so `raw` needs no `envelope.ok` guard of its own.
     if no_raw and spec.honors_no_raw:
         envelope = envelope.without_raw()
+    # Warnings ride in the envelope for a consumer and on stderr for a person;
+    # stdout stays the contract and nothing else (#159). Whatever a provider
+    # posted joins the ones the command carried, so a command that built its own
+    # envelope (`experts --league`, `doctor --live`) reports them too.
+    posted = notices.drain()
+    if posted:
+        envelope = replace(envelope, warnings=tuple(dict.fromkeys((*envelope.warnings, *posted))))
+    for notice in envelope.warnings:
+        print(f"warning: {notice}", file=sys.stderr)
     return emit(envelope, fmt=fmt, columns=spec.table_columns, verbatim=spec.verbatim_fields)
 
 

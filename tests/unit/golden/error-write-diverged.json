@@ -9,6 +9,7 @@
   "sources": [],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": null,
   "error": {
     "code": "WRITE_DIVERGED",

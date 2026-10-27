@@ -176,6 +176,7 @@ The agent-native claim lives or dies here.
   ],
   "untrusted": {},
   "raw_omitted": false,
+  "warnings": [],
   "data": { },
   "error": null
 }
@@ -190,6 +191,12 @@ report the oldest contributing upstream fetch and `sources` itemizes each one
 (R4). `untrusted` labels ESPN-sourced free text a league member controls —
 team and league names today — distinctly from normalized structured fields
 (R1a, ADR-0004's 2026-09-08 amendment, jwulff/fantasy-sports#17).
+
+`warnings` lists notices about a run that *succeeded* (jwulff/fantasy-sports#159,
+ADR-0004's 2026-10-27 amendment) -- today, that ESPN refused the stored cookies
+and a newer pair from the user's browser was imported and retried with. Plain
+sentences, never a value; `[]` when there is nothing to say. The CLI also prints
+each to stderr.
 
 **`--no-raw` strips `raw` from every normalized object in `data`, recursively,
 and sets `raw_omitted: true`** (jwulff/fantasy-sports#52). It is a global

@@ -50,6 +50,22 @@ def populated_registry():
             takes_league=False,
         )
     )
+    register(
+        CommandSpec(
+            name="notice",
+            summary="Posts a notice.",
+            handler=f"{HANDLERS}:posts_a_notice",
+            takes_league=False,
+        )
+    )
+    register(
+        CommandSpec(
+            name="noticefail",
+            summary="Posts a notice, then fails.",
+            handler=f"{HANDLERS}:posts_a_notice_then_fails",
+            takes_league=False,
+        )
+    )
     yield REGISTRY
     REGISTRY.clear()
     REGISTRY.update(saved)
@@ -57,7 +73,14 @@ def populated_registry():
 
 def test_app_exposes_top_level_commands_and_groups(populated_registry):
     app = build_app()
-    assert {c.name for c in app.registered_commands} == {"ok", "boom", "stop", "bare"}
+    assert {c.name for c in app.registered_commands} == {
+        "ok",
+        "boom",
+        "stop",
+        "bare",
+        "notice",
+        "noticefail",
+    }
     assert {g.name for g in app.registered_groups} == {"auth"}
 
 
@@ -111,3 +134,28 @@ def test_an_exception_without_its_own_renderer_still_reaches_stderr(
     err = capsys.readouterr().err
     assert "something went wrong upstream" in err
     assert "Traceback" not in err
+
+
+def test_a_notice_a_provider_posted_reaches_any_commands_envelope_and_stderr(
+    populated_registry, capsys: pytest.CaptureFixture[str]
+):
+    """Commands that build their own envelope (experts --league, doctor --live) report it too."""
+    import json
+
+    assert run(["notice"]) == 0
+    captured = capsys.readouterr()
+    assert json.loads(captured.out)["warnings"] == ["a provider repaired something"]
+    assert "warning: a provider repaired something" in captured.err
+
+
+def test_a_notice_from_a_failed_command_does_not_leak_into_the_next_one(
+    populated_registry, capsys: pytest.CaptureFixture[str]
+):
+    import json
+
+    assert run(["noticefail"]) != 0
+    capsys.readouterr()
+    assert run(["ok"]) == 0
+    captured = capsys.readouterr()
+    assert json.loads(captured.out)["warnings"] == []
+    assert "warning:" not in captured.err
