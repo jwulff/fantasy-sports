@@ -26,6 +26,7 @@ Commands:
   free-agents   List unrostered players, optionally filtered to one position.
   journal       4 subcommands: digest, list, reverse, show
   league        1 subcommand: info
+  leagues       1 subcommand: discover
   lineup        1 subcommand: set
   matchups      List head-to-head pairings for a week, with both ESPN period identifiers.
   raw           Pass a view straight through to ESPN and return its payload unmodified.

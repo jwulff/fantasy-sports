@@ -745,6 +745,7 @@ def replayed_samples(recorder: Recorder) -> None:
     _journal_samples(recorder)
     _write_samples(recorder)
     experts_samples(recorder)
+    leagues_samples(recorder)
     sandbox.write_config(PUBLIC_CONFIG)
 
 
@@ -814,6 +815,42 @@ def experts_samples(recorder: Recorder) -> None:
         )
     finally:
         requests.get, fantasypros._SHARED_PACER = original_get, original_pacer
+
+
+FAN_ACCOUNT = "no league, synthetic fan.api account listing"
+
+
+def leagues_samples(recorder: Recorder) -> None:
+    """``leagues discover``, replayed from the synthetic fan.api cassette.
+
+    No league is involved and nothing reaches ESPN: ``requests.get`` is the
+    unit tests' ``FakeFanApi``, serving ``tests/cassettes/espn/fan_2026.yaml``.
+    The listing is synthetic (``scripts/build_fan_cassette.py``), so these
+    samples show the shape the reader handles, not a recording of ESPN.
+    """
+    sys.path.insert(0, str(REPO / "tests"))
+    import requests
+    from _harness import FakeFanApi
+
+    replayed = {"source": "replayed", "league": FAN_ACCOUNT}
+    original_get = requests.get
+    requests.get = FakeFanApi()
+    try:
+        recorder.run("leagues-discover", ["leagues", "discover"], **replayed, items=2)
+        recorder.run(
+            "leagues-discover.snippet",
+            ["leagues", "discover", "--config-snippet"],
+            **replayed,
+            items=2,
+            note="each row also carries a ready-to-paste config.toml block; nothing is written",
+        )
+        recorder.run(
+            "leagues-discover.table",
+            ["leagues", "discover", "--output", "table"],
+            **replayed,
+        )
+    finally:
+        requests.get = original_get
 
 
 JOURNAL_SALT = "fantasy-sports/sample-journal/v1"
@@ -1355,6 +1392,7 @@ def generate_experts() -> None:
         recorder = Recorder(Sandbox(Path(tmp)))
         recorder.sandbox.write_config(SYNTHETIC_CONFIG)
         experts_samples(recorder)
+        leagues_samples(recorder)
         help_text = subprocess.run(
             [str(console_script()), "--help"],
             check=True,

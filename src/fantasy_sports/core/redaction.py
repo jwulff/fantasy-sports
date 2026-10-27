@@ -93,6 +93,7 @@ import os
 import re
 from collections.abc import Mapping
 from typing import Any, Final
+from urllib.parse import quote
 
 __all__ = [
     "CASSETTE_SWID_SALT",
@@ -136,9 +137,15 @@ text to the secret is the value itself.
 
 
 def remember_secret(value: str) -> None:
-    """Register ``value`` so :func:`redact` will scrub it out of any text."""
+    """Register ``value`` so :func:`redact` will scrub it out of any text.
+
+    The percent-encoded spelling is registered too: a SWID travels in the
+    fan.api URL path as ``%7B<guid>%7D``, so an exception that interpolates
+    that URL would otherwise slip past an exact-match registry.
+    """
     if value and len(value) >= _MIN_SCRUBBABLE:
         _KNOWN_SECRETS.add(value)
+        _KNOWN_SECRETS.add(quote(value, safe=""))
 
 
 def forget_secrets() -> None:

@@ -1,0 +1,55 @@
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "espn",
+  "league_id": null,
+  "season": null,
+  "generated_at": "2026-10-27T14:58:12Z",
+  "data_as_of": "2026-10-27T14:58:12Z",
+  "data_age_seconds": 0,
+  "sources": [
+    {
+      "name": "fan.api:fans",
+      "fetched_at": "2026-10-27T14:58:12Z",
+      "age_seconds": 0,
+      "cached": false
+    }
+  ],
+  "untrusted": {
+    "[0].name": "Synthetic Gridiron",
+    "[1].name": "Synthetic Ice"
+  },
+  "raw_omitted": false,
+  "data": [
+    {
+      "provider": "espn",
+      "provider_id": "99",
+      "league_id": "99",
+      "season": 2026,
+      "sport": "football",
+      "name": "Synthetic Gridiron",
+      "team_id": "3",
+      "is_manager": true,
+      "raw": {
+        "id": "ffl-99",
+        "type": "… 2 keys",
+        "metaData": "… 1 key"
+      }
+    },
+    {
+      "provider": "espn",
+      "provider_id": "1234",
+      "league_id": "1234",
+      "season": 2026,
+      "sport": "hockey",
+      "name": "Synthetic Ice",
+      "team_id": "7",
+      "is_manager": false,
+      "raw": {
+        "id": "fhl-1234",
+        "type": "… 2 keys",
+        "metaData": "… 1 key"
+      }
+    }
+  ],
+  "error": null
+}

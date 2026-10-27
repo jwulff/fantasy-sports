@@ -1,0 +1,6 @@
+espn · generated 2026-10-27T14:58:12Z · data age 0s
+league_id   season   sport      name                 team_id   is_manager
+─────────────────────────────────────────────────────────────────────────
+99          2026     football   Synthetic Gridiron   3         true      
+1234        2026     hockey     Synthetic Ice        7         false     
+sources: fan.api:fans 0s

@@ -191,7 +191,7 @@ def _merge_globals(spec: CommandSpec, ctx: Any, values: Mapping[str, Any]) -> di
 def _provider_hint(spec: CommandSpec) -> str | None:
     """The provider to name on a failure, when one can be known without a read.
 
-    Only the ``auth`` commands and the ``experts`` group can answer this before
+    Only the ``auth`` commands, the ``experts`` group and ``leagues`` can answer this before
     resolving a league: the first are single-provider in v0.1, and the second
     is FantasyPros by construction. Everything else leaves it null rather
     than guessing: a ``CONFIG_INVALID`` failure happens before a provider is
@@ -203,6 +203,8 @@ def _provider_hint(spec: CommandSpec) -> str | None:
         return PROVIDER
     if spec.group == "experts":
         return "fantasypros"
+    if spec.group == "leagues":
+        return "espn"
     return None
 
 

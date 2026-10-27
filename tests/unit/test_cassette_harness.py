@@ -410,6 +410,11 @@ PUBLIC_LEAGUES = frozenset({"1234", "99"})
 #: league, so the league-id check below is vacuous for them by construction.
 FANTASYPROS_HOST = "https://api.fantasypros.com"
 
+#: The account listing ``leagues discover`` reads (#157). It lives beside the
+#: league reads under ``tests/cassettes/espn/`` and is held to the same
+#: public-league rule: its body names leagues, so the check below is not vacuous.
+FAN_HOST = "https://fan.api.espn.com"
+
 
 #: Every shape in which a committed capture can name a league:
 #: the current-season path (``/leagues/<id>``), the historical path
@@ -453,7 +458,9 @@ def test_every_committed_cassette_comes_from_a_public_league() -> None:
         document = yaml.safe_load(path.read_text(encoding="utf-8"))
         for interaction in document["interactions"]:
             uri = interaction["request"]["uri"]
-            allowed = FANTASYPROS_HOST if path.parent.name == "fantasypros" else ESPN_HOST
+            allowed = (
+                (FANTASYPROS_HOST,) if path.parent.name == "fantasypros" else (ESPN_HOST, FAN_HOST)
+            )
             assert uri.startswith(allowed), f"{path.name} recorded an unexpected host"
             for league in _league_ids_in(uri):
                 assert league in PUBLIC_LEAGUES, f"{path.name} records private league {league}"

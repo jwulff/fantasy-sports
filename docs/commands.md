@@ -692,6 +692,7 @@ Commands:
   free-agents   List unrostered players, optionally filtered to one position.
   journal       4 subcommands: digest, list, reverse, show
   league        1 subcommand: info
+  leagues       1 subcommand: discover
   lineup        1 subcommand: set
   matchups      List head-to-head pairings for a week, with both ESPN period identifiers.
   raw           Pass a view straight through to ESPN and return its payload unmodified.
@@ -1832,6 +1833,186 @@ fantasy-sports raw --view kona_player_info --filter '{"players":{"limit":2,"sort
   },
   "error": null
 }
+```
+<!-- /sample -->
+
+### `leagues discover`
+
+List the leagues your stored SWID belongs to, so you do not have to fish a
+`leagueId=` out of a URL and hand-write `config.toml`. It reads ESPN's account
+listing (`fan.api.espn.com`), keyed by the SWID alone: **an `espn_s2` is not
+needed, and none is sent.**
+
+**This is not a credential check.** fan.api answers `200` with no cookies at
+all, for any SWID, so success here says nothing about whether `espn_s2` is
+valid. Use `auth status`, or any league read, to find that out.
+
+| Option | |
+|---|---|
+| `--config-snippet` | Add a ready-to-paste `[leagues.<slug>]` block to every row. Writes nothing. |
+
+Each row, one per league membership: `league_id` (a string), `season`, `sport`
+(`ffl` is `football`; an abbreviation the CLI does not map is passed through
+and also sits in `raw`), `name`, `team_id` (your own team in that league),
+`is_manager`, plus `provider`, `provider_id` and `raw`. `name` is
+commissioner-set free text and is labelled in the envelope's `untrusted` map.
+
+- **No SWID configured:** `AUTH_MISSING`, before any request.
+- **An account with no fantasy leagues:** success with `"data": []` and a
+  warning on stderr. An absence of rows, not drift.
+- **A response with no `preferences` list at all:** `SCHEMA_DRIFT`.
+
+The `--config-snippet` blocks print with
+`fantasy-sports leagues discover --config-snippet | jq -r '.data[].config_snippet'`.
+The slug is the league name, lowercased and `-`-separated, with `-2`, `-3` for
+repeats. `config.toml` is never written by this command.
+
+The sample below is a **synthetic** listing built from the documented fan.api
+shape (`scripts/build_fan_cassette.py`): it shows what the reader handles, not
+a recording of ESPN.
+
+<!-- sample: leagues-discover -->
+```bash
+fantasy-sports leagues discover
+# no league, synthetic fan.api account listing (replayed). Exit 0, stdout, trimmed with …:
+```
+```json
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "espn",
+  "league_id": null,
+  "season": null,
+  "generated_at": "2026-10-27T14:58:12Z",
+  "data_as_of": "2026-10-27T14:58:12Z",
+  "data_age_seconds": 0,
+  "sources": [
+    {
+      "name": "fan.api:fans",
+      "fetched_at": "2026-10-27T14:58:12Z",
+      "age_seconds": 0,
+      "cached": false
+    }
+  ],
+  "untrusted": {
+    "[0].name": "Synthetic Gridiron",
+    "[1].name": "Synthetic Ice"
+  },
+  "raw_omitted": false,
+  "data": [
+    {
+      "provider": "espn",
+      "provider_id": "99",
+      "league_id": "99",
+      "season": 2026,
+      "sport": "football",
+      "name": "Synthetic Gridiron",
+      "team_id": "3",
+      "is_manager": true,
+      "raw": {
+        "id": "ffl-99",
+        "type": "… 2 keys",
+        "metaData": "… 1 key"
+      }
+    },
+    {
+      "provider": "espn",
+      "provider_id": "1234",
+      "league_id": "1234",
+      "season": 2026,
+      "sport": "hockey",
+      "name": "Synthetic Ice",
+      "team_id": "7",
+      "is_manager": false,
+      "raw": {
+        "id": "fhl-1234",
+        "type": "… 2 keys",
+        "metaData": "… 1 key"
+      }
+    }
+  ],
+  "error": null
+}
+```
+<!-- /sample -->
+
+<!-- sample: leagues-discover.snippet -->
+```bash
+fantasy-sports leagues discover --config-snippet
+# no league, synthetic fan.api account listing (replayed). Exit 0, stdout, trimmed with …. each row also carries a ready-to-paste config.toml block; nothing is written:
+```
+```json
+{
+  "schema": "fantasy-sports/v1",
+  "provider": "espn",
+  "league_id": null,
+  "season": null,
+  "generated_at": "2026-10-27T14:58:12Z",
+  "data_as_of": "2026-10-27T14:58:12Z",
+  "data_age_seconds": 0,
+  "sources": [
+    {
+      "name": "fan.api:fans",
+      "fetched_at": "2026-10-27T14:58:12Z",
+      "age_seconds": 0,
+      "cached": false
+    }
+  ],
+  "untrusted": {
+    "[0].name": "Synthetic Gridiron",
+    "[1].name": "Synthetic Ice"
+  },
+  "raw_omitted": false,
+  "data": [
+    {
+      "provider": "espn",
+      "provider_id": "99",
+      "league_id": "99",
+      "season": 2026,
+      "sport": "football",
+      "name": "Synthetic Gridiron",
+      "team_id": "3",
+      "is_manager": true,
+      "raw": {
+        "id": "ffl-99",
+        "type": "… 2 keys",
+        "metaData": "… 1 key"
+      },
+      "config_snippet": "[leagues.synthetic-gridiron]\nprovider = \"espn\"\nleague_id = \"99\"\nseason = 2026\nsport = \"football\"\n"
+    },
+    {
+      "provider": "espn",
+      "provider_id": "1234",
+      "league_id": "1234",
+      "season": 2026,
+      "sport": "hockey",
+      "name": "Synthetic Ice",
+      "team_id": "7",
+      "is_manager": false,
+      "raw": {
+        "id": "fhl-1234",
+        "type": "… 2 keys",
+        "metaData": "… 1 key"
+      },
+      "config_snippet": "[leagues.synthetic-ice]\nprovider = \"espn\"\nleague_id = \"1234\"\nseason = 2026\nsport = \"hockey\"\n"
+    }
+  ],
+  "error": null
+}
+```
+<!-- /sample -->
+
+<!-- sample: leagues-discover.table -->
+```bash
+fantasy-sports leagues discover --output table
+# no league, synthetic fan.api account listing (replayed). Exit 0, stdout:
+```
+```text
+espn · generated 2026-10-27T14:58:12Z · data age 0s
+league_id   season   sport      name                 team_id   is_manager
+─────────────────────────────────────────────────────────────────────────
+99          2026     football   Synthetic Gridiron   3         true      
+1234        2026     hockey     Synthetic Ice        7         false     
+sources: fan.api:fans 0s
 ```
 <!-- /sample -->
 

@@ -50,6 +50,7 @@ __all__ = [
     "SESSION_ROLES",
     "TRANSACTION_TYPES",
     "CredentialSpec",
+    "DiscoveredLeague",
     "FreeAgent",
     "collect_untrusted",
     "League",
@@ -253,6 +254,34 @@ class League(ProviderObject):
     alone. ESPN publishes slot counts, Sleeper a repeated ``roster_positions``
     array, Yahoo position/count pairs — all three flatten to this mapping.
     Empty when a provider does not expose it."""
+
+
+@dataclass(frozen=True)
+class DiscoveredLeague(ProviderObject):
+    """A league the account belongs to, as the provider's account listing names it.
+
+    Not a :class:`League`: the listing carries no team count, week, or roster
+    slots, and reading those is a league read. This is what ``leagues
+    discover`` returns so a human can write ``config.toml`` without fishing an
+    id out of a URL. Not in :data:`NORMALIZED_MODELS`: it describes the account,
+    not a league object read from a league.
+    """
+
+    _UNTRUSTED: ClassVar[frozenset[str]] = frozenset({"name"})
+    """The league name is commissioner-set free text (R1a)."""
+
+    provider: str
+    provider_id: str
+    league_id: str
+    """The same value as ``provider_id``, under the name ``config.toml`` uses."""
+    season: int
+    sport: str
+    name: str
+    team_id: str
+    """The account's own team in this league."""
+    is_manager: bool
+    """Whether the account is a commissioner or granted league manager."""
+    raw: Mapping[str, Any]
 
 
 @dataclass(frozen=True)

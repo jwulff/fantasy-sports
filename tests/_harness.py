@@ -707,3 +707,48 @@ class RecordedFantasyPros:
     def paths(self) -> list[str]:
         """Every endpoint path requested, in order."""
         return [urlsplit(call["url"]).path.rsplit("/json/", 1)[-1] for call in self.calls]
+
+
+# --------------------------------------------------------------------------- #
+# fan.api (jwulff/fantasy-sports#157)
+# --------------------------------------------------------------------------- #
+
+FAN_CASSETTE = "espn/fan_2026.yaml"
+
+
+class FakeFanApi:
+    """Stands in for ``requests.get`` on ``leagues discover``; records every call.
+
+    Serves the body of ``tests/cassettes/espn/fan_2026.yaml`` unless told
+    otherwise. The recorded *request* is not matched: its path holds the
+    cassette's SWID pseudonym, while the caller sends the test's own SWID, and
+    which SWID went out is exactly what a test asserts on ``calls``.
+    ``body``/``status``/``raises`` stand in for the failures no recording can
+    honestly hold (``docs/testing.md`` §4).
+    """
+
+    def __init__(
+        self,
+        body: Any = None,
+        status: int = 200,
+        raises: Exception | None = None,
+        name: str = FAN_CASSETTE,
+    ) -> None:
+        self.body = self.recorded_body(name) if body is None else body
+        self.status = status
+        self.raises = raises
+        self.calls: list[dict[str, Any]] = []
+
+    @staticmethod
+    def recorded_body(name: str = FAN_CASSETTE) -> Any:
+        import yaml
+        from conftest import CASSETTE_LIBRARY_DIR
+
+        document = yaml.safe_load(Path(CASSETTE_LIBRARY_DIR / name).read_text(encoding="utf-8"))
+        return json.loads(document["interactions"][0]["response"]["body"]["string"])
+
+    def __call__(self, url: str, params=None, timeout=None, **kwargs: Any) -> FakeResponse:
+        self.calls.append({"url": url, "params": dict(params or {}), "kwargs": kwargs})
+        if self.raises is not None:
+            raise self.raises
+        return FakeResponse(self.body, status_code=self.status)

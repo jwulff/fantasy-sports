@@ -1117,3 +1117,24 @@ register(
         ),
     )
 )
+
+register(
+    CommandSpec(
+        name="discover",
+        group="leagues",
+        summary="List the leagues your stored SWID belongs to (not a credential check).",
+        handler="fantasy_sports.commands.leagues:discover",
+        shape=DataShape.COLLECTION,
+        takes_league=False,
+        table_columns=("league_id", "season", "sport", "name", "team_id", "is_manager"),
+        params=(
+            Param(
+                name="config_snippet",
+                help="Add a ready-to-paste [leagues.<slug>] config.toml block to every row. "
+                "Writes nothing.",
+                annotation=bool,
+                default=False,
+            ),
+        ),
+    )
+)

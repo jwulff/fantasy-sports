@@ -475,3 +475,38 @@ What it cannot cover, and what stands in instead:
   `test_a_recorded_cassette_cannot_carry_the_key_in_header_or_body` make one
   up, because the key has no shape of its own: the scrub that catches it is the
   registry (`redact`), which the cassette hooks now apply after the patterns.
+
+---
+
+## 11. fan.api: a synthetic account listing, and a SWID in the URL path
+
+`tests/cassettes/espn/fan_2026.yaml` is the fixture for `leagues discover`
+(#157). It is **hand-authored**, like §2's, and built from the shape
+`docs/memory/espn-401-tells-you-nothing.md` documents ("The membership
+probe"), by `scripts/build_fan_cassette.py`. No live request was made and no
+real credential was read. It proves the reader handles that shape; it does not
+prove ESPN still sends it. The league ids in it are the two public ones (`99`,
+and `1234` reused as a hockey league), so §6 holds.
+
+What it cannot cover: **where the game abbreviation sits on a `preferences[]`
+entry.** The memory doc says "derived from the entry's game/abbrev" without
+naming a key, so the reader accepts `entry.abbrev`, `entry.gameAbbrev` or
+`entry.game.abbrev` and the fixture uses the first. The first real account
+listing recorded should settle it.
+
+What it does contain, because a test reads it: a football league the account
+manages, a non-football league it does not, and a non-type-9 preference that
+still carries a `groups[]` block and must be ignored.
+
+**The reason this fixture exists in the shape it does is its request URI.**
+The SWID travels in the URL *path*, percent-encoded (`/fans/%7B<guid>%7D`),
+which neither the brace pattern nor the `swid`-key pattern matched. A recording
+of that request would have put a real SWID on disk and passed every check.
+`CREDENTIAL_PATTERNS` now has a `Percent-encoded SWID GUID` entry, shared by
+the scrubber and the repo-wide scan, and `remember_secret` registers the
+encoded spelling too. The builder runs the fake GUID through the same
+`scrub_uri` the recording hooks use, so the committed file holds the pseudonym.
+
+To re-record against a real account (not done, and not needed for CI), record
+through `build_vcr()` as §7 says, then confirm the cassette's path holds
+`%7B00000000-` and not a real GUID before staging it.

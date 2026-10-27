@@ -1,0 +1,21 @@
+interactions:
+- request:
+    body: null
+    headers: {}
+    method: GET
+    uri: https://fan.api.espn.com/apis/v2/fans/%7B00000000-5722-7E81-66D2-29562C21EDCF%7D?featureFlags=fantasy
+  response:
+    body:
+      string: '{"id":"{00000000-5722-7E81-66D2-29562C21EDCF}","preferences":[{"id":"ffl-99","type":{"id":9,"name":"Fantasy
+        League Manager"},"metaData":{"entry":{"entryId":3,"seasonId":2026,"abbrev":"ffl","groups":[{"groupId":99,"groupName":"Synthetic
+        Gridiron","groupManager":true,"href":"https://fantasy.espn.com/ffl/league?leagueId=99"}]}}},{"id":"not-a-membership","type":{"id":1,"name":"Alerts"},"metaData":{"entry":{"entryId":1,"seasonId":2026,"abbrev":"ffl","groups":[{"groupId":1234,"groupName":"Not
+        A Membership","groupManager":true}]}}},{"id":"fhl-1234","type":{"id":9,"name":"Fantasy
+        League Manager"},"metaData":{"entry":{"entryId":7,"seasonId":2026,"abbrev":"fhl","groups":[{"groupId":1234,"groupName":"Synthetic
+        Ice","groupManager":false,"href":"https://fantasy.espn.com/fhl/league?leagueId=1234"}]}}}],"fantasyData":{"totalFantasyLeagues":2}}'
+    headers:
+      Content-Type:
+      - application/json
+    status:
+      code: 200
+      message: OK
+version: 1

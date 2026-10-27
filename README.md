@@ -70,8 +70,13 @@ how the reference's samples are generated without any secret.)
 
 ### 1. Find your league id
 
-Open your league at fantasy.espn.com. The id is the `leagueId=` query
-parameter on any page for that league, for example
+Once your cookies are stored (step 3), `fantasy-sports leagues discover`
+lists every league your account belongs to, and `--config-snippet` adds a
+ready-to-paste `config.toml` block to each row. It needs only the SWID, so it
+can run before you have found anything else.
+
+Or find it by hand: open your league at fantasy.espn.com. The id is the
+`leagueId=` query parameter on any page for that league, for example
 `https://fantasy.espn.com/football/league?leagueId=123456`.
 
 ### 2. Import the two cookies

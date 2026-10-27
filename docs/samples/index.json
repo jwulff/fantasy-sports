@@ -947,5 +947,44 @@
     "note": "Four players start with that name, so the command lists them and sends nothing",
     "offline": true,
     "file": "error-config-invalid.player.json"
+  },
+  {
+    "name": "leagues-discover",
+    "command": "fantasy-sports leagues discover",
+    "source": "replayed",
+    "league": "no league, synthetic fan.api account listing",
+    "exit": 0,
+    "stream": "stdout",
+    "format": "json",
+    "trimmed": true,
+    "note": null,
+    "offline": true,
+    "file": "leagues-discover.json"
+  },
+  {
+    "name": "leagues-discover.snippet",
+    "command": "fantasy-sports leagues discover --config-snippet",
+    "source": "replayed",
+    "league": "no league, synthetic fan.api account listing",
+    "exit": 0,
+    "stream": "stdout",
+    "format": "json",
+    "trimmed": true,
+    "note": "each row also carries a ready-to-paste config.toml block; nothing is written",
+    "offline": true,
+    "file": "leagues-discover.snippet.json"
+  },
+  {
+    "name": "leagues-discover.table",
+    "command": "fantasy-sports leagues discover --output table",
+    "source": "replayed",
+    "league": "no league, synthetic fan.api account listing",
+    "exit": 0,
+    "stream": "stdout",
+    "format": "text",
+    "trimmed": false,
+    "note": null,
+    "offline": true,
+    "file": "leagues-discover.table.txt"
   }
 ]

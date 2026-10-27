@@ -264,3 +264,15 @@ def test_is_swid_pseudonym_rejects_a_real_guid():
     assert not is_swid_pseudonym(FAKE_SWID)
     assert not is_swid_pseudonym(SWID_PLACEHOLDER)
     assert not is_swid_pseudonym("")
+
+
+def test_a_registered_secret_is_also_redacted_in_its_percent_encoded_spelling():
+    from fantasy_sports.core.redaction import forget_secrets, redact, remember_secret
+
+    forget_secrets()
+    try:
+        remember_secret(FAKE_SWID)
+        assert FAKE_SWID_BARE not in redact(f"GET /fans/{FAKE_SWID} failed")
+        assert FAKE_SWID_BARE not in redact("GET /fans/%7B0F1E2D3C-4B5A-6978-8796-A5B4C3D2E1F0%7D")
+    finally:
+        forget_secrets()
