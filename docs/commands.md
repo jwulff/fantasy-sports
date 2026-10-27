@@ -1882,13 +1882,13 @@ fantasy-sports leagues discover
   "provider": "espn",
   "league_id": null,
   "season": null,
-  "generated_at": "2026-10-27T14:58:12Z",
-  "data_as_of": "2026-10-27T14:58:12Z",
+  "generated_at": "2026-10-27T15:09:09Z",
+  "data_as_of": "2026-10-27T15:09:09Z",
   "data_age_seconds": 0,
   "sources": [
     {
       "name": "fan.api:fans",
-      "fetched_at": "2026-10-27T14:58:12Z",
+      "fetched_at": "2026-10-27T15:09:09Z",
       "age_seconds": 0,
       "cached": false
     }
@@ -1946,13 +1946,13 @@ fantasy-sports leagues discover --config-snippet
   "provider": "espn",
   "league_id": null,
   "season": null,
-  "generated_at": "2026-10-27T14:58:12Z",
-  "data_as_of": "2026-10-27T14:58:12Z",
+  "generated_at": "2026-10-27T15:09:09Z",
+  "data_as_of": "2026-10-27T15:09:09Z",
   "data_age_seconds": 0,
   "sources": [
     {
       "name": "fan.api:fans",
-      "fetched_at": "2026-10-27T14:58:12Z",
+      "fetched_at": "2026-10-27T15:09:09Z",
       "age_seconds": 0,
       "cached": false
     }
@@ -1993,7 +1993,7 @@ fantasy-sports leagues discover --config-snippet
         "type": "… 2 keys",
         "metaData": "… 1 key"
       },
-      "config_snippet": "[leagues.synthetic-ice]\nprovider = \"espn\"\nleague_id = \"1234\"\nseason = 2026\nsport = \"hockey\"\n"
+      "config_snippet": "# synthetic-ice: \"hockey\" league \"1234\" is not readable by this version, so no profile is offered.\n"
     }
   ],
   "error": null
@@ -2007,7 +2007,7 @@ fantasy-sports leagues discover --output table
 # no league, synthetic fan.api account listing (replayed). Exit 0, stdout:
 ```
 ```text
-espn · generated 2026-10-27T14:58:12Z · data age 0s
+espn · generated 2026-10-27T15:09:09Z · data age 0s
 league_id   season   sport      name                 team_id   is_manager
 ─────────────────────────────────────────────────────────────────────────
 99          2026     football   Synthetic Gridiron   3         true      

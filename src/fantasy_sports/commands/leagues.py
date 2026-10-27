@@ -19,7 +19,10 @@ it cannot corrupt a JSON parser reading stdout (as ``auth login``'s guidance
 does).
 
 ``--config-snippet`` adds a ``config_snippet`` string to every row: a
-ready-to-paste ``[leagues.<slug>]`` block. Print them with
+ready-to-paste ``[leagues.<slug>]`` block. Only football leagues get one: the
+ESPN adapter always builds the football client, so a league in another sport
+gets a TOML comment saying so rather than a profile that would read the wrong
+resource. Print them with
 ``fantasy-sports leagues discover --config-snippet | jq -r '.data[].config_snippet'``.
 It never writes ``config.toml`` (that is a separate command).
 
@@ -77,18 +80,36 @@ def slugs(leagues: list[DiscoveredLeague]) -> list[str]:
     A name with nothing sluggable in it falls back to ``league-<id>``. A repeat
     gets ``-2``, ``-3``, ... in listing order.
     """
-    taken: dict[str, int] = {}
+    used: set[str] = set()
     result = []
     for league in leagues:
         base = re.sub(r"[^a-z0-9]+", "-", league.name.lower()).strip("-")
         base = base or f"league-{league.league_id}"
-        taken[base] = taken.get(base, 0) + 1
-        result.append(base if taken[base] == 1 else f"{base}-{taken[base]}")
+        slug, count = base, 1
+        # Reserve every emitted slug, suffixed ones included: "Foo", "Foo",
+        # "Foo 2" must not produce "foo-2" twice.
+        while slug in used:
+            count += 1
+            slug = f"{base}-{count}"
+        used.add(slug)
+        result.append(slug)
     return result
 
 
 def snippet(slug: str, row: dict[str, object]) -> str:
-    """A ``[leagues.<slug>]`` block, ready to paste into ``config.toml``."""
+    """A ``[leagues.<slug>]`` block, ready to paste into ``config.toml``.
+
+    A league in a sport the adapter cannot read yet gets a TOML *comment*
+    instead: pasting a hockey profile would make every read query the football
+    endpoint with a hockey league id.
+    """
+    from fantasy_sports.providers.espn_fan import READABLE_SPORTS
+
+    if row["sport"] not in READABLE_SPORTS:
+        return (
+            f"# {slug}: {json.dumps(row['sport'])} league {json.dumps(row['league_id'])} "
+            "is not readable by this version, so no profile is offered.\n"
+        )
     # JSON string escapes are valid TOML basic-string escapes, and league_id and
     # sport come from ESPN's response, not from us.
     return (

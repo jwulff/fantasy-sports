@@ -40,7 +40,7 @@ from fantasy_sports.core.errors import (
 from fantasy_sports.core.models import DiscoveredLeague
 from fantasy_sports.core.redaction import scrub_credential_patterns
 
-__all__ = ["BASE_URL", "PROVIDER", "SPORTS", "fetch_leagues", "sport_for"]
+__all__ = ["BASE_URL", "PROVIDER", "READABLE_SPORTS", "SPORTS", "fetch_leagues", "sport_for"]
 
 PROVIDER: Final[str] = "espn"
 
@@ -51,6 +51,11 @@ SOURCE_NAME: Final[str] = "fan.api:fans"
 
 FANTASY_LEAGUE_MANAGER: Final[int] = 9
 """``preferences[].type.id`` of a league membership."""
+
+READABLE_SPORTS: Final[frozenset[str]] = frozenset({"football"})
+"""Sports the ESPN adapter can read today. ``EspnProvider`` ignores
+``LeagueProfile.sport`` and always builds the football client against the ``nfl``
+endpoint, so a pasted hockey profile would query the wrong resource."""
 
 SPORTS: Final[Mapping[str, str]] = {
     "ffl": "football",
@@ -107,7 +112,15 @@ def _get(swid: str, *, timeout: float) -> Any:
         ) from exc
     status = getattr(response, "status_code", 200)
     if status == 429:
-        raise RateLimitedError("fan.api rate-limited the request.")
+        # The adapter's own parser: one definition of Retry-After, not two.
+        from fantasy_sports.providers.espn import _retry_after_seconds
+
+        raise RateLimitedError(
+            "fan.api throttled this request (HTTP 429).",
+            retry_after=_retry_after_seconds(response.headers.get("Retry-After")),
+            remediation="Wait for `details.retry_after` seconds, then retry.",
+            details={"status": status},
+        )
     if status != 200:
         raise ProviderUnavailableError(
             f"fan.api answered HTTP {status}.",

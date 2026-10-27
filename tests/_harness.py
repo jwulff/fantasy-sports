@@ -733,7 +733,9 @@ class FakeFanApi:
         status: int = 200,
         raises: Exception | None = None,
         name: str = FAN_CASSETTE,
+        headers: Mapping[str, str] | None = None,
     ) -> None:
+        self.headers = dict(headers or {})
         self.body = self.recorded_body(name) if body is None else body
         self.status = status
         self.raises = raises
@@ -751,4 +753,6 @@ class FakeFanApi:
         self.calls.append({"url": url, "params": dict(params or {}), "kwargs": kwargs})
         if self.raises is not None:
             raise self.raises
-        return FakeResponse(self.body, status_code=self.status)
+        response = FakeResponse(self.body, status_code=self.status)
+        response.headers = self.headers
+        return response

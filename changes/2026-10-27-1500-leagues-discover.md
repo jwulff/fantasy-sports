@@ -41,7 +41,15 @@ repo-wide scan.
   adding an output format: an envelope stays an envelope, and
   `| jq -r '.data[].config_snippet'` prints the blocks. Values are emitted as
   JSON strings (valid TOML basic strings) because `league_id` and `sport` come
-  from ESPN. It writes nothing; that is #158.
+  from ESPN. It writes nothing; that is #158. **Only football leagues get a
+  profile.** `EspnProvider` ignores `LeagueProfile.sport` and always builds the
+  football client against the `nfl` endpoint, so a pasted hockey profile would
+  read the wrong resource (Codex preflight P1). Other sports still appear as
+  rows, with a TOML comment in place of the block. Making the adapter
+  sport-aware is out of scope here.
+- Slugs reserve every emitted name, suffixed ones included, so `Foo`, `Foo`,
+  `Foo 2` cannot yield `foo-2` twice. A 429 keeps `Retry-After`, parsed by the
+  adapter's own `_retry_after_seconds`.
 - **The cassette is synthetic** (`scripts/build_fan_cassette.py`): no live call,
   no real credential. One thing is a guess and is recorded in `docs/testing.md`
   §11: which key on the entry carries the game abbreviation. The reader accepts

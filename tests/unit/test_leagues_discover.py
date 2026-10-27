@@ -176,22 +176,29 @@ def test_config_snippet_is_valid_toml_that_the_config_loader_accepts(monkeypatch
         "season = 2026\n"
         'sport = "football"\n'
     )
-    document = tomllib.loads("\n".join(r["config_snippet"] for r in found))
-    assert document["leagues"]["synthetic-ice"] == {
-        "provider": "espn",
-        "league_id": "1234",
-        "season": 2026,
-        "sport": "hockey",
-    }
+    pasted = "\n".join(r["config_snippet"] for r in found)
+    assert tomllib.loads(pasted)["leagues"]["synthetic-gridiron"]["league_id"] == "99"
 
     from fantasy_sports.config.leagues import list_leagues
 
     config = tmp_path / "pasted.toml"
-    config.write_text("\n".join(r["config_snippet"] for r in found), encoding="utf-8")
+    config.write_text(pasted, encoding="utf-8")
     assert [(p.name, p.league_id, p.sport) for p in list_leagues(config)] == [
         ("synthetic-gridiron", "99", "football"),
-        ("synthetic-ice", "1234", "hockey"),
     ]
+
+
+def test_a_league_in_a_sport_the_adapter_cannot_read_gets_a_comment_not_a_profile(monkeypatch):
+    """EspnProvider ignores ``sport`` and builds the football client, so a pasted
+    hockey profile would query the nfl endpoint with a hockey league id."""
+    import tomllib
+
+    serve(monkeypatch)
+    hockey = rows(config_snippet=True)[1]
+    assert hockey["sport"] == "hockey"
+    assert hockey["config_snippet"].startswith("# synthetic-ice:")
+    assert "1234" in hockey["config_snippet"]
+    assert tomllib.loads(hockey["config_snippet"]) == {}
 
 
 def test_snippets_are_absent_without_the_flag_and_nothing_is_written(monkeypatch, tmp_path):
@@ -218,6 +225,16 @@ def test_slugs_are_lowercase_dash_separated_and_deduplicated():
     ]
 
 
+def test_a_suffixed_slug_never_collides_with_another_leagues_natural_slug():
+    import tomllib
+
+    found = [_league("Foo"), _league("Foo"), _league("Foo 2"), _league("foo-2")]
+    names = leagues_commands.slugs(found)
+    assert len(set(names)) == 4 and names[:3] == ["foo", "foo-2", "foo-2-2"]
+    row = {"provider": "espn", "league_id": "5", "season": 2026, "sport": "football"}
+    tomllib.loads("\n".join(leagues_commands.snippet(n, row) for n in names))
+
+
 def test_a_name_with_nothing_sluggable_falls_back_to_the_league_id():
     assert leagues_commands.slugs([_league("!!!", "77"), _league("", "78")]) == [
         "league-77",
@@ -225,13 +242,17 @@ def test_a_name_with_nothing_sluggable_falls_back_to_the_league_id():
     ]
 
 
-def test_a_hostile_sport_cannot_break_out_of_its_toml_string():
+def test_hostile_values_cannot_break_out_of_the_snippet():
     import tomllib
 
-    row = {"provider": "espn", "league_id": "5", "season": 2026, "sport": 'x"\n[evil]\na = 1'}
-    document = tomllib.loads(leagues_commands.snippet("ok", row))
+    hostile = 'x"\n[evil]\na = 1'
+    football = {"provider": "espn", "league_id": hostile, "season": 2026, "sport": "football"}
+    document = tomllib.loads(leagues_commands.snippet("ok", football))
     assert set(document) == {"leagues"}
-    assert document["leagues"]["ok"]["sport"] == 'x"\n[evil]\na = 1'
+    assert document["leagues"]["ok"]["league_id"] == hostile
+
+    other = {**football, "sport": hostile}  # league_id is hostile here too
+    assert set(tomllib.loads(leagues_commands.snippet("ok", other))) == set(), "a comment only"
 
 
 # --------------------------------------------------------------------------- #
@@ -315,10 +336,18 @@ def test_a_malformed_preference_that_is_not_type_9_is_ignored(monkeypatch):
     assert len(rows()) == 2
 
 
-def test_http_429_is_rate_limited(monkeypatch):
-    serve(monkeypatch, status=429)
-    with pytest.raises(RateLimitedError):
+def test_http_429_is_rate_limited_and_keeps_retry_after(monkeypatch):
+    serve(monkeypatch, status=429, headers={"Retry-After": "30"})
+    with pytest.raises(RateLimitedError) as caught:
         rows()
+    assert caught.value.to_dict()["details"] == {"status": 429, "retry_after": 30.0}
+
+
+def test_http_429_without_retry_after_reports_none(monkeypatch):
+    serve(monkeypatch, status=429)
+    with pytest.raises(RateLimitedError) as caught:
+        rows()
+    assert caught.value.retry_after is None
 
 
 def test_other_http_failures_are_provider_unavailable(monkeypatch):
