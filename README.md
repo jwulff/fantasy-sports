@@ -89,7 +89,8 @@ both in the macOS Keychain, so there is nothing to copy. Name a browser
 (`--from-browser chrome`) or a profile (`--profile "Profile 1"`) to narrow
 the search; with several profiles logged in, the one whose cookie expires
 last is used and the others are listed. The first time, macOS asks whether
-`fantasy-sports` may use the browser's "Safe Storage" Keychain item; see
+`security` may use the browser's "Safe Storage" Keychain item; click Allow, not
+Always Allow, and see
 [SECURITY.md](SECURITY.md#importing-cookies-from-a-browser) for what that
 grants. Because the browser also records when each cookie expires,
 `auth status` reports a real expiry instead of a guess.

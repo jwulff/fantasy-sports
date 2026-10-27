@@ -2235,10 +2235,11 @@ from it (`expired`, or `stale` inside the seven-day warning window) instead of
 the unverified age heuristic.
 
 On macOS the first read of a Chrome-family store triggers the system prompt
-"fantasy-sports wants to use your confidential information stored in 'Chrome
-Safe Storage'". That is expected. See
-[SECURITY.md](../SECURITY.md#importing-cookies-from-a-browser) for what
-**Always Allow** grants.
+"security wants to use your confidential information stored in 'Chrome Safe
+Storage'" (the requester is `/usr/bin/security`). That is expected. Click
+**Allow**, not Always Allow: the latter lets any process on your account read
+that browser's Safe Storage password without a prompt. See
+[SECURITY.md](../SECURITY.md#importing-cookies-from-a-browser).
 
 `data` adds, beside `stored` / `repaired` / `keychain_service`:
 

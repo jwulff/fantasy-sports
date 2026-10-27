@@ -182,7 +182,9 @@ def read_safe_storage_password(service: str) -> Secret:
 
     The password comes back on **stdout**; argv carries only the service name,
     so nothing secret is visible to ``ps``. macOS shows its own approval prompt
-    the first time ("fantasy-sports wants to use your confidential information").
+    the first time ("security wants to use your confidential information": the
+    requester is ``/usr/bin/security``). Callers should advise **Allow**, not
+    Always Allow, which would let any process run this same command silently.
 
     :raises KeychainEntryMissing: the browser has no such entry.
     :raises KeychainAccessDenied: the user declined, or the read failed.

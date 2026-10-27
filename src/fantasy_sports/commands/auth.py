@@ -226,7 +226,7 @@ def _no_browser_cookies(search: object, name: str | None, profile: str | None):
     if search.keychain_denied:
         parts.append(
             "macOS Keychain access was denied, so an encrypted cookie store could not be read; "
-            "run the command again and choose Allow or Always Allow at the prompt."
+            "run the command again and choose Allow (not Always Allow) at the prompt."
         )
     parts.append(
         "Log into fantasy.espn.com in one of these browsers and try again, or run "

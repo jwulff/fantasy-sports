@@ -50,13 +50,16 @@ local browser profile instead of asking you to paste them. What that involves:
 - **The macOS Keychain prompt.** Chrome-family browsers (Chrome, Chromium,
   Brave, Edge, Arc) encrypt cookie values with a key derived from a "Safe
   Storage" Keychain item that the browser owns. To decrypt, the tool runs
-  `security find-generic-password -w -s "<Browser> Safe Storage"`, and macOS
-  asks you to approve it: "fantasy-sports wants to use your confidential
-  information stored in 'Chrome Safe Storage'". **Allow** grants it for that
-  one run. **Always Allow** grants this tool permanent access to that item, and
-  that item decrypts *every* cookie in that browser's store, not only ESPN's.
-  Prefer Allow unless you will re-import often, and revoke an Always Allow in
-  Keychain Access (find the item, Access Control tab).
+  `security find-generic-password -w -s "<Browser> Safe Storage"`, so the
+  requesting program is `/usr/bin/security`, not `fantasy-sports`. macOS asks:
+  "security wants to use your confidential information stored in 'Chrome Safe
+  Storage'". **Click Allow, not Always Allow.** Allow covers that one run.
+  Always Allow adds `/usr/bin/security` to the item's access list, after which
+  *any* process on your account that can run `security find-generic-password`
+  reads that browser's Safe Storage password silently, with no prompt, and that
+  password decrypts *every* cookie in the browser's store, not only ESPN's.
+  To revoke an Always Allow, open Keychain Access, find the "<Browser> Safe
+  Storage" item, open its Access Control tab, and remove `security`.
 - **No secret in a process listing.** The Safe Storage password comes back on
   the `security` command's stdout; its argument list holds only the item name.
   Decryption runs in-process in pure Python (`auth/_aes.py`), so the derived key
