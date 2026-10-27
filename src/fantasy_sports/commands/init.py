@@ -57,7 +57,8 @@ def init(
 ) -> Envelope:
     """Import credentials, discover leagues, write ``config.toml``, run the doctor."""
     from fantasy_sports.core.errors import ConfigInvalidError
-    from fantasy_sports.output.envelope import Envelope
+    from fantasy_sports.output.envelope import DataSource, Envelope, utc_now
+    from fantasy_sports.providers import espn_fan
 
     if season is not None and all_seasons:
         raise ConfigInvalidError(
@@ -68,6 +69,7 @@ def init(
 
     credentials, swid = _credentials(dry_run=dry_run)
     leagues = _discover(swid)
+    fetched_at = utc_now()
     plan = _plan(leagues, season=season, all_seasons=all_seasons)
     path = _write(plan, dry_run=dry_run)
 
@@ -80,7 +82,11 @@ def init(
         "doctor": _doctor(),
     }
     require_shape(data, command="init")
-    return Envelope.success(provider=PROVIDER, data=data)
+    return Envelope.success(
+        provider=PROVIDER,
+        data=data,
+        sources=[DataSource(name=espn_fan.SOURCE_NAME, fetched_at=fetched_at)],
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -244,11 +250,11 @@ def _plan(leagues: list[DiscoveredLeague], *, season: int | None, all_seasons: b
 
     taken = set(config.profiles_by_name)
     existing = {
-        (profile.provider, profile.league_id, profile.season): profile.name
+        (profile.provider, profile.sport, profile.league_id, profile.season): profile.name
         for profile in config.profiles()
     }
     for league, base in zip(readable, slugs(readable), strict=True):
-        key = (league.provider, league.league_id, league.season)
+        key = (league.provider, league.sport, league.league_id, league.season)
         if key in existing:
             plan.skipped.append(_row(existing[key], league, reason=SKIP_EXISTS))
             continue

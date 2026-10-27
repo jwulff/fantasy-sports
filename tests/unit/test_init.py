@@ -420,3 +420,18 @@ def test_dry_run_does_not_discover_as_an_older_stored_account(
     monkeypatch.setenv("FANTASY_SPORTS_SWID", "{FFFFFFFF-0000-0000-0000-000000000000}")
     init_command.init(dry_run=True)
     assert fakes.swids == [FAKE_SWID]
+
+
+def test_the_envelope_names_the_discovery_fetch_as_its_source(fakes: Fakes):
+    envelope = init_command.init()
+    payload = envelope.to_dict()
+    assert [source["name"] for source in payload["sources"]] == [espn_fan.SOURCE_NAME]
+    assert payload["data_as_of"] is not None and payload["data_age_seconds"] is not None
+
+
+def test_a_same_id_profile_in_another_sport_does_not_shadow_the_football_league(fakes: Fakes):
+    seed('[leagues.puck]\nprovider = "espn"\nleague_id = "99"\nseason = 2026\nsport = "hockey"\n')
+    data = init_command.init().data
+    assert [r["slug"] for r in data["leagues"]["written"]] == ["synthetic-gridiron"]
+    assert data["leagues"]["skipped"] == []
+    assert written_config()["leagues"]["puck"]["sport"] == "hockey"

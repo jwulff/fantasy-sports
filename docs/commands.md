@@ -1913,10 +1913,17 @@ fantasy-sports init
   "provider": "espn",
   "league_id": null,
   "season": null,
-  "generated_at": "2026-10-27T15:38:55Z",
-  "data_as_of": null,
-  "data_age_seconds": null,
-  "sources": [],
+  "generated_at": "2026-10-27T15:45:15Z",
+  "data_as_of": "2026-10-27T15:45:15Z",
+  "data_age_seconds": 0,
+  "sources": [
+    {
+      "name": "fan.api:fans",
+      "fetched_at": "2026-10-27T15:45:15Z",
+      "age_seconds": 0,
+      "cached": false
+    }
+  ],
   "untrusted": {},
   "raw_omitted": false,
   "data": {
