@@ -103,6 +103,7 @@ the trigger is the one piece of evidence we can get: the browser holds a
   no fresh pair the error is the old one;
   `teams` through the CLI prints the warning on stderr and in the envelope.
   Deleting the retry fails ten of them.
+- `tests/conftest.py` now installs an in-memory `keyring` backend for every test. CI found the gap: the strict snapshot in `commit` read the real keyring, which bailed on ubuntu (no backend) and would have read the maintainer's login Keychain on a Mac. Verified under `PYTHON_KEYRING_BACKEND=keyring.backends.fail.Keyring`, a throwaway HOME and `sys.platform=linux`.
 - Nothing touches the real Keychain, browsers or network; `find_espn_cookies`
   and `write_to_keychain` are patched, and no test consults `sys.platform`.
 - Full suite, ruff, budgets and startup checks, and the new tests with

@@ -511,6 +511,50 @@ def _no_health_check_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 # --------------------------------------------------------------------------- #
+# No test may reach a real Keychain
+# --------------------------------------------------------------------------- #
+
+
+@pytest.fixture(autouse=True)
+def _in_memory_keyring() -> Iterator[None]:
+    """Install an in-memory ``keyring`` backend for every test.
+
+    On a developer's Mac the default backend is the **real login Keychain**
+    holding the real ESPN cookies under this tool's service name; on CI there is
+    no backend at all. A test that reached either one passed or failed by
+    accident of the machine (jwulff/fantasy-sports#159: the browser re-import's
+    strict snapshot read silently bailed on ubuntu and read John's Keychain on a
+    Mac). Tests that stub ``keyring`` themselves, or inject a reader or writer,
+    are unaffected; this is the floor under the ones that forget.
+    """
+    import keyring
+    from keyring.backend import KeyringBackend
+
+    class _Memory(KeyringBackend):
+        priority = 1  # type: ignore[assignment]
+
+        def __init__(self) -> None:
+            super().__init__()
+            self._held: dict[tuple[str, str], str] = {}
+
+        def get_password(self, service: str, username: str) -> str | None:
+            return self._held.get((service, username))
+
+        def set_password(self, service: str, username: str, password: str) -> None:
+            self._held[(service, username)] = password
+
+        def delete_password(self, service: str, username: str) -> None:
+            self._held.pop((service, username), None)
+
+    prior = keyring.get_keyring()
+    keyring.set_keyring(_Memory())
+    try:
+        yield
+    finally:
+        keyring.set_keyring(prior)
+
+
+# --------------------------------------------------------------------------- #
 # Collection
 # --------------------------------------------------------------------------- #
 

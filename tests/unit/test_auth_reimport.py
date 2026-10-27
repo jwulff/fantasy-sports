@@ -458,3 +458,12 @@ def test_swid_case_and_braces_do_not_make_it_another_account():
     spelled = profile(BROWSER_S2, SWID.lower().strip("{}"))
     found, _ = run(spelled)
     assert found is not None
+
+
+def test_a_lowercase_braced_swid_is_the_same_account_as_an_uppercase_one():
+    found, _ = run(profile(BROWSER_S2, SWID.lower()))
+    assert found is not None
+    assert reimport.rotated(profile(BROWSER_S2, SWID.lower()), SENT) is True
+    assert reimport.rotated(profile(STORED_S2, SWID.lower()), SENT) is False
+    # espn_s2 stays case-sensitive: a case-only difference is a different cookie.
+    assert reimport.rotated(profile(STORED_S2.swapcase(), SWID), SENT) is True
