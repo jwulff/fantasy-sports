@@ -51,9 +51,10 @@ repo-wide scan.
   `Foo 2` cannot yield `foo-2` twice. A 429 keeps `Retry-After`, parsed by the
   adapter's own `_retry_after_seconds`.
 - **The cassette is synthetic** (`scripts/build_fan_cassette.py`): no live call,
-  no real credential. One thing is a guess and is recorded in `docs/testing.md`
-  §11: which key on the entry carries the game abbreviation. The reader accepts
-  three spellings; an entry with none reports `sport: "unknown"`.
+  no real credential. The game abbreviation is `metaData.entry.abbrev`, uppercase
+  `"FFL"`, verified live 2026-10-27 (`docs/testing.md` §11) and used uppercase
+  in the fixture. Fallback spellings stay; an entry with none reports
+  `sport: "unknown"`.
 - `DiscoveredLeague` is a new model rather than a `League`: the listing has no
   team count, week or slots. It is not in `NORMALIZED_MODELS`.
 

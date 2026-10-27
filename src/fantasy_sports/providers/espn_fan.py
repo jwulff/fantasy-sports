@@ -179,7 +179,11 @@ def _leagues_of(preference: Mapping[str, Any], index: int) -> list[DiscoveredLea
 
 
 def _abbrev(entry: Mapping[str, Any]) -> str:
-    """ESPN's game abbreviation (``ffl``), wherever the entry carries it."""
+    """ESPN's game abbreviation, lowercased (``ffl``).
+
+    ``entry.abbrev`` (value ``"FFL"``) is observed live (2026-10-27); the other
+    two spellings are fallbacks that have not been seen.
+    """
     game = entry.get("game")
     nested = game.get("abbrev") if isinstance(game, Mapping) else None
     for candidate in (entry.get("abbrev"), entry.get("gameAbbrev"), nested):

@@ -9,7 +9,6 @@ The ``leagues discover`` command's fixture (jwulff/fantasy-sports#157). It is
 ``docs/research/05-espn-write-surface.md``, with no live request and no real
 credential. A hand-built payload proves the reader handles the shape it was
 told about, not that ESPN still sends it; ``docs/testing.md`` records that.
-Where this script had to guess, it says so below.
 
 Three things the body deliberately contains, because a test reads them:
 
@@ -22,10 +21,10 @@ Three things the body deliberately contains, because a test reads them:
   A reader that keys on ``groups`` rather than ``type.id`` would return it as
   a third league.
 
-Guessed, not observed: *where* the game abbreviation sits on the entry. The
-memory doc says "derived from the entry's game/abbrev" without naming a key;
-the reader accepts ``entry.abbrev``, ``entry.gameAbbrev`` or
-``entry.game.abbrev``, and this fixture uses the first.
+Observed live (2026-10-27, unrecorded): the game abbreviation is
+``metaData.entry.abbrev``, uppercase (``"FFL"``), so this fixture uses
+uppercase and the reader's lowercasing is exercised. The reader also accepts
+``gameAbbrev`` and ``game.abbrev`` as unobserved fallbacks.
 
 **The point of this fixture is its request URI.** The SWID travels in the URL
 path as ``%7B<guid>%7D``. The GUID below is obviously fake, and it goes through
@@ -54,7 +53,7 @@ SEASON = 2026
 
 def _membership(group_id: int, name: str, entry_id: int, abbrev: str, *, manager: bool) -> dict:
     return {
-        "id": f"{abbrev}-{group_id}",
+        "id": f"{abbrev.lower()}-{group_id}",
         "type": {"id": 9, "name": "Fantasy League Manager"},
         "metaData": {
             "entry": {
@@ -66,7 +65,7 @@ def _membership(group_id: int, name: str, entry_id: int, abbrev: str, *, manager
                         "groupId": group_id,
                         "groupName": name,
                         "groupManager": manager,
-                        "href": f"https://fantasy.espn.com/{abbrev}/league?leagueId={group_id}",
+                        "href": f"https://fantasy.espn.com/{abbrev.lower()}/league?leagueId={group_id}",
                     }
                 ],
             }
@@ -78,7 +77,7 @@ def body() -> dict[str, Any]:
     return {
         "id": FAKE_SWID,
         "preferences": [
-            _membership(99, "Synthetic Gridiron", 3, "ffl", manager=True),
+            _membership(99, "Synthetic Gridiron", 3, "FFL", manager=True),
             {
                 "id": "not-a-membership",
                 "type": {"id": 1, "name": "Alerts"},
@@ -86,14 +85,14 @@ def body() -> dict[str, Any]:
                     "entry": {
                         "entryId": 1,
                         "seasonId": SEASON,
-                        "abbrev": "ffl",
+                        "abbrev": "FFL",
                         "groups": [
                             {"groupId": 1234, "groupName": "Not A Membership", "groupManager": True}
                         ],
                     }
                 },
             },
-            _membership(1234, "Synthetic Ice", 7, "fhl", manager=False),
+            _membership(1234, "Synthetic Ice", 7, "FHL", manager=False),
         ],
         "fantasyData": {"totalFantasyLeagues": 2},
     }

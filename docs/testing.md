@@ -488,11 +488,11 @@ real credential was read. It proves the reader handles that shape; it does not
 prove ESPN still sends it. The league ids in it are the two public ones (`99`,
 and `1234` reused as a hockey league), so §6 holds.
 
-What it cannot cover: **where the game abbreviation sits on a `preferences[]`
-entry.** The memory doc says "derived from the entry's game/abbrev" without
-naming a key, so the reader accepts `entry.abbrev`, `entry.gameAbbrev` or
-`entry.game.abbrev` and the fixture uses the first. The first real account
-listing recorded should settle it.
+Observed, not guessed: the game abbreviation is `metaData.entry.abbrev`, value
+`"FFL"` (uppercase), verified live 2026-10-27 against a real account with an
+unauthenticated, unrecorded call. `gameAbbrev` and `game` were absent; the
+reader still accepts them as fallbacks. The fixture uses uppercase `"FFL"` /
+`"FHL"` so the lowercasing is exercised.
 
 What it does contain, because a test reads it: a football league the account
 manages, a non-football league it does not, and a non-type-9 preference that

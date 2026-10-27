@@ -1882,13 +1882,13 @@ fantasy-sports leagues discover
   "provider": "espn",
   "league_id": null,
   "season": null,
-  "generated_at": "2026-10-27T15:09:09Z",
-  "data_as_of": "2026-10-27T15:09:09Z",
+  "generated_at": "2026-10-27T15:14:48Z",
+  "data_as_of": "2026-10-27T15:14:48Z",
   "data_age_seconds": 0,
   "sources": [
     {
       "name": "fan.api:fans",
-      "fetched_at": "2026-10-27T15:09:09Z",
+      "fetched_at": "2026-10-27T15:14:48Z",
       "age_seconds": 0,
       "cached": false
     }
@@ -1946,13 +1946,13 @@ fantasy-sports leagues discover --config-snippet
   "provider": "espn",
   "league_id": null,
   "season": null,
-  "generated_at": "2026-10-27T15:09:09Z",
-  "data_as_of": "2026-10-27T15:09:09Z",
+  "generated_at": "2026-10-27T15:14:48Z",
+  "data_as_of": "2026-10-27T15:14:48Z",
   "data_age_seconds": 0,
   "sources": [
     {
       "name": "fan.api:fans",
-      "fetched_at": "2026-10-27T15:09:09Z",
+      "fetched_at": "2026-10-27T15:14:48Z",
       "age_seconds": 0,
       "cached": false
     }
@@ -2007,7 +2007,7 @@ fantasy-sports leagues discover --output table
 # no league, synthetic fan.api account listing (replayed). Exit 0, stdout:
 ```
 ```text
-espn · generated 2026-10-27T15:09:09Z · data age 0s
+espn · generated 2026-10-27T15:14:48Z · data age 0s
 league_id   season   sport      name                 team_id   is_manager
 ─────────────────────────────────────────────────────────────────────────
 99          2026     football   Synthetic Gridiron   3         true      
