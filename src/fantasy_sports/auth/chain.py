@@ -214,6 +214,7 @@ FANTASYPROS_CREDENTIALS: tuple[CredentialSpec, ...] = (
             "x-api-key header. Press Enter to skip if you do not use FantasyPros."
         ),
         required=False,
+        staleness="none",
     ),
 )
 """The FantasyPros expert source's one credential (ADR-0011).

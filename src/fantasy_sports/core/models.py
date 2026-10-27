@@ -559,6 +559,7 @@ class CredentialSpec:
     secret: bool = True
     required: bool = True
     staleness: str | None = None
+    """Set to ``"none"`` when the ESPN cookie age heuristic does not apply."""
 
 
 # --------------------------------------------------------------------------- #
