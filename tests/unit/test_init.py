@@ -399,3 +399,24 @@ def test_the_real_tty_check_asks_stdin(monkeypatch: pytest.MonkeyPatch):
 
     monkeypatch.setattr("sys.stdin", Stdin())
     assert init_command._stdin_is_tty() is True
+
+
+def test_dry_run_discovers_with_the_browsers_swid_not_the_chains(
+    fakes: Fakes, monkeypatch: pytest.MonkeyPatch
+):
+    """Fresh install: nothing stored anywhere, the browser is the only source."""
+    for name in ("FANTASY_SPORTS_ESPN_S2", "FANTASY_SPORTS_SWID"):
+        monkeypatch.delenv(name)
+    monkeypatch.setattr("fantasy_sports.auth.chain.read_from_keychain", lambda spec: None)
+    data = init_command.init(dry_run=True).data
+    assert fakes.swids == [FAKE_SWID]
+    assert data["credentials"]["source"] == "browser"
+    assert FAKE_SWID not in json.dumps(data)
+
+
+def test_dry_run_does_not_discover_as_an_older_stored_account(
+    fakes: Fakes, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("FANTASY_SPORTS_SWID", "{FFFFFFFF-0000-0000-0000-000000000000}")
+    init_command.init(dry_run=True)
+    assert fakes.swids == [FAKE_SWID]

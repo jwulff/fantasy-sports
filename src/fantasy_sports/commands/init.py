@@ -95,12 +95,17 @@ def _stdin_is_tty() -> bool:
 def _credentials(*, dry_run: bool) -> tuple[dict[str, Any], str]:
     """Get the cookies stored (or, on a dry run, merely found); return the SWID.
 
-    The report names a source and nothing secret. The SWID is resolved through
-    the credential chain, as ``leagues discover`` does, so it is the value every
-    later command will use.
+    The report names a source and nothing secret. After a real run the SWID is
+    resolved through the credential chain, as ``leagues discover`` does, so it is
+    the value every later command will use. A dry run stores nothing, so it uses
+    the SWID of the profile it found (the chain would answer with a different
+    account's, or nothing); only with no browser profile does it fall back to the
+    stored one.
     """
-    report = _dry_run_credentials() if dry_run else _store_credentials()
-    return report, _swid()
+    if not dry_run:
+        return _store_credentials(), _swid()
+    report, found = _dry_run_credentials()
+    return report, found or _swid()
 
 
 def _store_credentials() -> dict[str, Any]:
@@ -133,8 +138,11 @@ def _store_credentials() -> dict[str, Any]:
     }
 
 
-def _dry_run_credentials() -> dict[str, Any]:
-    """Look, don't store: browser cookies if there are any, else what is stored."""
+def _dry_run_credentials() -> tuple[dict[str, Any], str | None]:
+    """Look, don't store: browser cookies if there are any, else what is stored.
+
+    Returns the report and the found profile's SWID (``None`` for "use the stored one").
+    """
     from datetime import UTC, datetime
 
     from fantasy_sports.auth import browser
@@ -144,16 +152,18 @@ def _dry_run_credentials() -> dict[str, Any]:
     if found:
         floor = datetime.min.replace(tzinfo=UTC)
         chosen = max(found, key=lambda profile: profile.espn_s2_expires_at or floor)
-        return {
+        assert chosen.swid is not None  # `complete`
+        report = {
             "source": "browser",
             "browser": chosen.browser,
             "profile": chosen.profile,
             "stored": False,
         }
+        return report, chosen.swid.reveal()
     # Raises AUTH_MISSING when nothing is stored either; a dry run never prompts,
     # because the answer would have to be stored to be used.
     require_credentials(ESPN_CREDENTIALS)
-    return {"source": "stored", "stored": False}
+    return {"source": "stored", "stored": False}, None
 
 
 def _swid() -> str:
