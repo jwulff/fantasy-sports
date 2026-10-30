@@ -206,11 +206,14 @@ def _merge_globals(spec: CommandSpec, ctx: Any, values: Mapping[str, Any]) -> di
 def _provider_hint(spec: CommandSpec) -> str | None:
     """The provider to name on a failure, when one can be known without a read.
 
-    Only the ``auth`` commands, the ``experts`` group and ``leagues`` can answer this before
-    resolving a league: the first are single-provider in v0.1, and the second
-    is FantasyPros by construction. Everything else leaves it null rather
-    than guessing: a ``CONFIG_INVALID`` failure happens before a provider is
-    chosen, which is exactly why the envelope allows a null one.
+    Only the ``auth`` commands, the ``experts`` group, ``leagues`` and ``init``
+    can answer this before resolving a league: the first are single-provider in
+    v0.1, the second is FantasyPros by construction, and the last two exist
+    only to talk to ESPN — ``init`` composes ``auth login``, ``leagues
+    discover`` and ``doctor`` and reimplements none of them. Everything else
+    leaves it null rather than guessing: a ``CONFIG_INVALID`` failure happens
+    before a provider is chosen, which is exactly why the envelope allows a
+    null one.
     """
     if spec.group == "auth":
         from fantasy_sports.commands.auth import PROVIDER
@@ -220,6 +223,12 @@ def _provider_hint(spec: CommandSpec) -> str | None:
         return "fantasypros"
     if spec.group == "leagues":
         return "espn"
+    # ``init`` is registered without a group — it is the one command that spans
+    # several — so it is named by invocation instead.
+    if spec.name == "init":
+        from fantasy_sports.commands.init import PROVIDER
+
+        return PROVIDER
     return None
 
 
