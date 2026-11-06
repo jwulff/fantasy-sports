@@ -1087,6 +1087,43 @@ def test_an_empty_transaction_period_is_a_result_not_a_failure():
     assert provider.fetch_transactions(*SYNTHETIC) == []
 
 
+def test_metadata_only_trade_accept_does_not_break_transaction_page():
+    """A real 2026 private league sends a status-less, item-less acknowledgement."""
+    replay = ReplayHttp("espn/synthetic_2026.yaml")
+    body = json.loads(
+        next(value for key, value in replay.bodies.items() if "mTransactions2" in str(key))
+    )
+    body["transactions"].append(
+        {
+            "id": "metadata-accept",
+            "teamId": 1,
+            "type": "TRADE_ACCEPT",
+            "executionType": "EXECUTE",
+            "relatedTransactionId": "trade-proposal",
+            "scoringPeriodId": 2,
+            "items": [],
+        }
+    )
+    provider = EspnProvider(
+        http=ReplayHttp("espn/synthetic_2026.yaml", overrides={"mTransactions2": body})
+    )
+    found = provider.fetch_transactions(*SYNTHETIC)
+    assert sorted(item.type for item in found) == ["trade", "trade", "waiver_claim"]
+
+
+def test_missing_status_on_actual_move_still_reports_schema_drift():
+    replay = ReplayHttp("espn/synthetic_2026.yaml")
+    body = json.loads(
+        next(value for key, value in replay.bodies.items() if "mTransactions2" in str(key))
+    )
+    del body["transactions"][0]["status"]
+    provider = EspnProvider(
+        http=ReplayHttp("espn/synthetic_2026.yaml", overrides={"mTransactions2": body})
+    )
+    with pytest.raises(SchemaDriftError):
+        provider.fetch_transactions(*SYNTHETIC)
+
+
 def test_an_activity_feed_that_will_not_load_degrades_rather_than_failing():
     """ESPN stopped serving the feed for historical seasons (issue #546).
 
@@ -1682,7 +1719,11 @@ def test_a_taxonomy_error_from_a_transaction_surface_is_not_swallowed():
         current_week = 2
         scoringPeriodId = 2
 
-        def transactions(self, **_):
+        @property
+        def espn_request(self):
+            return self
+
+        def league_get(self, **_):
             raise RateLimitedError("throttled")
 
         def recent_activity(self, **_):
