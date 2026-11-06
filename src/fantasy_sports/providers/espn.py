@@ -2570,26 +2570,31 @@ class EspnProvider:
         )
 
     def _espn_transactions(self, league: Any, scoring_period: int | None) -> list[Any]:
-        """``mTransactions2``, treating "none this period" as an empty result.
+        """Read the log, excluding only a metadata-only trade acceptance.
 
-        ``espn-api`` raises a bare ``Exception('No transactions found')`` when
-        the key is absent, which is what a quiet scoring period looks like. It
-        is a successful empty result, not a failure, and reporting it as
-        ``PROVIDER_UNAVAILABLE`` would tell an agent to retry an answer that is
-        already correct.
+        ESPN sometimes emits a ``TRADE_ACCEPT`` acknowledgement with no
+        ``status`` or player items. ``espn-api`` raises while constructing it,
+        aborting the entire page. It is not a roster move; the activity feed
+        carries the trade's player movements. Every other malformed row still
+        reaches the library's normal schema-drift handling.
         """
-        try:
-            return list(
-                league.transactions(
-                    scoring_period=scoring_period, types=set(_ALL_TRANSACTION_TYPES)
+        from espn_api.football.transaction import Transaction as EspnTransaction
+
+        period = scoring_period or league.scoringPeriodId
+        payload = league.espn_request.league_get(
+            params={"view": LOG_VIEW, "scoringPeriodId": period},
+            headers={
+                "x-fantasy-filter": json.dumps(
+                    {"transactions": {"filterType": {"value": sorted(_ALL_TRANSACTION_TYPES)}}}
                 )
-            )
-        except FantasySportsError:
-            raise
-        except Exception as exc:  # noqa: BLE001 - see docstring; classified below
-            if "no transactions found" in str(exc).lower():
-                return []
-            raise
+            },
+        )
+        rows = payload.get("transactions", [])
+        return [
+            EspnTransaction(row, league.player_map, league.get_team_data)
+            for row in rows
+            if not _metadata_trade_accept(row)
+        ]
 
     def _activity(self, league: Any) -> list[Any]:
         """The activity feed, best-effort. See :meth:`fetch_transactions`."""
@@ -2599,6 +2604,19 @@ class EspnProvider:
             raise
         except Exception:  # noqa: BLE001 - a missing second surface is not a failure
             return []
+
+
+def _metadata_trade_accept(row: Any) -> bool:
+    """The status-less, item-less acknowledgement seen in Big Mac's log."""
+    return (
+        isinstance(row, Mapping)
+        and row.get("type") == "TRADE_ACCEPT"
+        and row.get("executionType") == "EXECUTE"
+        and "status" not in row
+        and row.get("items") == []
+        and isinstance(row.get("relatedTransactionId"), str)
+        and bool(row["relatedTransactionId"])
+    )
 
 
 _EPOCH: Final[datetime] = from_epoch_millis(0)
