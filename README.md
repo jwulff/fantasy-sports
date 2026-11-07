@@ -255,8 +255,9 @@ fantasy-sports raw --view mSettings --league my-league
 ```
 
 `--output json` (the default whenever stdout isn't a terminal) or
-`--output table`/`--output csv` control rendering; pipe any command into
-another tool and it'll emit JSON automatically:
+`--output json-compact`/`--output table`/`--output csv` control rendering;
+use `json-compact` for one-line async handoffs. Pipe any command into another
+tool and it'll emit JSON automatically:
 
 ```bash
 fantasy-sports standings --league my-league | jq '.data[0]'
@@ -423,8 +424,10 @@ fantasy-sports standings
   from every normalized object in this response; `false` means nothing was
   suppressed here, not that `raw` is necessarily present.
 - **`warnings`.** Notices about a run that succeeded, as plain sentences with no
-  credential in them; `[]` when there are none. Today the one case is a browser
-  cookie re-import (see step 2): the same sentence is printed to stderr.
+  credential in them; `[]` when there are none. Cases include a browser cookie
+  re-import (see step 2) and an explicit bounded expert result. The ordinary
+  renderer prints them to stderr; `json-compact` carries them only in the
+  envelope.
 - **CSV cells are formula-guarded.** `--output csv` carries only `data`, and
   any string cell that begins with `=`, `+`, `-`, `@`, a tab or a carriage
   return is prefixed with a single quote so a spreadsheet shows it as text

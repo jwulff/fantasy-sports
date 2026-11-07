@@ -145,7 +145,7 @@ the *surface*, not of the command, and an MCP tool has no table to render.
 
 OUTPUT_PARAM = Param(
     name="output",
-    help="json, table, or csv. Defaults to json unless stdout is a terminal.",
+    help="json, json-compact, table, or csv. Defaults to json unless stdout is a terminal.",
     annotation=str | None,
     flags=("--output", "-o"),
 )
@@ -1063,6 +1063,11 @@ register(
                 annotation=bool,
                 default=False,
             ),
+            Param(
+                name="limit",
+                help="Maximum rows to emit; useful for bounded async consumers.",
+                annotation=int | None,
+            ),
             _EXPERTS_LEAGUE_PARAM,
             _EXPERTS_SEASON_PARAM,
             *_EXPERTS_FRESH_PARAMS,
@@ -1101,6 +1106,11 @@ register(
                 default=False,
             ),
             Param(name="player", help=_EXPERTS_PLAYER_HELP, annotation=str | None),
+            Param(
+                name="limit",
+                help="Maximum rows to emit; useful for bounded async consumers.",
+                annotation=int | None,
+            ),
             _EXPERTS_LEAGUE_PARAM,
             _EXPERTS_SEASON_PARAM,
             *_EXPERTS_FRESH_PARAMS,

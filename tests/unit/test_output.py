@@ -50,7 +50,7 @@ from fantasy_sports.core.errors import (
 from fantasy_sports.core.models import Player
 from fantasy_sports.core.redaction import REDACTED, forget_secrets, remember_secret
 from fantasy_sports.output import csv as csv_renderer
-from fantasy_sports.output import emit, render
+from fantasy_sports.output import emit, emit_failure, render
 from fantasy_sports.output import json as json_renderer
 from fantasy_sports.output import table as table_renderer
 from fantasy_sports.output.envelope import (
@@ -480,7 +480,7 @@ def test_a_tty_gets_a_table():
     assert resolve_format(None, _Tty()) is OutputFormat.TABLE
 
 
-@pytest.mark.parametrize("requested", ["json", "table", "csv"])
+@pytest.mark.parametrize("requested", ["json", "json-compact", "table", "csv"])
 @pytest.mark.parametrize("stream", [io.StringIO, _Tty], ids=["pipe", "tty"])
 def test_an_explicit_output_overrides_tty_detection(requested, stream):
     assert resolve_format(requested, stream()) is OutputFormat(requested)
@@ -504,6 +504,7 @@ def test_a_stream_with_no_isatty_is_treated_as_a_pipe():
 def test_render_dispatches_on_the_resolved_format():
     envelope = sample_envelope()
     assert render(envelope, "json") == json_renderer.render(envelope)
+    assert render(envelope, "json-compact") == json_renderer.render_compact(envelope)
     assert render(envelope, "csv") == csv_renderer.render(envelope)
     assert render(envelope, "table") == table_renderer.render(envelope)
     assert render(envelope, stream=_Tty()) == table_renderer.render(envelope)
@@ -567,6 +568,33 @@ def test_the_json_renderer_emits_one_parseable_document_ending_in_a_newline():
     rendered = json_renderer.render(sample_envelope())
     assert rendered.endswith("\n")
     assert stdlib_json.loads(rendered)["schema"] == SCHEMA
+
+
+def test_the_compact_json_renderer_is_one_line_and_parseable():
+    rendered = json_renderer.render_compact(sample_envelope())
+    assert rendered.count("\n") == 1
+    assert stdlib_json.loads(rendered)["schema"] == SCHEMA
+    assert len(rendered) < len(json_renderer.render(sample_envelope()))
+
+
+def test_compact_json_keeps_failure_output_to_one_line():
+    stderr = io.StringIO()
+    status = emit_failure(ConfigInvalidError("bad argument"), stderr=stderr, fmt="json-compact")
+    assert status != 0
+    assert stderr.getvalue().count("\n") == 1
+    assert stdlib_json.loads(stderr.getvalue())["error"]["code"] == "CONFIG_INVALID"
+
+
+def test_compact_json_suppresses_interactive_failure_guidance():
+    stderr = _Tty()
+    emit(
+        Envelope.failure(ConfigInvalidError("bad argument")),
+        fmt="json-compact",
+        stderr=stderr,
+        guidance="human-only guidance",
+    )
+    assert stderr.getvalue().count("\n") == 1
+    assert "guidance" not in stderr.getvalue()
 
 
 def test_the_json_renderer_escapes_non_ascii_so_any_stdout_encoding_is_safe():

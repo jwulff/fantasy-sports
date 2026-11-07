@@ -151,7 +151,7 @@ def _dispatch(spec: CommandSpec, ctx: Any, values: Mapping[str, Any]) -> int:
     import typer
 
     from fantasy_sports.core import notices
-    from fantasy_sports.output import emit, emit_failure, resolve_format
+    from fantasy_sports.output import OutputFormat, emit, emit_failure, resolve_format
 
     notices.drain()  # nothing posted before this command belongs to it
     merged = _merge_globals(spec, ctx, values)
@@ -168,7 +168,7 @@ def _dispatch(spec: CommandSpec, ctx: Any, values: Mapping[str, Any]) -> int:
         raise
     except Exception as exc:  # noqa: BLE001 - classified by the taxonomy, never a traceback
         notices.drain()
-        return emit_failure(exc, provider=_provider_hint(spec))
+        return emit_failure(exc, provider=_provider_hint(spec), fmt=fmt)
     # Only a success envelope reaches here — a raised exception already
     # returned above — so `raw` needs no `envelope.ok` guard of its own.
     if no_raw and spec.honors_no_raw:
@@ -180,8 +180,9 @@ def _dispatch(spec: CommandSpec, ctx: Any, values: Mapping[str, Any]) -> int:
     posted = notices.drain()
     if posted:
         envelope = replace(envelope, warnings=tuple(dict.fromkeys((*envelope.warnings, *posted))))
-    for notice in envelope.warnings:
-        print(f"warning: {notice}", file=sys.stderr)
+    if resolve_format(fmt, sys.stderr) is not OutputFormat.JSON_COMPACT:
+        for notice in envelope.warnings:
+            print(f"warning: {notice}", file=sys.stderr)
     return emit(envelope, fmt=fmt, columns=spec.table_columns, verbatim=spec.verbatim_fields)
 
 
@@ -263,6 +264,9 @@ def run(argv: Sequence[str]) -> int:
 
     import typer
 
+    from fantasy_sports.core.errors import ConfigInvalidError
+    from fantasy_sports.output import emit_failure
+
     app = build_app()
     try:
         result = app(args=_fill_optional_values(argv), standalone_mode=False)
@@ -270,6 +274,16 @@ def run(argv: Sequence[str]) -> int:
         return 130
     except typer.TyperException as exc:
         # Usage errors render themselves; anything else at least reaches stderr.
+        compact = _compact_requested(argv)
+        if compact:
+            formatter = getattr(exc, "format_message", None)
+            message = formatter() if callable(formatter) else str(exc)
+            error = ConfigInvalidError(
+                message,
+                kind="argument",
+                remediation="Correct the command arguments and retry.",
+            )
+            return emit_failure(error, fmt="json-compact")
         show = getattr(exc, "show", None)
         if callable(show):
             show()
@@ -279,3 +293,21 @@ def run(argv: Sequence[str]) -> int:
     # Outside standalone mode, click *returns* `typer.Exit`'s code instead of
     # raising it, so an int result is the exit status the command asked for.
     return result if isinstance(result, int) else 0
+
+
+def _compact_requested(argv: Sequence[str]) -> bool:
+    """Whether the caller explicitly requested the one-line error surface."""
+    args = list(argv)
+    requested: str | None = None
+    index = 0
+    while index < len(args):
+        token = args[index]
+        if token.startswith("--output="):
+            requested = token.partition("=")[2]
+        elif token.startswith("-o") and token != "-o":
+            requested = token[2:]
+        elif token in ("--output", "-o") and index + 1 < len(args):
+            index += 1
+            requested = args[index]
+        index += 1
+    return requested == "json-compact"

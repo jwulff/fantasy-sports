@@ -1,9 +1,10 @@
 """Which renderer runs, and who decides.
 
 ADR-0004: JSON when stdout is not a TTY, a rich table when it is, CSV on
-request, and an explicit ``--output`` overriding the detection in both
-directions. Detection is a *default*, never an override — a caller who typed
-``--output table`` into a pipe wants a table, and a caller who typed
+request, compact JSON for bounded async handoffs, and an explicit ``--output``
+overriding the detection in both directions. Detection is a *default*, never
+an override — a caller who typed ``--output table`` into a pipe wants a table,
+and a caller who typed
 ``--output json`` at a terminal wants JSON.
 """
 
@@ -17,9 +18,10 @@ __all__ = ["OutputFormat", "resolve_format"]
 
 
 class OutputFormat(StrEnum):
-    """The three surfaces. Adding one is a user-facing contract change."""
+    """The four surfaces. Adding one is a user-facing contract change."""
 
     JSON = "json"
+    JSON_COMPACT = "json-compact"
     TABLE = "table"
     CSV = "csv"
 

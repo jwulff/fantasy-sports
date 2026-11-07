@@ -48,7 +48,8 @@ permanent failure until it exhausts its budget.
 ```
 
 Output format is JSON when stdout is not a TTY, a rich table when it is, and CSV
-on request.
+on request. `--output json-compact` is an opt-in one-line JSON variant for
+bounded async handoffs; it carries the same envelope and error contract.
 
 **Every error goes to stderr as JSON with a nonzero exit and a stable machine
 code:**
@@ -366,6 +367,15 @@ A second refusal after such an import is not a warning but part of the error:
 `LEAGUE_NOT_FOUND` / `AUTH_EXPIRED` then carries
 `details.reimported_from_browser: {"browser", "profile"}`. The classification
 itself is unchanged (`docs/memory/espn-401-tells-you-nothing.md`).
+
+### Amendment, 2026-11-06: bounded async reports
+
+Expert rankings and projections may carry an explicit output bound. When rows
+are omitted, `warnings` says `output limited to N of M rows`; the notice is a
+plain count, not credential material. `--output json-compact` suppresses the
+human stderr echo so stdout and stderr remain one parseable JSON line each.
+Parser-level argument failures use `CONFIG_INVALID` exit 6 in this explicit
+machine-output mode, keeping the error code and exit status consistent.
 
 ## Consequences
 
