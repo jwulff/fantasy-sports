@@ -9,7 +9,8 @@ Two choices worth stating, because both look arbitrary until they are not:
   and no useful message. The JSON escapes parse back to the identical string.
 * **``indent=2`` with a trailing newline.** A parser does not care and a human
   reading a broken pipe does. The trailing newline makes the output a
-  well-formed line-oriented file.
+  well-formed line-oriented file. ``render_compact`` is the one-line variant
+  for bounded async handoffs.
 
 This module is named ``json`` inside the ``output`` package and still imports
 the standard library's ``json``: Python 3 has no implicit relative imports, so
@@ -22,9 +23,14 @@ import json
 
 from fantasy_sports.output.envelope import Envelope
 
-__all__ = ["render"]
+__all__ = ["render", "render_compact"]
 
 
 def render(envelope: Envelope) -> str:
     """Render ``envelope`` as one JSON document, newline-terminated."""
     return json.dumps(envelope.to_dict(), indent=2, ensure_ascii=True) + "\n"
+
+
+def render_compact(envelope: Envelope) -> str:
+    """Render one-line JSON for bounded pipes and async completion handoffs."""
+    return json.dumps(envelope.to_dict(), separators=(",", ":"), ensure_ascii=True) + "\n"

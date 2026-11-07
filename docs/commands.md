@@ -94,7 +94,7 @@ Every read command accepts these, before or after the command name
 |---|---|
 | `--league`, `-l NAME` | Which `[leagues.NAME]` profile in `config.toml` to read. Defaults to `default`, or to the only league configured |
 | `--season YEAR` | Override the profile's `season` for this call, for a historical read |
-| `--output`, `-o FORMAT` | `json`, `table`, or `csv`. Defaults to `json` unless stdout is a terminal, then `table` |
+| `--output`, `-o FORMAT` | `json`, `json-compact`, `table`, or `csv`. Defaults to `json` unless stdout is a terminal, then `table` |
 | `--fresh` | Refetch from ESPN and update the cache entry |
 | `--no-cache` | Neither read nor write the cache. Wins over `--fresh` if both are given |
 | `--no-raw` | Strip `raw` from every normalized object, recursively, and set `raw_omitted: true`. `raw --view` ignores it |
@@ -379,6 +379,15 @@ fantasy-sports standings | head -4
   "league_id": "1234",
 ```
 <!-- /sample -->
+
+### `--output json-compact`
+
+An opt-in one-line JSON variant for bounded async handoffs. It carries the
+same versioned envelope on stdout and the same machine-readable error envelope
+on stderr; unlike ordinary JSON, it suppresses interactive guidance so each
+stream remains one parseable line. Parser-level argument failures are returned
+as `CONFIG_INVALID` with exit 6 in this mode, so the code and exit status stay
+consistent.
 
 ### `--output table`
 
@@ -678,7 +687,7 @@ Usage: fantasy-sports [OPTIONS] COMMAND [ARGS]...
 Options (accepted before or after the command):
   --league, -l TEXT  Named league profile from config.toml. Defaults to the configured default.
   --season INTEGER   Four-digit year, overriding the profile's season for this call.
-  --output, -o TEXT  json, table, or csv. Defaults to json unless stdout is a terminal.
+  --output, -o TEXT  json, json-compact, table, or csv. Defaults to json unless stdout is a terminal.
   --fresh            Refetch from the provider and update the cache entry.
   --no-cache         Neither read nor write the cache. Wins over --fresh if both are given.
   --no-raw           Strip `raw` from every normalized object in the payload, recursively. Marks raw_omitted=true in the envelope. `raw --view` is passthrough by definition and ignores this flag.
@@ -4916,6 +4925,7 @@ anything else standard); `--scoring` overrides that; with neither it is PPR.
 | `--week INTEGER` | NFL week. Omitted: the week in progress. Closed weeks are served |
 | `--scoring TEXT` | `STD`, `HALF` or `PPR`. Omitted: the league's, else `PPR` |
 | `--ros` | Rest-of-season ranking. Cannot be combined with `--week` |
+| `--limit INTEGER` | Emit at most this many rows; the upstream read remains unchanged |
 | `--league`, `-l` | Used only to read the league's receptions setting. Never required |
 | `--season`, `--fresh`, `--no-cache` | As for every read |
 
@@ -5175,11 +5185,15 @@ name.
 | `--week INTEGER` | NFL week. Omitted: the week in progress |
 | `--ros` | Rest-of-season totals. Cannot be combined with `--week` |
 | `--player TEXT` | FantasyPros id, ESPN id, or name |
+| `--limit INTEGER` | Emit at most this many rows; the upstream read remains unchanged |
 | `--league`, `-l`, `--season`, `--fresh`, `--no-cache` | As for `experts rankings` |
 
 Each row: `fp_id`, `name`, `pro_team`, `position`, `espn_id`, `points_std`,
 `points_half`, `points_ppr`, and `stats`, FantasyPros' full stat line for the
-projection.
+projection. For async consumers, use `--limit` together with
+`--output json-compact --no-raw`; this bounds the emitted rows and keeps the
+result one parseable JSON line. The limit is an output bound, not evidence that
+the upstream position list is complete.
 
 <!-- sample: experts-projections -->
 ```bash
@@ -6424,7 +6438,7 @@ fantasy-sports standings --output yaml
 Usage: fantasy-sports standings [OPTIONS]
 Try 'fantasy-sports standings --help' for help.
 
-Error: Invalid value for --output: Unknown output format 'yaml'; expected one of json, table, csv
+Error: Invalid value for --output: Unknown output format 'yaml'; expected one of json, json-compact, table, csv
 ```
 <!-- /sample -->
 

@@ -152,7 +152,7 @@ def test_week_and_ros_are_declared_where_the_contract_says():
         if s.group == "experts"
     }
     assert {"week", "ros"} <= declared["rankings"] and "scoring" in declared["rankings"]
-    assert {"week", "ros", "player"} <= declared["projections"]
+    assert {"week", "ros", "player", "limit"} <= declared["projections"]
     assert {"week", "player", "pos", "team"} <= declared["injuries"]
     assert "week" not in declared["news"] and "ros" not in declared["injuries"]
     assert next(p for p in REGISTRY["experts rankings"].params if p.name == "pos").required
@@ -410,6 +410,36 @@ def test_a_projection_row_has_exactly_the_contract_fields(http: RecordedFantasyP
 def test_projections_are_ordered_by_ppr_by_default(http: RecordedFantasyPros):
     ppr = [r["points_ppr"] for r in data("projections", pos="RB")]
     assert ppr == sorted(ppr, reverse=True)
+
+
+def test_projections_limit_bounds_emitted_rows_without_changing_the_request(
+    http: RecordedFantasyPros,
+):
+    envelope = call("projections", pos="RB", limit=2).to_dict()
+    rows = envelope["data"]
+    assert len(rows) == 2
+    assert envelope["warnings"] == ["output limited to 2 of 8 rows"]
+    assert sent(http, "projections") == {"week": WEEK, "position": "RB"}
+
+
+@pytest.mark.parametrize("limit", [8, 9])
+def test_expert_row_limit_at_or_above_result_count_has_no_warning(
+    http: RecordedFantasyPros, limit: int
+):
+    assert call("rankings", pos="RB", limit=limit).to_dict()["warnings"] == []
+
+
+def test_expert_row_limit_rejects_zero_or_negative_values(http: RecordedFantasyPros):
+    with pytest.raises(ConfigInvalidError, match="--limit must be a positive"):
+        call("projections", pos="RB", limit=0)
+    assert http.calls == []
+
+
+def test_rankings_limit_bounds_rows_and_marks_the_envelope(http: RecordedFantasyPros):
+    envelope = call("rankings", pos="RB", limit=2).to_dict()
+    assert len(envelope["data"]) == 2
+    assert envelope["warnings"] == ["output limited to 2 of 8 rows"]
+    assert sent(http, "consensus-rankings") == {"week": WEEK, "position": "RB", "scoring": "PPR"}
 
 
 @pytest.mark.parametrize(
@@ -831,6 +861,53 @@ def test_json_and_csv_always_carry_every_field_whatever_the_table_shows(
     code, out, _ = _run(["experts", "rankings", "--pos", "RB", "--output", "csv"], capsys)
     assert code == 0 and out.splitlines()[0].startswith("fp_id,name,pro_team")
     assert "start_sit_grade" in out.splitlines()[0]
+
+
+def test_the_cli_bounded_compact_report_has_one_line_success_and_failure(
+    http: RecordedFantasyPros, capsys: pytest.CaptureFixture[str]
+):
+    code, out, err = _run(
+        [
+            "experts",
+            "rankings",
+            "--pos",
+            "RB",
+            "--limit",
+            "2",
+            "--output",
+            "json-compact",
+            "--no-raw",
+        ],
+        capsys,
+    )
+    assert code == 0 and err == ""
+    payload = json.loads(out)
+    assert len(payload["data"]) == 2
+    assert payload["warnings"] == ["output limited to 2 of 8 rows"]
+
+    code, out, err = _run(
+        ["experts", "rankings", "--pos", "RB", "--limit", "0", "--output", "json-compact"],
+        capsys,
+    )
+    assert code == 6 and out == "" and err.count("\n") == 1
+    assert json.loads(err)["error"]["code"] == "CONFIG_INVALID"
+
+    code, out, err = _run(
+        ["experts", "rankings", "--pos", "RB", "--limit", "nope", "--output", "json-compact"],
+        capsys,
+    )
+    assert code == 6 and out == "" and err.count("\n") == 1
+    error = json.loads(err)["error"]
+    assert error["code"] == "CONFIG_INVALID" and "--limit" in error["message"]
+
+    code, out, err = _run(["experts", "rankings", "--output", "json-compact"], capsys)
+    assert code == 6 and out == "" and err.count("\n") == 1
+    assert json.loads(err)["error"]["code"] == "CONFIG_INVALID"
+
+    for output_flag in ("--output=json-compact", "-ojson-compact"):
+        code, out, err = _run(["experts", "rankings", "--limit", "nope", output_flag], capsys)
+        assert code == 6 and out == "" and err.count("\n") == 1
+        assert json.loads(err)["error"]["code"] == "CONFIG_INVALID"
 
 
 def test_the_cli_maps_a_bad_argument_to_exit_6_with_the_candidates_on_stderr(

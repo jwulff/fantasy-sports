@@ -137,7 +137,7 @@ providers/
 sources/     expert upstreams with no leagues; share cache/ and auth/, not the Protocol
   fantasypros.py  consensus rankings, projections, injuries, news (ADR-0011)
 auth/        credential specs, resolution chain, staleness detection
-output/      json | table | csv renderers
+output/      json | json-compact | table | csv renderers
 reports/     scheduled artifacts — MAY call an LLM; nothing below it may
 ```
 
@@ -159,7 +159,8 @@ auditable place.
 The agent-native claim lives or dies here.
 
 - **JSON** when stdout is not a TTY; **rich table** when it is; `--output csv` flattens.
-  `--output` overrides the detection in both directions.
+- **`--output` overrides detection in both directions.**
+- **`--output json-compact`** is an opt-in one-line JSON renderer for bounded async handoffs; it carries the same envelope and error contract.
 - Every payload wrapped and **versioned from day one**:
 
 ```json
@@ -193,9 +194,10 @@ team and league names today — distinctly from normalized structured fields
 (R1a, ADR-0004's 2026-09-08 amendment, jwulff/fantasy-sports#17).
 
 `warnings` lists notices about a run that *succeeded* (jwulff/fantasy-sports#159,
-ADR-0004's 2026-10-27 amendment) -- today, that ESPN refused the stored cookies
-and a newer pair from the user's browser was imported and retried with. Plain
-sentences, never a value; `[]` when there is nothing to say. The CLI also prints
+ADR-0004's 2026-10-27 amendment) -- today, that ESPN refused the stored cookies,
+a newer pair from the user's browser was imported and retried with, or that an
+explicitly requested output bound omitted rows. Plain sentences, never a value;
+`[]` when there is nothing to say. The CLI also prints
 each to stderr.
 
 **`--no-raw` strips `raw` from every normalized object in `data`, recursively,
@@ -897,7 +899,7 @@ fantasy-sports journal list | show | digest | reverse
 (`add`, `drop`, `claim`, and `trade propose` also take
 `--acknowledge-irreversible "<why>"` and `--dry-run`. The writes are §9.)
 
-ESPN only · reads and writes · JSON/table/CSV · multi-league config · SQLite
+ESPN only · reads and writes · JSON/json-compact/table/CSV · multi-league config · SQLite
 cache · mutation journal · cassette tests · live canary in CI · health
 manifest + client-side check.
 

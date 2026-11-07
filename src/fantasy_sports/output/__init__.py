@@ -16,6 +16,7 @@ output:
    is prose again, which is what the taxonomy exists to escape.
 3. **Detection is a default, not an override.** JSON when stdout is not a TTY,
    a table when it is, and an explicit format wins in both directions.
+   ``json-compact`` is opt-in for bounded async handoffs.
 """
 
 from __future__ import annotations
@@ -55,6 +56,7 @@ __all__ = [
 
 _RENDERERS = {
     OutputFormat.JSON: json_renderer.render,
+    OutputFormat.JSON_COMPACT: json_renderer.render_compact,
     OutputFormat.TABLE: table_renderer.render,
     OutputFormat.CSV: csv_renderer.render,
 }
@@ -106,8 +108,10 @@ def emit(
     stderr = sys.stderr if stderr is None else stderr
 
     if envelope.error is not None:
-        stderr.write(json_renderer.render(envelope))
-        if guidance and _is_interactive(stderr):
+        compact = resolve_format(fmt, stderr) is OutputFormat.JSON_COMPACT
+        error_renderer = json_renderer.render_compact if compact else json_renderer.render
+        stderr.write(error_renderer(envelope))
+        if guidance and _is_interactive(stderr) and not compact:
             stderr.write("\n" + guidance + "\n")
         return exit_code_for(envelope.error)
 
@@ -131,6 +135,7 @@ def emit_failure(
     season: int | None = None,
     stdout: Any = None,
     stderr: Any = None,
+    fmt: OutputFormat | str | None = None,
 ) -> int:
     """Classify ``exc``, wrap it in an envelope, and emit it as a failure.
 
@@ -151,7 +156,7 @@ def emit_failure(
     envelope = Envelope.failure(
         error, provider=provider, league_id=league_id, season=season, health=health
     )
-    return emit(envelope, stdout=stdout, stderr=stderr, guidance=guidance)
+    return emit(envelope, fmt=fmt, stdout=stdout, stderr=stderr, guidance=guidance)
 
 
 def _check_health(error: Any, *, provider: str | None) -> tuple[dict[str, Any] | None, str | None]:

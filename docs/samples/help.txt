@@ -6,7 +6,7 @@ Usage: fantasy-sports [OPTIONS] COMMAND [ARGS]...
 Options (accepted before or after the command):
   --league, -l TEXT  Named league profile from config.toml. Defaults to the configured default.
   --season INTEGER   Four-digit year, overriding the profile's season for this call.
-  --output, -o TEXT  json, table, or csv. Defaults to json unless stdout is a terminal.
+  --output, -o TEXT  json, json-compact, table, or csv. Defaults to json unless stdout is a terminal.
   --fresh            Refetch from the provider and update the cache entry.
   --no-cache         Neither read nor write the cache. Wins over --fresh if both are given.
   --no-raw           Strip `raw` from every normalized object in the payload, recursively. Marks raw_omitted=true in the envelope. `raw --view` is passthrough by definition and ignores this flag.

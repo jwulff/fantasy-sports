@@ -81,6 +81,27 @@ _MAX_CANDIDATES: Final[int] = 10
 # --------------------------------------------------------------------------- #
 
 
+def _bound_warning(rows: list[dict[str, Any]], limit: int | None) -> tuple[str, ...]:
+    """Describe output rows omitted by an explicit bound."""
+    if limit is not None and limit < len(rows):
+        return (f"output limited to {limit} of {len(rows)} rows",)
+    return ()
+
+
+def _bounded(rows: list[dict[str, Any]], limit: int | None) -> list[dict[str, Any]]:
+    """Apply an explicit output bound without changing the upstream read."""
+    if limit is None:
+        return rows
+    if isinstance(limit, bool) or not isinstance(limit, int) or limit < 1:
+        raise ConfigInvalidError(
+            f"--limit must be a positive whole number, got {limit!r}.",
+            kind="argument",
+            remediation="Pass --limit 1 or more, or omit it for the complete position list.",
+            details={"limit": repr(limit)},
+        )
+    return rows[:limit]
+
+
 def rankings(
     *,
     pos: str,
@@ -91,13 +112,19 @@ def rankings(
     season: int | None = None,
     fresh: bool = False,
     no_cache: bool = False,
+    limit: int | None = None,
 ) -> Envelope:
     """Consensus expert rankings for one position, best first.
+
+    ``limit`` bounds only the emitted normalized rows; the upstream request is
+    unchanged. This gives async consumers a deliberate, machine-readable
+    bounded result without silently changing provider coverage.
 
     One FantasyPros call per position, which is why ``pos`` is required.
     ``ros`` asks for the rest-of-season ranking instead of a week's, and sends
     no week. Ordered by ``rank_ecr`` ascending.
     """
+    _bounded([], limit)
     position = _choice(pos, RANKING_POSITIONS, name="pos")
     if ros and week is not None:
         raise _ros_with_week()
@@ -111,7 +138,9 @@ def rankings(
     )
     rows = [_ranking_row(raw, table) for raw in _list(response, "players")]
     rows.sort(key=lambda row: _last(row["rank_ecr"]))
-    return run.envelope(rows, "experts rankings", (table.response, response))
+    bounded = _bounded(rows, limit)
+    warning = _bound_warning(rows, limit)
+    return run.envelope(bounded, "experts rankings", (table.response, response), warnings=warning)
 
 
 def projections(
@@ -124,14 +153,19 @@ def projections(
     season: int | None = None,
     fresh: bool = False,
     no_cache: bool = False,
+    limit: int | None = None,
 ) -> Envelope:
     """Expert projections with standard, half-PPR and PPR points, best first.
+
+    ``limit`` bounds only the emitted normalized rows; the upstream request is
+    unchanged. Use it with ``--output json-compact`` for bounded async reports.
 
     ``pos`` is required because the endpoint is read per position, unless
     ``player`` names the one player wanted. Ordered by the league's scoring
     when ``league`` is given, PPR otherwise. ``ros`` asks for rest-of-season
     totals instead of a week's.
     """
+    _bounded([], limit)
     position = None if pos is None else _choice(pos, RANKING_POSITIONS, name="pos")
     if position is None and player is None:
         raise ConfigInvalidError(
@@ -161,7 +195,11 @@ def projections(
     ]
     key = {"STD": "points_std", "HALF": "points_half", "PPR": "points_ppr"}[run.scoring]
     rows.sort(key=lambda row: _last(row[key], descending=True))
-    return run.envelope(rows, "experts projections", (table.response, response))
+    bounded = _bounded(rows, limit)
+    warning = _bound_warning(rows, limit)
+    return run.envelope(
+        bounded, "experts projections", (table.response, response), warnings=warning
+    )
 
 
 def injuries(
@@ -322,6 +360,7 @@ class _Run:
         responses: Sequence[SourceResponse],
         *,
         untrusted: Mapping[str, str] | None = None,
+        warnings: Sequence[str] = (),
     ) -> Envelope:
         from fantasy_sports.output.envelope import Envelope
 
@@ -333,6 +372,7 @@ class _Run:
             data=rows,
             sources=[*self._espn_sources, *(r.as_source() for r in responses)],
             untrusted=untrusted,
+            warnings=tuple(warnings),
         )
 
 
