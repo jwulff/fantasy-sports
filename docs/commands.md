@@ -5375,7 +5375,7 @@ fantasy-sports experts projections --player 'Josh A'
   "provider": "fantasypros",
   "league_id": null,
   "season": null,
-  "generated_at": "2026-10-27T17:24:20Z",
+  "generated_at": "2026-11-08T16:28:41Z",
   "data_as_of": null,
   "data_age_seconds": null,
   "sources": [],
