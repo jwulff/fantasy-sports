@@ -24,8 +24,9 @@ ESPN id for the player), joined from the cached players table. That table is a
 4 MB read, so it costs one request a day, and it is also where the default
 week comes from: FantasyPros reports the week in progress on it.
 
-**``--player`` takes three spellings** and resolves them through the same
-table: a FantasyPros id, an ESPN id, or a name (exact, else a unique prefix).
+**``--player`` resolves through the players table.** Qualified ids
+``espn:<id>`` and ``fantasypros:<id>`` search only that provider's index.
+Bare ids and names (exact, else a unique prefix) remain accepted.
 A token that fits more than one player is ``CONFIG_INVALID`` with
 ``kind=argument`` and the candidates listed, never a guess.
 
@@ -451,6 +452,29 @@ class _Players:
             raise self._refuse(text, "is empty", [])
         eligible = FLEX_POSITIONS if position == "FLX" else (position,)
         pool = [row for row in self.rows if position is None or row.get("position_id") in eligible]
+        if ":" in text:
+            namespace, identifier = text.split(":", 1)
+            digits = (
+                identifier[1:] if namespace == "espn" and identifier.startswith("-") else identifier
+            )
+            if namespace not in {"espn", "fantasypros"} or not (
+                digits.isascii() and digits.isdigit()
+            ):
+                raise self._refuse(text, "is not a valid qualified player id", [])
+            try:
+                row = (
+                    self._by_espn.get(identifier)
+                    if namespace == "espn"
+                    else self._by_fp.get(int(identifier))
+                )
+            except ValueError:  # Python's integer-string length limit
+                raise self._refuse(text, "is not a valid qualified player id", []) from None
+            fp_id = _int(row.get("player_id")) if row is not None and row in pool else None
+            if fp_id is None:
+                raise self._refuse(
+                    text, "matches no player in the selected namespace and position", []
+                )
+            return fp_id
         if text.lstrip("-").isdigit():
             # A negative number is an ESPN team-defense id (``-16025`` is the
             # 49ers); FantasyPros ids are never negative.
@@ -505,8 +529,8 @@ class _Players:
         return ConfigInvalidError(
             message,
             kind="argument",
-            remediation="Pass the player's FantasyPros id or ESPN id, or a longer, unambiguous "
-            "name (add --pos to narrow it).",
+            remediation="Pass espn:<id>, fantasypros:<id>, or an unambiguous name "
+            "(add --pos to narrow it where supported).",
             details={"player": token, "candidates": candidates, "total": len(ordered)},
         )
 

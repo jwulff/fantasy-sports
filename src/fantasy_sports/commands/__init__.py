@@ -1025,9 +1025,9 @@ _EXPERTS_POS_HELP = (
 )
 
 _EXPERTS_PLAYER_HELP = (
-    "A FantasyPros id, an ESPN id, or a name (exact, else a unique prefix), resolved "
-    "through the cached players table. An ambiguous name is CONFIG_INVALID listing the "
-    "candidates."
+    "espn:<id> or fantasypros:<id> searches only that provider's player IDs. "
+    "A bare ID or name (exact, else a unique prefix) also resolves through the cached "
+    "players table. Ambiguous IDs or names are CONFIG_INVALID listing candidates."
 )
 
 register(
