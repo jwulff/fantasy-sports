@@ -3,7 +3,7 @@
   "provider": "fantasypros",
   "league_id": null,
   "season": null,
-  "generated_at": "2026-10-27T17:24:20Z",
+  "generated_at": "2026-11-08T16:28:41Z",
   "data_as_of": null,
   "data_age_seconds": null,
   "sources": [],
@@ -16,7 +16,7 @@
     "message": "--player 'Josh A' matches 4 players. Candidates: Josh Adams (RB FA, fp 17248, espn 3932420); Josh Ali (WR FA, fp 25218, espn 4259976); Josh Allen (QB BUF, fp 17298, espn 3918298); Josh Avery (DT FA, fp 19699, espn -).",
     "retryable": false,
     "agent_action": "Ask the human to fix the input named in the message \u2014 a config value or a command argument. Retrying unchanged cannot work.",
-    "remediation": "Pass the player's FantasyPros id or ESPN id, or a longer, unambiguous name (add --pos to narrow it).",
+    "remediation": "Pass espn:<id>, fantasypros:<id>, or an unambiguous name (add --pos to narrow it where supported).",
     "details": {
       "player": "Josh A",
       "candidates": [

@@ -5173,18 +5173,20 @@ unless `--player` names the one player wanted. Rows are ordered by the league's
 scoring when `--league` is given (see `experts rankings`), PPR otherwise.
 `--ros` returns rest-of-season totals instead of a week's.
 
-`--player` takes a FantasyPros id, an ESPN id, or a name (exact, else a unique
-prefix), resolved through the cached players table. A token that fits more than
-one player is `CONFIG_INVALID` with `details.kind = "argument"` and the
-candidates listed in `details.candidates`; nothing is sent. `--pos` narrows a
-name.
+`--player espn:<id>` or `--player fantasypros:<id>` searches only the named
+provider's index in the cached players table. Unknown or malformed qualified
+IDs are refused without trying another provider or a name. Negative ESPN
+defense IDs are supported, for example `espn:-16025`.
+Bare IDs and names (exact, else a unique prefix) remain accepted. A token that
+fits more than one player is `CONFIG_INVALID` with `details.kind = "argument"` and the
+candidates listed in `details.candidates`; nothing is sent. `--pos` filters all matches, including qualified IDs.
 
 | Option | |
 |---|---|
 | `--pos TEXT` | As for `experts rankings`. Required unless `--player` is given |
 | `--week INTEGER` | NFL week. Omitted: the week in progress |
 | `--ros` | Rest-of-season totals. Cannot be combined with `--week` |
-| `--player TEXT` | FantasyPros id, ESPN id, or name |
+| `--player TEXT` | `espn:<id>`, `fantasypros:<id>`, bare ID, or name |
 | `--limit INTEGER` | Emit at most this many rows; the upstream read remains unchanged |
 | `--league`, `-l`, `--season`, `--fresh`, `--no-cache` | As for `experts rankings` |
 
@@ -5373,7 +5375,7 @@ fantasy-sports experts projections --player 'Josh A'
   "provider": "fantasypros",
   "league_id": null,
   "season": null,
-  "generated_at": "2026-10-27T17:24:20Z",
+  "generated_at": "2026-11-08T16:28:41Z",
   "data_as_of": null,
   "data_age_seconds": null,
   "sources": [],
@@ -5386,7 +5388,7 @@ fantasy-sports experts projections --player 'Josh A'
     "message": "--player 'Josh A' matches 4 players. Candidates: Josh Adams (RB FA, fp 17248, espn 3932420); Josh Ali (WR FA, fp 25218, espn 4259976); Josh Allen (QB BUF, fp 17298, espn 3918298); Josh Avery (DT FA, fp 19699, espn -).",
     "retryable": false,
     "agent_action": "Ask the human to fix the input named in the message \u2014 a config value or a command argument. Retrying unchanged cannot work.",
-    "remediation": "Pass the player's FantasyPros id or ESPN id, or a longer, unambiguous name (add --pos to narrow it).",
+    "remediation": "Pass espn:<id>, fantasypros:<id>, or an unambiguous name (add --pos to narrow it where supported).",
     "details": {
       "player": "Josh A",
       "candidates": [
@@ -5439,7 +5441,7 @@ suspension is not an injury. `--week` defaults to the week in progress.
 |---|---|
 | `--pos TEXT` | Keep one position: `QB`, `RB`, `WR`, `TE`, `K`, `DST` |
 | `--team TEXT` | Keep one NFL team, e.g. `SEA` |
-| `--player TEXT` | FantasyPros id, ESPN id, or name |
+| `--player TEXT` | `espn:<id>`, `fantasypros:<id>`, bare ID, or name |
 | `--week INTEGER` | NFL week. Omitted: the week in progress |
 | `--season`, `--fresh`, `--no-cache` | As for every read |
 
@@ -5562,7 +5564,7 @@ map, by path, like ESPN's free text.
 
 | Option | |
 |---|---|
-| `--player TEXT` | FantasyPros id, ESPN id, or name |
+| `--player TEXT` | `espn:<id>`, `fantasypros:<id>`, bare ID, or name |
 | `--category TEXT` | Keep one category, e.g. `injury` |
 | `--limit INTEGER` | Most-recent items to return. Default 25 |
 | `--season`, `--fresh`, `--no-cache` | As for every read |

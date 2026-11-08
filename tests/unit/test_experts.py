@@ -562,6 +562,146 @@ def test_a_number_that_is_one_players_fantasypros_id_and_anothers_espn_id_is_amb
     assert len(caught.value.details["candidates"]) == 2
 
 
+def collision_table(http: RecordedFantasyPros) -> dict[str, Any]:
+    """Public identities reproducing the ESPN 15818 / FantasyPros 15818 collision."""
+    table = body(http, "players")
+    table["players"] = [
+        {
+            "player_id": 11616,
+            "player_name": "Keenan Allen",
+            "position_id": "WR",
+            "team_id": "IND",
+            "espn_id": "15818",
+        },
+        {
+            "player_id": 15818,
+            "player_name": "Blake Countess",
+            "position_id": "CB",
+            "team_id": "FA",
+            "espn_id": "2576229",
+        },
+    ]
+    return table
+
+
+@pytest.mark.parametrize("command", ["news", "injuries", "projections"])
+@pytest.mark.parametrize(
+    ("selector", "fp_id", "name"),
+    [("espn:15818", 11616, "Keenan Allen"), ("fantasypros:15818", 15818, "Blake Countess")],
+)
+def test_qualified_player_ids_select_only_the_named_provider(
+    monkeypatch: pytest.MonkeyPatch,
+    command: str,
+    selector: str,
+    fp_id: int,
+    name: str,
+):
+    recorded = serve(monkeypatch)
+    table = collision_table(recorded)
+    wire = body(recorded, command)
+    collection, id_field, query_field = {
+        "news": ("items", "player_id", "fpid"),
+        "injuries": ("injuries", "player_id", "player_ids"),
+        "projections": ("players", "fpid", "players"),
+    }[command]
+    wire[collection] = [{**wire[collection][0], id_field: fp_id, "name": name}]
+    served = serve(monkeypatch, {"players": (200, table), command: (200, wire)})
+    row = data(command, player=selector)[0]
+    identity = row["player"] if command == "news" else row
+    assert identity["fp_id"] == fp_id
+    assert identity["name"] == name
+    assert sent(served, command)[query_field] == (fp_id if command == "news" else str(fp_id))
+
+
+@pytest.mark.parametrize(
+    "selector",
+    [
+        "espn:11616",
+        "fantasypros:2576229",
+        "other:15818",
+        "espn:",
+        "espn:+15818",
+        "espn:15818:extra",
+        "fantasypros:-16025",
+        "fantasypros:Keenan Allen",
+        "fantasypros:" + "9" * 5000,
+        "espn:１５８１８",
+    ],
+)
+def test_qualified_selectors_never_fall_back_to_other_ids_or_names(
+    monkeypatch: pytest.MonkeyPatch,
+    selector: str,
+):
+    recorded = serve(monkeypatch)
+    served = serve(monkeypatch, {"players": (200, collision_table(recorded))})
+    with pytest.raises(ConfigInvalidError) as caught:
+        call("news", player=selector)
+    assert caught.value.details["kind"] == "argument"
+    assert not any(c["url"].endswith("/news") for c in served.calls)
+
+
+@pytest.mark.parametrize("selector", ["espn:15818", "fantasypros:15818"])
+def test_position_filters_cannot_switch_the_selected_namespace(
+    monkeypatch: pytest.MonkeyPatch,
+    selector: str,
+):
+    recorded = serve(monkeypatch)
+    served = serve(monkeypatch, {"players": (200, collision_table(recorded))})
+    # Both rows exist, but neither is an RB; another namespace must not be tried.
+    with pytest.raises(ConfigInvalidError):
+        call("projections", player=selector, pos="RB")
+    assert not any(c["url"].endswith("/projections") for c in served.calls)
+
+
+def test_qualified_negative_espn_ids_resolve_team_defenses(http: RecordedFantasyPros):
+    table = body(http, "players")
+    expected = next(r["player_id"] for r in table["players"] if r.get("espn_id") == "-16025")
+    with pytest.raises(ProviderUnavailableError):  # no recorded news for this defense
+        call("news", player="espn:-16025")
+    assert sent(http, "news")["fpid"] == expected
+
+
+def test_ambiguous_legacy_ids_recommend_explicit_namespaces(monkeypatch: pytest.MonkeyPatch):
+    recorded = serve(monkeypatch)
+    serve(monkeypatch, {"players": (200, collision_table(recorded))})
+    with pytest.raises(ConfigInvalidError) as caught:
+        call("news", player="15818")
+    assert {c["name"] for c in caught.value.details["candidates"]} == {
+        "Keenan Allen",
+        "Blake Countess",
+    }
+    assert "espn:<id>" in caught.value.remediation
+    assert "fantasypros:<id>" in caught.value.remediation
+
+
+@pytest.mark.parametrize("command", ["news", "injuries", "projections"])
+def test_player_help_documents_the_qualified_selectors(command: str):
+    param = next(p for p in REGISTRY[f"experts {command}"].params if p.name == "player")
+    assert "espn:<id>" in param.help and "fantasypros:<id>" in param.help
+
+
+def test_the_cli_accepts_a_qualified_espn_id(
+    http: RecordedFantasyPros, capsys: pytest.CaptureFixture[str]
+):
+    code, out, err = _run(
+        [
+            "experts",
+            "news",
+            "--player",
+            "espn:4430807",
+            "--limit",
+            "5",
+            "--output",
+            "json-compact",
+            "--no-raw",
+        ],
+        capsys,
+    )
+    assert code == 0 and err == ""
+    rows = json.loads(out)["data"]
+    assert rows and all(row["player"]["espn_id"] == "4430807" for row in rows)
+
+
 # --------------------------------------------------------------------------- #
 # injuries
 # --------------------------------------------------------------------------- #

@@ -610,7 +610,7 @@ fantasy-sports experts rankings --pos RB --league my-league
 fantasy-sports experts rankings --pos WR --ros
 fantasy-sports experts projections --player "Bijan Robinson" --week 7
 fantasy-sports experts injuries --team SEA
-fantasy-sports experts news --player 4430807 --limit 5
+fantasy-sports experts news --player espn:4430807 --limit 5
 ```
 
 These are not league reads: FantasyPros is a source, so there is no league to
@@ -619,9 +619,11 @@ to read the league's receptions setting and pick PPR, half-PPR or standard
 scoring; without it the scoring is PPR. Every row carries `espn_id`, so a
 ranking joins onto a roster or a free-agent pool by that field, and every
 `sources[]` entry is named `fantasypros:<endpoint>`, which is how a consumer
-tells these reads from ESPN's. `--player` takes a FantasyPros id, an ESPN id,
-or a name; a name that fits several players is refused with the candidates
-listed. Premium is 500 requests a day, one a second, so reads are cached
+tells these reads from ESPN's. `--player espn:<id>` or
+`--player fantasypros:<id>` searches only the named provider, preventing
+collisions between their numeric IDs. Bare IDs and names remain accepted;
+ambiguous matches are refused with the candidates listed. Premium is 500
+requests a day, one a second, so reads are cached
 (rankings and projections for six hours, injuries for one, news for fifteen
 minutes, the players table for a day), and a cache hit costs nothing.
 
