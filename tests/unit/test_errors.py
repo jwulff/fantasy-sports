@@ -49,6 +49,10 @@ DOCUMENTED_CODES = {
 # A sentinel that cannot occur by accident anywhere in rendered output.
 SECRET = "AEBqp7SENTINELs2cookievalue0123456789abcdefXYZ%2Fzz"
 
+# A credential *shape* to use as a key: a SWID GUID we register, so the pattern
+# half of the module is not what has to catch it.
+SWID_KEY = "{0A1B2C3D-4E5F-6789-ABCD-EF0123456789}"
+
 
 @pytest.fixture(autouse=True)
 def _forget_secrets():
@@ -243,6 +247,55 @@ def test_scrubbing_reaches_into_nested_details():
     assert payload["details"]["attempts"] == 3
     assert payload["details"]["tried"][1] == "keychain"
     assert REDACTED in payload["details"]["request"]["url"]
+
+
+@pytest.mark.parametrize("cls", ERROR_TYPES, ids=lambda c: c.__name__)
+def test_every_error_type_scrubs_a_credential_used_as_a_detail_key(cls):
+    """A credential in a detail *key* is scrubbed too (jwulff/fantasy-sports#116).
+
+    ``details`` is caller-assembled, and a key is where an id goes when the
+    value is the thing it points at: ``WriteDivergedError.expected`` /
+    ``observed`` are keyed by player id, and #106 had to redact those keys by
+    hand inside that one class because the base walked values only. Every other
+    error type stayed open — a detail map keyed by a caller-supplied id, or a
+    future raise site keying something by a SWID, carried the key straight into
+    the payload.
+
+    Both credentials are placed as keys at two depths, so a scrub that only
+    reaches the top level, or only reaches values, cannot pass. Parametrised
+    over every ``ERROR_TYPES`` member because the guarantee is a property of the
+    base class: a single-class test is how the gap survived #106 in the first
+    place.
+    """
+    remember_secret(SECRET)
+    remember_secret(SWID_KEY)
+    exc = cls(
+        "espn 503",
+        details={
+            SECRET: "depth one",
+            "request": {SWID_KEY: {SECRET: "depth three"}},
+            "attempts": 3,
+        },
+    )
+
+    payload = exc.to_dict()
+    rendered = json.dumps(payload)
+    assert SECRET not in rendered
+    assert SWID_KEY not in rendered
+    # The keys were replaced rather than dropped, so the shape survives.
+    assert REDACTED in payload["details"]
+    assert payload["details"]["request"][REDACTED] == {REDACTED: "depth three"}
+    assert payload["details"]["attempts"] == 3
+
+
+def test_a_detail_key_added_after_construction_is_also_scrubbed():
+    """``_record_detail`` is the other way a key reaches ``details``."""
+    remember_secret(SWID_KEY)
+    exc = ProviderUnavailableError("espn 503")
+    exc._record_detail(SWID_KEY, "value")
+
+    assert SWID_KEY not in json.dumps(exc.to_dict())
+    assert REDACTED in exc.details
 
 
 def test_rate_limited_carries_retry_after():

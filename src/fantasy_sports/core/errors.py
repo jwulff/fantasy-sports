@@ -110,17 +110,24 @@ class FantasySportsError(Exception):
         # Copied, not aliased: a caller must not be able to mutate a rendered
         # payload after the fact, and we must not retain a reference into a
         # provider response.
-        self.details: dict[str, Any] = {
-            key: scrub(value) for key, value in dict(details or {}).items()
-        }
+        #
+        # Going through `scrub` rather than walking the mapping here is the
+        # point: a hand-rolled comprehension over `.items()` scrubs values and
+        # silently leaves the keys alone, and `details` keys are caller-supplied
+        # strings. #116 found a `WriteDivergedError` detail map keyed by player
+        # id carrying an unredacted key into the payload; the fix belongs in the
+        # one function every error type funnels through, not in the one class
+        # that happened to notice.
+        self.details: dict[str, Any] = scrub(dict(details or {}))
 
     def _record_detail(self, key: str, value: Any) -> None:
         """Add one detail post-``super().__init__``, scrubbed like the rest.
 
         Subclasses that derive a detail from their own arguments go through
-        here so nothing reaches :meth:`to_dict` unscrubbed.
+        here so nothing reaches :meth:`to_dict` unscrubbed. The key is scrubbed
+        too, for the same reason ``details`` keys are.
         """
-        self.details[key] = scrub(value)
+        self.details[scrub(key)] = scrub(value)
 
     def to_dict(self) -> dict[str, Any]:
         """The stable error payload. Every key is always present.
@@ -427,15 +434,23 @@ class WriteDivergedError(FantasySportsError):
         details: Mapping[str, Any] | None = None,
     ) -> None:
         super().__init__(message, remediation=remediation, details=details)
-        # `scrub` walks values but not mapping keys, and these maps are keyed by
-        # caller-supplied ids, so the keys are redacted here.
-        # The attributes hold the scrubbed maps for the same reason `details` does.
-        self.expected: dict[str, Any] = {
-            redact(str(k)): scrub(v) for k, v in dict(expected or {}).items()
-        }
-        self.observed: dict[str, Any] = {
-            redact(str(k)): scrub(v) for k, v in dict(observed or {}).items()
-        }
+        # These maps are keyed by caller-supplied ids, so the keys need the same
+        # treatment as the values. That used to happen here, by hand: this one
+        # class redacted its own keys because `scrub` did not, which protected
+        # `WriteDivergedError` and left every other error type's detail maps
+        # wide open (#116). The redaction now comes from `scrub` like anywhere
+        # else; what stays local is the `str` coercion, because these maps are
+        # declared `Mapping[str, Any]` and land in a JSON payload, so a caller
+        # that keys one with an int still gets the string form it always did.
+        #
+        # The attributes hold the scrubbed maps for the same reason `details`
+        # does: `vars(exc)` and a captured-locals traceback read them.
+        self.expected: dict[str, Any] = scrub(
+            {str(key): value for key, value in dict(expected or {}).items()}
+        )
+        self.observed: dict[str, Any] = scrub(
+            {str(key): value for key, value in dict(observed or {}).items()}
+        )
         self._record_detail("expected", self.expected)
         self._record_detail("observed", self.observed)
 

@@ -32,6 +32,18 @@ protection is lost for every error type except `AuthError`.
 **3. Cassettes and telemetry.** Already covered by `conftest.py` scrubbing, but
 the same `redact()` is available and is the cheapest way to be sure.
 
+## The channel inside channel 2: a mapping *key*
+
+`FantasySportsError` scrubs `details` at construction, and until #116 that
+scrub walked values only. A key is where an id goes when the value is the thing
+it points at — `WriteDivergedError.expected` / `observed` are keyed by player
+id, and #106 had to redact those keys by hand inside that one class, which
+protected one error type and left the other nine open. Any caller-assembled
+detail map keyed by something it was handed is the same leak with the same
+cause, so `scrub()` now redacts string keys at every depth and every error type
+gets it for free. Non-string keys are left alone: `scrub` preserves shape, and
+a key that is not a string is not a credential.
+
 ## The other trap: fail-soft belongs to the chain, not to the reader
 
 `read_from_keychain` swallows backend errors, so it looked like the
