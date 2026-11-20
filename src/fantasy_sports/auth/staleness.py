@@ -42,6 +42,7 @@ from enum import StrEnum
 from pathlib import Path
 
 from fantasy_sports.auth.chain import (
+    ALL_CREDENTIALS,
     CredentialSet,
     CredentialSource,
     ResolvedCredential,
@@ -475,11 +476,12 @@ def build_auth_status(
     limit, limit_source = resolve_threshold(threshold, environ)
 
     names = list(credentials.resolved) + list(credentials.missing)
+    staleness_modes = {spec.name: spec.staleness for spec in ALL_CREDENTIALS}
     rows: list[CredentialStatus] = []
     for name in sorted(names):
         resolved = credentials.get(name)
         events = loaded.for_name(name)
-        row = _status_for(name, resolved, events, moment, limit)
+        row = _status_for(name, resolved, events, moment, limit, staleness_modes.get(name))
         if name in optional:
             row = replace(row, required=False)
         rows.append(row)
@@ -497,6 +499,7 @@ def _status_for(
     events: CredentialEvents,
     now: datetime,
     limit: timedelta,
+    staleness_mode: str | None,
 ) -> CredentialStatus:
     if resolved is None:
         return CredentialStatus(
@@ -517,8 +520,13 @@ def _status_for(
     # would report a confident, wrong age — worse than reporting none.
     from_keychain = source is CredentialSource.KEYCHAIN
     knowable = from_keychain and events.stored_at is not None
-    expires_at = events.expires_at if from_keychain else None
-    if expires_at is not None:
+    expires_at = events.expires_at if from_keychain and staleness_mode != "none" else None
+    if knowable and staleness_mode == "none":
+        assert events.stored_at is not None
+        age = now - events.stored_at
+        freshness = Freshness.UNKNOWN
+        basis = "stored_at"
+    elif expires_at is not None:
         # A measured expiry beats the age heuristic. Age is still reported
         # when we know it; only the verdict moves.
         age = None if events.stored_at is None else now - events.stored_at

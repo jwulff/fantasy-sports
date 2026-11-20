@@ -962,6 +962,34 @@ def test_a_present_optional_credential_is_reported_like_any_other():
     assert status.complete is True
 
 
+def test_old_fantasypros_key_does_not_get_cookie_staleness_warning():
+    credentials = chain.resolve_credentials(
+        chain.ALL_CREDENTIALS,
+        environ={},
+        keychain_reader=_keychain(
+            {
+                "fantasypros_api_key": "fpk-" + "x" * 40,
+                "espn_s2": "A" * 64,
+                "swid": "{" + "0" * 8 + "-0000-0000-0000-000000000000}",
+            }
+        ),
+        config={},
+    )
+    state = staleness.AuthState(
+        entries={
+            name: staleness.CredentialEvents(stored_at=NOW - timedelta(days=45))
+            for name in ("fantasypros_api_key", "espn_s2", "swid")
+        }
+    )
+    report = staleness.build_auth_status(credentials, state=state, now=NOW, environ={})
+    rows = {row.name: row for row in report.credentials}
+    assert rows["fantasypros_api_key"].age == timedelta(days=45)
+    assert rows["fantasypros_api_key"].freshness is staleness.Freshness.UNKNOWN
+    assert all("fantasypros_api_key" not in warning for warning in report.warnings)
+    assert rows["espn_s2"].freshness is staleness.Freshness.STALE
+    assert any("espn_s2" in warning and "cookie" in warning for warning in report.warnings)
+
+
 def test_an_absent_required_credential_still_breaks_completeness_beside_an_optional_one():
     credentials = chain.CredentialSet(missing=("espn_s2", "fantasypros_api_key"))
     status = staleness.build_auth_status(
