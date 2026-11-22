@@ -336,6 +336,8 @@ class Player(ProviderObject):
     """Slots this player may fill, in the provider's own slot vocabulary (R3).
     Empty where the provider does not publish eligibility as player data."""
     status: str | None = None
+    """Provider-specific activity label, not verified game-day availability.
+    ESPN preserves espn-api's stat-derived label, independent of injury status."""
     injury_status: str | None = None
     pro_team: str | None = None
     opponent: str | None = None
