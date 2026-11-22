@@ -1111,6 +1111,75 @@ def test_metadata_only_trade_accept_does_not_break_transaction_page():
     assert sorted(item.type for item in found) == ["trade", "trade", "waiver_claim"]
 
 
+@pytest.mark.parametrize(
+    "items", [[], [{"type": "DROP", "playerId": 2001, "fromTeamId": 1, "toTeamId": 0}]]
+)
+def test_statusless_trade_accept_preserves_collateral_drop(items):
+    """Hand-authored shape observed in Dragon Slayers on 2026-11-22."""
+    row = {
+        "id": "accept-drop",
+        "teamId": 1,
+        "type": "TRADE_ACCEPT",
+        "executionType": "EXECUTE",
+        "isPending": False,
+        "relatedTransactionId": "proposal",
+        "scoringPeriodId": 2,
+        "proposedDate": 1760000000000,
+        "items": items,
+    }
+    provider = EspnProvider(
+        http=ReplayHttp(
+            "espn/synthetic_2026.yaml",
+            overrides={
+                "mTransactions2": {"transactions": [row]},
+                "kona_league_communication": {"topics": []},
+            },
+        )
+    )
+    found = provider.fetch_transactions(*SYNTHETIC)
+    if items:
+        assert len(found) == 1
+        assert found[0].players_out == ("2001",)
+        assert found[0].raw["status"] is None
+    else:
+        assert found == []
+    assert "status" not in row
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"isPending": True},
+        {"executionType": "PROCESS"},
+        {"relatedTransactionId": ""},
+        {"items": [{"type": "ADD", "playerId": 2001}]},
+    ],
+)
+def test_unrecognized_statusless_accept_still_fails(change):
+    row = {
+        "id": "bad-accept",
+        "teamId": 1,
+        "type": "TRADE_ACCEPT",
+        "executionType": "EXECUTE",
+        "isPending": False,
+        "relatedTransactionId": "proposal",
+        "scoringPeriodId": 2,
+        "items": [{"type": "DROP", "playerId": 2001}],
+    }
+    row.update(change)
+    provider = EspnProvider(
+        http=ReplayHttp(
+            "espn/synthetic_2026.yaml",
+            overrides={
+                "mTransactions2": {"transactions": [row]},
+                "kona_league_communication": {"topics": []},
+            },
+        )
+    )
+    with pytest.raises(SchemaDriftError):
+        provider.fetch_transactions(*SYNTHETIC)
+
+
 def test_missing_status_on_actual_move_still_reports_schema_drift():
     replay = ReplayHttp("espn/synthetic_2026.yaml")
     body = json.loads(
