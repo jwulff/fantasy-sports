@@ -924,6 +924,15 @@ that matches two teams is an error naming both. Each slot carries the
 player carries `eligible_slots`, `pro_team`, `opponent`, `projected_points`,
 and the UTC `kickoff` of their game.
 
+**ESPN player status is not a game-day availability feed.** For roster and
+free-agent players, `status` preserves espn-api's activity label. The dependency
+derives `active` or `inactive` from actual-stat breakdowns, which can include a
+different scoring period. Its default `bye` label can also mean no applicable
+actual-stat rows were present. Do not use those labels or a general player-pool
+active flag as official game-day clearance. Read `injury_status` separately,
+use the NFL schedule for byes and `is_locked` for roster editability, and check
+official game-day availability when the decision depends on it.
+
 | Option | |
 |---|---|
 | `--team TEXT` | **Required.** Team id, or its name (case-insensitive; a unique prefix is enough) |

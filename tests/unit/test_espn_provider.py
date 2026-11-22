@@ -671,6 +671,39 @@ def test_a_free_agent_names_the_opponent_the_same_way(synthetic: EspnProvider):
     assert opponents == {"Barbara Liskov": "KC", "Radia Perlman": "SEA"}
 
 
+def test_espn_stat_activity_label_does_not_replace_injury_status_or_kickoff():
+    """An empty earlier-period breakdown can produce `inactive` before kickoff."""
+    from espn_api.football.player import Player as ESPNPlayer
+
+    from fantasy_sports.providers.espn import _player
+
+    kickoff_ms = 1_800_000_000_000
+    for stats, expected_label in [({}, "inactive"), ({"24": 1}, "active")]:
+        raw = {
+            "player": {
+                "fullName": "Synthetic Running Back",
+                "id": 123,
+                "proTeamId": 12,
+                "eligibleSlots": [2, 20],
+                "active": True,
+                "injuryStatus": "QUESTIONABLE",
+                "stats": [
+                    {
+                        "seasonId": 2026,
+                        "scoringPeriodId": 1,
+                        "statSourceId": 0,
+                        "stats": stats,
+                    }
+                ],
+            }
+        }
+        player = _player(ESPNPlayer(raw, 2026), raw, {(12, 2): kickoff_ms}, {}, 2)
+
+        assert player.status == expected_label
+        assert player.injury_status == "QUESTIONABLE"
+        assert player.kickoff == datetime.fromtimestamp(kickoff_ms / 1000, tz=UTC)
+
+
 def test_a_bye_or_an_unrostered_club_is_no_opponent_never_the_string_none():
     """A club with no game that period is on a bye: ``None``, not a guess.
 
