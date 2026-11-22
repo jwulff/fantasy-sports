@@ -2570,7 +2570,7 @@ class EspnProvider:
         )
 
     def _espn_transactions(self, league: Any, scoring_period: int | None) -> list[Any]:
-        """Read the log, excluding only a metadata-only trade acceptance.
+        """Read the log, preserving status-less acceptance collateral drops.
 
         ESPN sometimes emits a ``TRADE_ACCEPT`` acknowledgement with no
         ``status`` or player items. ``espn-api`` raises while constructing it,
@@ -2591,7 +2591,11 @@ class EspnProvider:
         )
         rows = payload.get("transactions", [])
         return [
-            EspnTransaction(row, league.player_map, league.get_team_data)
+            EspnTransaction(
+                {**row, "status": None} if _statusless_accept_drop(row) else row,
+                league.player_map,
+                league.get_team_data,
+            )
             for row in rows
             if not _metadata_trade_accept(row)
         ]
@@ -2604,6 +2608,27 @@ class EspnProvider:
             raise
         except Exception:  # noqa: BLE001 - a missing second surface is not a failure
             return []
+
+
+def _statusless_accept_drop(row: Any) -> bool:
+    """Known acceptance collateral, without inventing an execution status.
+
+    Dragon Slayers emitted a nonpending acceptance containing a DROP but no
+    status. Preserve the item and its unknown status for normalization; do not
+    discard the page or silently discard a real player movement.
+    """
+    return (
+        isinstance(row, Mapping)
+        and row.get("type") == "TRADE_ACCEPT"
+        and row.get("executionType") == "EXECUTE"
+        and row.get("isPending") is False
+        and "status" not in row
+        and isinstance(row.get("relatedTransactionId"), str)
+        and bool(row["relatedTransactionId"])
+        and isinstance(row.get("items"), list)
+        and bool(row["items"])
+        and all(isinstance(item, Mapping) and item.get("type") == "DROP" for item in row["items"])
+    )
 
 
 def _metadata_trade_accept(row: Any) -> bool:
