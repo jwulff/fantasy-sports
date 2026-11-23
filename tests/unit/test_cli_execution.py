@@ -159,3 +159,61 @@ def test_a_notice_from_a_failed_command_does_not_leak_into_the_next_one(
     captured = capsys.readouterr()
     assert json.loads(captured.out)["warnings"] == []
     assert "warning:" not in captured.err
+
+
+class TestProviderHintOnFailure:
+    """A failure envelope names the provider when one is known without a read (#180).
+
+    ``init`` and ``leagues discover`` both fail before a league is resolved —
+    no credentials stored, or ``fan.api`` unreachable — so the envelope can name
+    ESPN without guessing. Naming it is what lets the provider health check and
+    its known-issue guidance apply to those failures; with ``provider: null``
+    they are skipped and a human sees a bare error with no next step.
+    """
+
+    def test_hint_names_espn_for_init(self):
+        from fantasy_sports.cli.app import _provider_hint
+        from fantasy_sports.commands import REGISTRY
+
+        assert _provider_hint(REGISTRY["init"]) == "espn"
+
+    def test_hint_names_espn_for_leagues_discover(self):
+        from fantasy_sports.cli.app import _provider_hint
+        from fantasy_sports.commands import REGISTRY
+
+        assert _provider_hint(REGISTRY["leagues discover"]) == "espn"
+
+    def test_init_failure_envelope_names_espn(self):
+        """``--season`` with ``--all-seasons`` is rejected before any read happens."""
+        import json
+
+        from typer.testing import CliRunner
+
+        from fantasy_sports.cli.app import build_app
+
+        result = CliRunner().invoke(build_app(), ["init", "--season", "2026", "--all-seasons"])
+        assert result.stdout == ""
+        payload = json.loads(result.stderr)
+        assert payload["error"]["code"] == "CONFIG_INVALID"
+        assert payload["provider"] == "espn"
+
+    def test_leagues_discover_failure_envelope_names_espn(self, monkeypatch):
+        """No stored SWID: the failure belongs to ESPN, not to an unknown provider."""
+        import json
+
+        from typer.testing import CliRunner
+
+        from fantasy_sports.auth import chain
+        from fantasy_sports.cli.app import build_app
+        from fantasy_sports.core.errors import AuthMissingError
+
+        def no_credentials(*_args, **_kwargs):
+            raise AuthMissingError("No credentials configured for: swid.")
+
+        monkeypatch.setattr(chain, "require_credentials", no_credentials)
+
+        result = CliRunner().invoke(build_app(), ["leagues", "discover"])
+        assert result.stdout == ""
+        payload = json.loads(result.stderr)
+        assert payload["error"]["code"] == "AUTH_MISSING"
+        assert payload["provider"] == "espn"
