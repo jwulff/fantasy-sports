@@ -524,6 +524,45 @@ def test_a_trade_present_only_in_the_activity_feed_still_appears(synthetic: Espn
     assert claim.timestamp == WAIVER_AT
 
 
+def test_activity_does_not_hydrate_an_unrostered_trade_target():
+    from types import SimpleNamespace
+
+    from espn_api.football import League as EspnLeague
+
+    from fantasy_sports.providers.espn import _activity_transactions
+
+    league = EspnLeague.__new__(EspnLeague)
+    league.year = 2026
+    league.player_map = {}
+    teams = {team_id: SimpleNamespace(team_id=team_id, roster=[]) for team_id in (1, 2)}
+    league.get_team_data = teams.get
+
+    def league_get(*, extend, params, headers):
+        assert extend == "/communication/"
+        assert params == {"view": "kona_league_communication"}
+        return {
+            "topics": [
+                {
+                    "date": int(TRADE_AT.timestamp() * 1000),
+                    "messages": [{"messageTypeId": 244, "from": 1, "to": 2, "targetId": -16012}],
+                }
+            ],
+        }
+
+    def unexpected_player_card(**kwargs):
+        pytest.fail("the activity topic already has the player ID")
+
+    league.espn_request = SimpleNamespace(league_get=league_get)
+    league.player_info = unexpected_player_card
+    sent, received = _activity_transactions(EspnProvider()._activity(league)[0])
+    assert sent.team_provider_id == "1"
+    assert sent.players_out == ("-16012",)
+    assert received.team_provider_id == "2"
+    assert received.players_in == ("-16012",)
+    assert sent.timestamp == received.timestamp == TRADE_AT
+    assert league.player_info is unexpected_player_card
+
+
 def test_a_trade_proposal_is_not_a_roster_move(synthetic: EspnProvider):
     """``TRADE_PROPOSAL`` has no honest home in the four-value vocabulary.
 
