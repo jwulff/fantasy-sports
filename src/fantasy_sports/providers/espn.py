@@ -104,6 +104,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
+from copy import copy
 from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Final
@@ -2603,7 +2604,12 @@ class EspnProvider:
     def _activity(self, league: Any) -> list[Any]:
         """The activity feed, best-effort. See :meth:`fetch_transactions`."""
         try:
-            return list(league.recent_activity())
+            # espn-api falls back to the topic's targetId when player_info
+            # returns None. Transaction normalization only uses that ID.
+            # Keep the cached league and its normal player lookup untouched.
+            activity_league = copy(league)
+            activity_league.player_info = lambda **_: None
+            return list(activity_league.recent_activity())
         except FantasySportsError:
             raise
         except Exception:  # noqa: BLE001 - a missing second surface is not a failure
